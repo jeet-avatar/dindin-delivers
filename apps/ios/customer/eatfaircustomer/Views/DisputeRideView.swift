@@ -88,14 +88,18 @@ struct DisputeRideView: View {
                     formView
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Report Issue")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(submitted ? "Done" : "Cancel") { dismiss() }
+                        .foregroundColor(Theme.lxOrange)
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Form View
@@ -109,15 +113,16 @@ struct DisputeRideView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .resizable()
                         .frame(width: 40, height: 36)
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
 
                     Text("What went wrong?")
                         .font(.title3)
                         .fontWeight(.bold)
+                        .foregroundColor(Theme.lxText)
 
                     Text("Ride #\(rideRequestId)")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 .padding(.top)
 
@@ -125,6 +130,7 @@ struct DisputeRideView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Select a reason")
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
 
                     ForEach(DisputeReasonOption.allCases) { reason in
                         Button(action: { selectedReason = reason }) {
@@ -132,12 +138,12 @@ struct DisputeRideView: View {
                                 Image(systemName: reason.icon)
                                     .font(.title3)
                                     .frame(width: 30)
-                                    .foregroundColor(selectedReason == reason ? .white : .primary)
+                                    .foregroundColor(selectedReason == reason ? .white : Theme.lxText)
 
                                 Text(reason.displayName)
                                     .font(.subheadline)
                                     .fontWeight(.medium)
-                                    .foregroundColor(selectedReason == reason ? .white : .primary)
+                                    .foregroundColor(selectedReason == reason ? .white : Theme.lxText)
 
                                 Spacer()
 
@@ -147,8 +153,12 @@ struct DisputeRideView: View {
                                 }
                             }
                             .padding()
-                            .background(selectedReason == reason ? Color.green : Color(.systemGray6))
+                            .background(selectedReason == reason ? Theme.lxOrange : Theme.lxSurface)
                             .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(selectedReason == reason ? Color.clear : Theme.lxHairline, lineWidth: 1)
+                            )
                         }
                     }
                 }
@@ -157,20 +167,23 @@ struct DisputeRideView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Details")
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
 
                     TextEditor(text: $descriptionText)
                         .frame(height: 120)
                         .padding(8)
-                        .background(Color(.systemGray6))
+                        .scrollContentBackground(.hidden)
+                        .foregroundColor(Theme.lxText)
+                        .background(Theme.lxSurface2)
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color(.systemGray4), lineWidth: 1)
+                                .stroke(Theme.lxHairline, lineWidth: 1)
                         )
 
                     Text("\(descriptionText.count)/500")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextMuted)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
 
@@ -178,9 +191,9 @@ struct DisputeRideView: View {
                 if let error = errorMessage {
                     Text(error)
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(Theme.lxError)
                         .padding(8)
-                        .background(Color.red.opacity(0.1))
+                        .background(Theme.lxError.opacity(0.1))
                         .cornerRadius(8)
                 }
 
@@ -199,8 +212,9 @@ struct DisputeRideView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(selectedReason != nil ? Color.green : Color.gray)
-                    .cornerRadius(12)
+                    .background(selectedReason != nil ? AnyShapeStyle(Theme.lxButtonGradient) : AnyShapeStyle(Theme.lxTextMuted))
+                    .cornerRadius(14)
+                    .shadow(color: selectedReason != nil ? Theme.lxOrange.opacity(0.4) : Color.clear, radius: 14, x: 0, y: 6)
                 }
                 .disabled(selectedReason == nil || isSubmitting)
 
@@ -220,21 +234,22 @@ struct DisputeRideView: View {
             Image(systemName: "checkmark.circle.fill")
                 .resizable()
                 .frame(width: 64, height: 64)
-                .foregroundColor(.green)
+                .foregroundColor(Theme.lxSuccess)
 
             Text("Report Submitted")
                 .font(.title2)
                 .fontWeight(.bold)
+                .foregroundColor(Theme.lxText)
 
             if let id = disputeId {
                 Text("Dispute #\(id)")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
 
             Text("We'll review your report and get back to you. If a refund is warranted, it will be processed within 3-5 business days.")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
@@ -245,8 +260,9 @@ struct DisputeRideView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.green)
-                .cornerRadius(12)
+                .background(Theme.lxButtonGradient)
+                .cornerRadius(14)
+                .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                 .padding(.horizontal)
                 .padding(.bottom)
         }

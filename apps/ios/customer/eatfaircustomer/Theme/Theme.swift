@@ -43,6 +43,27 @@ struct Theme {
         startPoint: .top,
         endPoint: .bottom
     )
+
+    // MARK: - Luxury Theme (black + orange) — the app-wide redesign palette
+    // Orange is the Dollor accent/identity (matches the orange smiley stickers on driver cars).
+    static let lxBg           = Color(hex: "0B0B0D")  // page canvas (rich black)
+    static let lxSurface      = Color(hex: "17171A")  // cards / inputs
+    static let lxSurface2     = Color(hex: "202024")  // elevated surfaces
+    static let lxHairline     = Color(hex: "2A2A2E")  // borders / dividers
+    static let lxOrange       = Color(hex: "FF7A1A")  // primary accent
+    static let lxOrangeBright = Color(hex: "FF9A3D")  // gradient top / highlight
+    static let lxOrangeDeep   = Color(hex: "E85D04")  // pressed
+    static let lxText         = Color.white           // primary text
+    static let lxTextSecondary = Color(hex: "A1A1AA") // secondary text
+    static let lxTextMuted    = Color(hex: "6E6E78")  // muted / placeholders
+    static let lxSuccess      = Color(hex: "30D158")
+    static let lxError        = Color(hex: "FF453A")
+
+    // Primary CTA gradient (orange)
+    static let lxButtonGradient = LinearGradient(
+        colors: [lxOrangeBright, lxOrange],
+        startPoint: .top, endPoint: .bottom
+    )
 }
 
 // Note: Color.init(hex:) extension is provided by EatFairShared module

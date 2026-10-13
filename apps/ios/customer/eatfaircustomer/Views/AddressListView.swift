@@ -21,15 +21,17 @@ struct AddressListView: View {
                 VStack(spacing: 16) {
                     Image(systemName: "mappin.slash")
                         .font(.system(size: 50))
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextMuted)
                     Text("No saved addresses")
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
                     Text("Add an address to get started")
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
+                .listRowBackground(Color.clear)
             }
 
             ForEach(viewModel.addresses) { address in
@@ -40,30 +42,31 @@ struct AddressListView: View {
                         VStack(alignment: .leading) {
                             HStack {
                                 Image(systemName: iconForType(address.type))
-                                    .foregroundColor(Theme.brandOrange)
+                                    .foregroundColor(Theme.lxOrange)
                                 Text(address.locationName)
                                     .font(.headline)
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(Theme.lxText)
                                 if address.isDefault {
                                     Text("Default")
                                         .font(.caption)
                                         .padding(4)
-                                        .background(Color.green.opacity(0.2))
-                                        .foregroundColor(.green)
+                                        .background(Theme.lxOrange.opacity(0.2))
+                                        .foregroundColor(Theme.lxOrange)
                                         .cornerRadius(4)
                                 }
                             }
                             Text("\(address.street), \(address.city), \(address.state) \(address.zipCode)")
                                 .font(.subheadline)
-                                .foregroundColor(.gray)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                         Spacer()
                         if viewModel.selectedAddressId == address.id {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(Theme.brandGreen)
+                                .foregroundColor(Theme.lxOrange)
                         }
                     }
                 }
+                .listRowBackground(Theme.lxSurface)
                 .padding(.vertical, 4)
                 .contextMenu {
                     // Set as default option
@@ -89,7 +92,7 @@ struct AddressListView: View {
                         } label: {
                             Label("Default", systemImage: "star.fill")
                         }
-                        .tint(.orange)
+                        .tint(Theme.lxOrange)
                     }
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -101,10 +104,14 @@ struct AddressListView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.lxBg.ignoresSafeArea())
+        .preferredColorScheme(.dark)
         .navigationTitle("Saved Addresses")
         .toolbar {
             Button(action: { showingAddAddress = true }) {
                 Image(systemName: "plus")
+                    .foregroundColor(Theme.lxOrange)
             }
         }
         .sheet(isPresented: $showingAddAddress) {
@@ -158,7 +165,7 @@ struct AddAddressView: View {
                             Text("Search Address (Auto-fill)")
                                 .fontWeight(.medium)
                         }
-                        .foregroundColor(Theme.brandOrange)
+                        .foregroundColor(Theme.lxOrange)
                     }
                     
                     Picker("Label", selection: $locationName) {
@@ -177,44 +184,62 @@ struct AddAddressView: View {
                             .keyboardType(.numberPad)
                     }
                 }
-                
+                .listRowBackground(Theme.lxSurface)
+
                 Section(header: Text("Contact Info")) {
                     TextField("Phone Number", text: $phoneNumber)
                         .keyboardType(.phonePad)
                 }
-                
-                Section(header: Text("Delivery Instructions")) {
-                    TextField("Gate code, leave at door, etc.", text: $instructions)
+                .listRowBackground(Theme.lxSurface)
+
+                Section(header: Text("Pickup Instructions")) {
+                    TextField("Gate code, building entrance, etc.", text: $instructions)
                 }
-                
+                .listRowBackground(Theme.lxSurface)
+
                 Section {
                     Toggle("Set as Default Address", isOn: $isDefault)
                 }
+                .listRowBackground(Theme.lxSurface)
 
                 // Show error message if present
                 if let error = viewModel.errorMessage {
                     Section {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.lxOrange)
                             Text(error)
-                                .foregroundColor(.red)
+                                .foregroundColor(Theme.lxError)
                                 .font(.subheadline)
                         }
                     }
+                    .listRowBackground(Theme.lxSurface)
                 }
 
                 Button(action: saveAddress) {
                     if viewModel.isLoading {
                         ProgressView()
+                            .frame(maxWidth: .infinity)
                     } else {
                         Text("Save Address")
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .foregroundColor(Theme.brandGreen)
+                            .padding(.vertical, 14)
+                            .background(Theme.lxButtonGradient)
+                            .cornerRadius(14)
+                            .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                     }
                 }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
                 .disabled(street.isEmpty || city.isEmpty || state.isEmpty || zipCode.isEmpty)
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.lxBg.ignoresSafeArea())
+            .foregroundColor(Theme.lxText)
+            .tint(Theme.lxOrange)
+            .preferredColorScheme(.dark)
             .navigationTitle("Add New Address")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

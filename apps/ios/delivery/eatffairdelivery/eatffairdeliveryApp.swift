@@ -235,15 +235,26 @@ struct EatffairdeliveryApp: App {
         WindowGroup {
             NavigationView {
                 if authManager.isLoggedIn {
-                    DriverDashboardView()
-                        .environmentObject(authManager)
+                    // Gate: unapproved drivers (newly registered, is_approved == false)
+                    // must complete document onboarding before reaching the dashboard.
+                    if authManager.isApproved {
+                        DriverDashboardView()
+                            .environmentObject(authManager)
+                    } else {
+                        DriverOnboardingView()
+                            .environmentObject(authManager)
+                    }
                 } else {
                     DriverLoginView(isLoggedIn: $authManager.isLoggedIn)
+                        .environmentObject(authManager)
                 }
             }
             .onOpenURL { url in
                 GIDSignIn.sharedInstance.handle(url)
             }
+            // Force light mode so adaptive `.primary` text never renders white-on-white
+            // in device dark mode (keeps all screens readable until the luxury-dark redesign).
+            .preferredColorScheme(.light)
             .onAppear {
                 // Clear badge on app launch
                 NotificationManager.shared.clearBadge()

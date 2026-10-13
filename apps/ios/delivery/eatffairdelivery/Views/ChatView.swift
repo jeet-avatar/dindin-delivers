@@ -57,6 +57,9 @@ struct ChatView: View {
             )
             .focused($isMessageFieldFocused)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.lxBg.ignoresSafeArea())
+        .preferredColorScheme(.dark)
         .navigationTitle(customerName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -65,14 +68,14 @@ struct ChatView: View {
                     // Voice Assistant Button
                     Button(action: { voiceAssistant.startListening() }) {
                         Image(systemName: voiceAssistant.isListening ? "waveform.circle.fill" : "speaker.wave.2.fill")
-                            .foregroundColor(voiceAssistant.isListening ? .green : Theme.brandRed)
+                            .foregroundColor(voiceAssistant.isListening ? Theme.lxSuccess : Theme.lxOrange)
                             .font(.title3)
                     }
 
                     // Call Button
                     Button(action: callCustomer) {
                         Image(systemName: "phone.fill")
-                            .foregroundColor(Theme.brandRed)
+                            .foregroundColor(Theme.lxOrange)
                     }
                 }
             }
@@ -153,7 +156,7 @@ struct MessageBubble: View {
                 // Timestamp
                 Text(message.messageDate, style: .time)
                     .font(.caption2)
-                    .foregroundColor(Theme.textGrey)
+                    .foregroundColor(Theme.lxTextMuted)
             }
 
             if !message.isFromDriver && !message.isSystem { Spacer(minLength: 60) }
@@ -163,10 +166,10 @@ struct MessageBubble: View {
     private var textMessageView: some View {
         Text(message.text ?? "")
             .font(.body)
-            .foregroundColor(message.isFromDriver ? .white : Theme.textPrimary)
+            .foregroundColor(message.isFromDriver ? .white : Theme.lxText)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(message.isFromDriver ? Theme.brandRed : Theme.cardBackground)
+            .background(message.isFromDriver ? Theme.lxOrange : Theme.lxSurface2)
             .cornerRadius(20)
             .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
@@ -174,10 +177,10 @@ struct MessageBubble: View {
     private var systemMessageView: some View {
         Text(message.text ?? "")
             .font(.caption)
-            .foregroundColor(Theme.textGrey)
+            .foregroundColor(Theme.lxTextMuted)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Theme.backgroundGrey)
+            .background(Theme.lxSurface)
             .cornerRadius(12)
     }
 
@@ -199,10 +202,10 @@ struct MessageBubble: View {
                     Text("Shared Location")
                 }
                 .font(.caption)
-                .foregroundColor(message.isFromDriver ? .white : Theme.textPrimary)
+                .foregroundColor(message.isFromDriver ? .white : Theme.lxText)
                 .padding(8)
                 .frame(width: 200)
-                .background(message.isFromDriver ? Theme.brandRed : Theme.cardBackground)
+                .background(message.isFromDriver ? Theme.lxOrange : Theme.lxSurface2)
                 .cornerRadius(12, corners: [.bottomLeft, .bottomRight])
             }
         }
@@ -212,26 +215,26 @@ struct MessageBubble: View {
         HStack(spacing: 12) {
             Image(systemName: "play.circle.fill")
                 .font(.title2)
-                .foregroundColor(message.isFromDriver ? .white : Theme.brandRed)
+                .foregroundColor(message.isFromDriver ? .white : Theme.lxOrange)
 
             VStack(alignment: .leading, spacing: 2) {
                 // Audio waveform placeholder
                 HStack(spacing: 2) {
                     ForEach(0..<20, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(message.isFromDriver ? Color.white.opacity(0.7) : Theme.brandRed.opacity(0.5))
+                            .fill(message.isFromDriver ? Color.white.opacity(0.7) : Theme.lxOrange.opacity(0.5))
                             .frame(width: 3, height: CGFloat.random(in: 8...24))
                     }
                 }
 
                 Text("\(message.duration ?? 0)s")
                     .font(.caption2)
-                    .foregroundColor(message.isFromDriver ? .white.opacity(0.7) : Theme.textGrey)
+                    .foregroundColor(message.isFromDriver ? .white.opacity(0.7) : Theme.lxTextMuted)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(message.isFromDriver ? Theme.brandRed : Theme.cardBackground)
+        .background(message.isFromDriver ? Theme.lxOrange : Theme.lxSurface2)
         .cornerRadius(20)
     }
 }
@@ -247,19 +250,19 @@ struct ChatInputBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             HStack(spacing: 12) {
                 // Quick Responses Toggle
                 Button(action: { showQuickResponses.toggle() }) {
                     Image(systemName: "bolt.fill")
-                        .foregroundColor(showQuickResponses ? Theme.brandRed : Theme.textGrey)
+                        .foregroundColor(showQuickResponses ? Theme.lxOrange : Theme.lxTextMuted)
                 }
 
                 // Location Share
                 Button(action: onLocation) {
                     Image(systemName: "location.fill")
-                        .foregroundColor(Theme.textGrey)
+                        .foregroundColor(Theme.lxTextMuted)
                 }
 
                 // Text Field
@@ -271,26 +274,26 @@ struct ChatInputBar: View {
                         // Voice Input
                         Button(action: onVoice) {
                             Image(systemName: isVoiceListening ? "waveform" : "mic.fill")
-                                .foregroundColor(isVoiceListening ? .green : Theme.textGrey)
+                                .foregroundColor(isVoiceListening ? Theme.lxSuccess : Theme.lxTextMuted)
                         }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Theme.backgroundGrey)
+                .background(Theme.lxSurface2)
                 .cornerRadius(20)
 
                 // Send Button
                 Button(action: onSend) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
-                        .foregroundColor(messageText.isEmpty ? Theme.textGrey : Theme.brandRed)
+                        .foregroundColor(messageText.isEmpty ? Theme.lxTextMuted : Theme.lxOrange)
                 }
                 .disabled(messageText.isEmpty)
             }
             .padding()
         }
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
     }
 }
 
@@ -300,7 +303,7 @@ struct QuickResponsesBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -315,8 +318,8 @@ struct QuickResponsesBar: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Theme.brandRed.opacity(0.1))
-                            .foregroundColor(Theme.brandRed)
+                            .background(Theme.lxOrange.opacity(0.1))
+                            .foregroundColor(Theme.lxOrange)
                             .cornerRadius(16)
                         }
                     }
@@ -324,7 +327,7 @@ struct QuickResponsesBar: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
             }
-            .background(Theme.cardBackground)
+            .background(Theme.lxSurface)
         }
     }
 }
@@ -340,6 +343,7 @@ struct ShareLocationSheet: View {
             HStack {
                 Text("Share Your Location")
                     .font(.headline)
+                    .foregroundColor(Theme.lxText)
                 Spacer()
             }
             .padding()
@@ -354,7 +358,7 @@ struct ShareLocationSheet: View {
                         Image(systemName: "car.fill")
                             .foregroundColor(.white)
                             .padding(8)
-                            .background(Theme.brandRed)
+                            .background(Theme.lxOrange)
                             .clipShape(Circle())
                     }
                 }
@@ -365,7 +369,7 @@ struct ShareLocationSheet: View {
                 VStack {
                     ProgressView()
                     Text("Getting location...")
-                        .foregroundColor(Theme.textGrey)
+                        .foregroundColor(Theme.lxTextMuted)
                 }
                 .frame(height: 200)
             }
@@ -380,14 +384,18 @@ struct ShareLocationSheet: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Theme.brandRed)
-                .cornerRadius(12)
+                .background(Theme.lxButtonGradient)
+                .cornerRadius(14)
+                .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
             }
             .padding(.horizontal)
             .disabled(locationManager.currentCoordinate == nil)
 
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.lxBg.ignoresSafeArea())
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -409,10 +417,16 @@ struct ConversationsListView: View {
                         )) {
                             ConversationRow(conversation: conversation)
                         }
+                        .listRowBackground(Theme.lxSurface)
+                        .listRowSeparatorTint(Theme.lxHairline)
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(Theme.lxBg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Messages")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -422,12 +436,13 @@ struct ConversationsListView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Theme.brandRed)
+                            .background(Theme.lxOrange)
                             .cornerRadius(12)
                     }
                 }
             }
         }
+        .preferredColorScheme(.dark)
         .onAppear {
             chatManager.fetchConversations()
         }
@@ -442,13 +457,13 @@ struct ConversationRow: View {
             // Avatar
             ZStack {
                 Circle()
-                    .fill(Theme.brandRed.opacity(0.1))
+                    .fill(Theme.lxOrange.opacity(0.1))
                     .frame(width: 50, height: 50)
 
                 Text(String(conversation.customerName.prefix(1)).uppercased())
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .foregroundColor(Theme.brandRed)
+                    .foregroundColor(Theme.lxOrange)
             }
 
             // Content
@@ -456,26 +471,26 @@ struct ConversationRow: View {
                 HStack {
                     Text(conversation.customerName)
                         .font(.headline)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
 
                     Spacer()
 
                     Text(conversation.lastMessageDate, style: .time)
                         .font(.caption)
-                        .foregroundColor(Theme.textGrey)
+                        .foregroundColor(Theme.lxTextMuted)
                 }
 
                 HStack {
-                    Text(conversation.restaurantName)
+                    Text("Rider")
                         .font(.caption)
-                        .foregroundColor(Theme.brandRed)
+                        .foregroundColor(Theme.lxOrange)
 
                     Text("•")
-                        .foregroundColor(Theme.textGrey)
+                        .foregroundColor(Theme.lxTextMuted)
 
                     Text(conversation.lastMessage)
                         .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .lineLimit(1)
 
                     Spacer()
@@ -486,7 +501,7 @@ struct ConversationRow: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(Theme.brandRed)
+                            .background(Theme.lxOrange)
                             .cornerRadius(10)
                     }
                 }
@@ -501,22 +516,23 @@ struct EmptyConversationsView: View {
         VStack(spacing: 16) {
             Image(systemName: "message.fill")
                 .font(.system(size: 60))
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxTextMuted)
 
             Text("No Messages Yet")
                 .font(.title2)
                 .fontWeight(.semibold)
+                .foregroundColor(Theme.lxText)
 
-            Text("When you accept deliveries, you can chat\ndirectly with customers here")
+            Text("When you accept rides, you can chat\ndirectly with riders here")
                 .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
     }
 }
 
-// Note: cornerRadius(_:corners:) extension is defined in MyDeliveriesView.swift
+// Note: cornerRadius(_:corners:) extension is defined in ViewHelpers.swift
 
 #Preview {
     ConversationsListView()

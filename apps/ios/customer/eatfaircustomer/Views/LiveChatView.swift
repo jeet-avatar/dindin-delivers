@@ -12,10 +12,10 @@ struct LiveChatView: View {
     @FocusState private var isInputFocused: Bool
 
     private let suggestions = [
-        "Where is my order?",
-        "Cancel my order",
+        "Where is my ride?",
+        "Cancel my ride",
         "Refund request",
-        "Delivery issue",
+        "Ride issue",
         "Ride status",
         "Pricing info"
     ]
@@ -28,7 +28,7 @@ struct LiveChatView: View {
                     inputBar
                 }
             }
-            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Live Chat")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -36,6 +36,7 @@ struct LiveChatView: View {
                     Button("Close") {
                         dismiss()
                     }
+                    .foregroundColor(Theme.lxOrange)
                 }
             }
             .onAppear {
@@ -49,6 +50,7 @@ struct LiveChatView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Messages Scroll View
@@ -105,7 +107,7 @@ struct LiveChatView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Quick topics")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(Theme.lxTextMuted)
                 .padding(.horizontal, 4)
 
             FlowLayout(spacing: 8) {
@@ -113,11 +115,15 @@ struct LiveChatView: View {
                     Button(action: { sendSuggestion(suggestion) }) {
                         Text(suggestion)
                             .font(.subheadline)
-                            .foregroundColor(Color(hex: "FF6B35"))
+                            .foregroundColor(Theme.lxText)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(Color(hex: "FF6B35").opacity(0.1))
+                            .background(Theme.lxSurface2)
                             .cornerRadius(20)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(Theme.lxHairline, lineWidth: 1)
+                            )
                     }
                 }
             }
@@ -129,12 +135,17 @@ struct LiveChatView: View {
 
     private var inputBar: some View {
         HStack(spacing: 12) {
-            TextField("Type a message...", text: $messageText)
+            TextField("", text: $messageText, prompt: Text("Type a message...").foregroundColor(Theme.lxTextMuted))
                 .textFieldStyle(.plain)
+                .foregroundColor(Theme.lxText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color(UIColor.tertiarySystemGroupedBackground))
+                .background(Theme.lxSurface2)
                 .cornerRadius(24)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(Theme.lxHairline, lineWidth: 1)
+                )
                 .focused($isInputFocused)
                 .submitLabel(.send)
                 .onSubmit {
@@ -146,13 +157,13 @@ struct LiveChatView: View {
                     .font(.title3)
                     .foregroundColor(.white)
                     .frame(width: 44, height: 44)
-                    .background(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color(hex: "FF6B35"))
+                    .background(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Theme.lxTextMuted : Theme.lxOrange)
                     .clipShape(Circle())
             }
             .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
         }
         .padding()
-        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .background(Theme.lxSurface)
     }
 
     // MARK: - Actions
@@ -203,21 +214,21 @@ private struct ChatBubble: View {
                     HStack(spacing: 4) {
                         Image(systemName: "sparkles")
                             .font(.caption2)
-                            .foregroundColor(Color(hex: "FF6B35"))
+                            .foregroundColor(Theme.lxOrange)
                         Text("Dollor Support")
                             .font(.caption2)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextMuted)
                     }
                 }
 
                 Text(text)
                     .font(.subheadline)
-                    .foregroundColor(isFromUser ? .white : .primary)
+                    .foregroundColor(isFromUser ? .white : Theme.lxText)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(isFromUser ? Color(hex: "FF6B35") : Color.white)
+                    .background(isFromUser ? Theme.lxOrange : Theme.lxSurface2)
                     .cornerRadius(18)
-                    .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
             }
 
             if !isFromUser { Spacer(minLength: 60) }
@@ -234,11 +245,11 @@ private struct TypingIndicator: View {
         HStack(spacing: 4) {
             Image(systemName: "sparkles")
                 .font(.caption2)
-                .foregroundColor(Color(hex: "FF6B35"))
+                .foregroundColor(Theme.lxOrange)
 
             ForEach(0..<3, id: \.self) { index in
                 Circle()
-                    .fill(Color.gray.opacity(0.5))
+                    .fill(Theme.lxTextMuted)
                     .frame(width: 8, height: 8)
                     .offset(y: dotOffset)
                     .animation(
@@ -251,14 +262,14 @@ private struct TypingIndicator: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.white)
+        .background(Theme.lxSurface2)
         .cornerRadius(18)
-        .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
         .onAppear { dotOffset = -4 }
     }
 }
 
-// Note: FlowLayout is defined in SearchRestaurantsView.swift and reused here
+// Note: FlowLayout is defined in FlowLayout.swift and reused here
 
 #Preview {
     LiveChatView()

@@ -46,11 +46,11 @@ struct ActiveRideView: View {
 
         var color: Color {
             switch self {
-            case .matched: return .blue
-            case .enRouteToPickup: return .orange
-            case .arrivedAtPickup: return .green
-            case .inProgress: return .purple
-            case .completed: return .green
+            case .matched: return Theme.lxOrange
+            case .enRouteToPickup: return Theme.lxOrangeBright
+            case .arrivedAtPickup: return Theme.lxSuccess
+            case .inProgress: return Theme.lxOrangeDeep
+            case .completed: return Theme.lxSuccess
             }
         }
 
@@ -109,7 +109,7 @@ struct ActiveRideView: View {
                     Button(action: { showCancelSheet = true }) {
                         Text("Cancel")
                             .font(.subheadline)
-                            .foregroundColor(.red)
+                            .foregroundColor(Theme.lxError)
                     }
                 }
             }
@@ -117,13 +117,13 @@ struct ActiveRideView: View {
                 HStack(spacing: 16) {
                     Button(action: { showChat = true }) {
                         Image(systemName: "message.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                     }
 
                     // TNC-15: Waybill
                     Button(action: { showWaybill = true }) {
                         Image(systemName: "doc.text")
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                     }
                     .accessibilityLabel("Trip Information")
 
@@ -134,7 +134,7 @@ struct ActiveRideView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.red)
+                            .background(Theme.lxError)
                             .cornerRadius(6)
                     }
                     .accessibilityLabel("Emergency SOS")
@@ -220,6 +220,7 @@ struct ActiveRideView: View {
                 startNoShowTimer()
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Map View
@@ -231,16 +232,16 @@ struct ActiveRideView: View {
                 Annotation("You", coordinate: coordinate) {
                     ZStack {
                         Circle()
-                            .fill(Color.blue.opacity(0.2))
+                            .fill(Theme.lxOrange.opacity(0.2))
                             .frame(width: 60, height: 60)
 
                         Image(systemName: "car.fill")
                             .font(.title2)
                             .foregroundColor(.white)
                             .padding(12)
-                            .background(Color.blue)
+                            .background(Theme.lxOrange)
                             .clipShape(Circle())
-                            .shadow(color: .blue.opacity(0.5), radius: 6)
+                            .shadow(color: Theme.lxOrange.opacity(0.5), radius: 6)
                     }
                 }
             }
@@ -255,13 +256,13 @@ struct ActiveRideView: View {
                         Image(systemName: "person.fill")
                             .foregroundColor(.white)
                             .padding(10)
-                            .background(Color.green)
+                            .background(Theme.lxSuccess)
                             .clipShape(Circle())
-                            .shadow(color: .green.opacity(0.5), radius: 4)
+                            .shadow(color: Theme.lxSuccess.opacity(0.5), radius: 4)
 
                         Image(systemName: "arrowtriangle.down.fill")
                             .font(.system(size: 10))
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                             .offset(y: -4)
                     }
                 }
@@ -275,13 +276,13 @@ struct ActiveRideView: View {
                         Image(systemName: "mappin.circle.fill")
                             .foregroundColor(.white)
                             .padding(10)
-                            .background(Color.red)
+                            .background(Theme.lxError)
                             .clipShape(Circle())
-                            .shadow(color: .red.opacity(0.5), radius: 4)
+                            .shadow(color: Theme.lxError.opacity(0.5), radius: 4)
 
                         Image(systemName: "arrowtriangle.down.fill")
                             .font(.system(size: 10))
-                            .foregroundColor(.red)
+                            .foregroundColor(Theme.lxError)
                             .offset(y: -4)
                     }
                 }
@@ -290,7 +291,7 @@ struct ActiveRideView: View {
             // Route polyline
             if let driverRoute = driverRoute {
                 MapPolyline(driverRoute.polyline)
-                    .stroke(.blue, lineWidth: 5)
+                    .stroke(Theme.lxOrange, lineWidth: 5)
             }
         }
         .mapStyle(.standard(elevation: .realistic))
@@ -329,14 +330,14 @@ struct ActiveRideView: View {
                         Text("\(eta)")
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                         Text(rideStatus == .inProgress ? "min left" : "min away")
                             .font(.caption2)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.blue.opacity(0.1))
+                    .background(Theme.lxOrange.opacity(0.12))
                     .cornerRadius(10)
                 }
 
@@ -345,10 +346,10 @@ struct ActiveRideView: View {
                     Text("$\(String(format: "%.2f", driverEarnings))")
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                     Text("earnings")
                         .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
             }
 
@@ -358,18 +359,18 @@ struct ActiveRideView: View {
                     // Rider Avatar
                     ZStack {
                         Circle()
-                            .fill(Color.blue.opacity(0.15))
+                            .fill(Theme.lxOrange.opacity(0.15))
                             .frame(width: 50, height: 50)
                         Text(String((request.customer_name ?? "R").prefix(1)))
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(request.customer_name ?? "Rider")
                             .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
+                            .foregroundColor(Theme.lxText)
                         if request.accessibility_requested == true {
                             HStack(spacing: 4) {
                                 Image(systemName: "figure.roll")
@@ -377,11 +378,11 @@ struct ActiveRideView: View {
                                 Text("Accessibility requested")
                                     .font(.caption)
                             }
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                         } else {
                             Text("Passenger")
                                 .font(.caption)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                     }
 
@@ -392,18 +393,18 @@ struct ActiveRideView: View {
                         Button(action: { showChat = true }) {
                             Image(systemName: "message.fill")
                                 .font(.title3)
-                                .foregroundColor(.blue)
+                                .foregroundColor(Theme.lxOrange)
                                 .frame(width: 44, height: 44)
-                                .background(Color.blue.opacity(0.1))
+                                .background(Theme.lxOrange.opacity(0.12))
                                 .cornerRadius(12)
                         }
 
                         Button(action: callRider) {
                             Image(systemName: "phone.fill")
                                 .font(.title3)
-                                .foregroundColor(hasRiderPhone ? .green : .gray)
+                                .foregroundColor(hasRiderPhone ? Theme.lxSuccess : Theme.lxTextMuted)
                                 .frame(width: 44, height: 44)
-                                .background(hasRiderPhone ? Color.green.opacity(0.1) : Color.gray.opacity(0.1))
+                                .background(hasRiderPhone ? Theme.lxSuccess.opacity(0.12) : Theme.lxTextMuted.opacity(0.12))
                                 .cornerRadius(12)
                         }
                         .disabled(!hasRiderPhone)
@@ -412,9 +413,13 @@ struct ActiveRideView: View {
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
+        .background(Theme.lxSurface)
         .cornerRadius(20)
-        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 5)
     }
 
     // MARK: - Action Card
@@ -428,7 +433,7 @@ struct ActiveRideView: View {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(rideStatus == .inProgress ? Color.red : Color.green)
+                                .fill(rideStatus == .inProgress ? Theme.lxError : Theme.lxSuccess)
                                 .frame(width: 40, height: 40)
                             Image(systemName: rideStatus == .inProgress ? "mappin.circle.fill" : "person.fill")
                                 .foregroundColor(.white)
@@ -438,12 +443,12 @@ struct ActiveRideView: View {
                             Text(rideStatus == .inProgress ? "DROP-OFF" : "PICKUP")
                                 .font(.caption2)
                                 .fontWeight(.semibold)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
 
                             Text(rideStatus == .inProgress ? request.dropoff.address : request.pickup.address)
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundColor(Theme.textPrimary)
+                                .foregroundColor(Theme.lxText)
                                 .lineLimit(2)
                         }
 
@@ -453,7 +458,7 @@ struct ActiveRideView: View {
                         Button(action: openNavigation) {
                             Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
                                 .font(.title)
-                                .foregroundColor(.blue)
+                                .foregroundColor(Theme.lxOrange)
                         }
                     }
                 }
@@ -461,14 +466,19 @@ struct ActiveRideView: View {
             }
 
             Divider()
+                .overlay(Theme.lxHairline)
 
             // Action Button
             actionButton
                 .padding()
         }
-        .background(.ultraThinMaterial)
+        .background(Theme.lxSurface)
         .cornerRadius(20, corners: [.topLeft, .topRight])
-        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+        .overlay(
+            RoundedCorner(radius: 20, corners: [.topLeft, .topRight])
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: -5)
     }
 
     // MARK: - Action Button
@@ -479,7 +489,7 @@ struct ActiveRideView: View {
         case .matched, .enRouteToPickup:
             SwipeToConfirmButton(
                 label: "Slide — I've Arrived",
-                accentColor: .green,
+                accentColor: Theme.lxSuccess,
                 isDisabled: false,
                 onConfirm: {
                     let previousStatus = rideStatus
@@ -502,15 +512,15 @@ struct ActiveRideView: View {
                 if noShowTimerActive {
                     HStack {
                         Image(systemName: "clock")
-                            .foregroundColor(noShowTimerSeconds <= 0 ? .red : .orange)
+                            .foregroundColor(noShowTimerSeconds <= 0 ? Theme.lxError : Theme.lxOrange)
                         if noShowTimerSeconds > 0 {
                             Text("Waiting: \(noShowTimerSeconds / 60):\(String(format: "%02d", noShowTimerSeconds % 60))")
                                 .font(.subheadline)
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.lxOrange)
                         } else {
                             Text("Wait time exceeded")
                                 .font(.subheadline)
-                                .foregroundColor(.red)
+                                .foregroundColor(Theme.lxError)
                         }
                         Spacer()
                     }
@@ -519,7 +529,7 @@ struct ActiveRideView: View {
 
                 SwipeToConfirmButton(
                     label: "Slide to Start Ride",
-                    accentColor: .purple,
+                    accentColor: Theme.lxOrange,
                     isDisabled: viewModel.isLoading,
                     onConfirm: startRide
                 )
@@ -535,10 +545,10 @@ struct ActiveRideView: View {
                         }
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.red)
+                        .foregroundColor(Theme.lxError)
                         .frame(maxWidth: .infinity)
                         .padding(12)
-                        .background(Color.red.opacity(0.1))
+                        .background(Theme.lxError.opacity(0.15))
                         .cornerRadius(12)
                     }
                 }
@@ -547,7 +557,7 @@ struct ActiveRideView: View {
         case .inProgress:
             SwipeToConfirmButton(
                 label: "Slide to Complete Ride",
-                accentColor: .orange,
+                accentColor: Theme.lxOrange,
                 isDisabled: viewModel.isLoading,
                 onConfirm: completeRide
             )
@@ -574,25 +584,26 @@ struct ActiveRideView: View {
             // Header
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 40))
-                .foregroundColor(.green)
+                .foregroundColor(Theme.lxSuccess)
             Text("Ride Completed!")
                 .font(.title3)
                 .fontWeight(.bold)
-                .foregroundColor(.green)
+                .foregroundColor(Theme.lxSuccess)
 
             Divider()
+                .overlay(Theme.lxHairline)
 
             // Route summary
             if let pickup = completion?.pickup?.address ?? request?.pickup.address,
                let dropoff = completion?.dropoff?.address ?? request?.dropoff.address {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Circle().fill(Color.green).frame(width: 8, height: 8)
-                        Text(pickup).font(.caption).foregroundColor(Theme.textSecondary).lineLimit(1)
+                        Circle().fill(Theme.lxSuccess).frame(width: 8, height: 8)
+                        Text(pickup).font(.caption).foregroundColor(Theme.lxTextSecondary).lineLimit(1)
                     }
                     HStack(spacing: 8) {
-                        Circle().fill(Color.red).frame(width: 8, height: 8)
-                        Text(dropoff).font(.caption).foregroundColor(Theme.textSecondary).lineLimit(1)
+                        Circle().fill(Theme.lxError).frame(width: 8, height: 8)
+                        Text(dropoff).font(.caption).foregroundColor(Theme.lxTextSecondary).lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -607,30 +618,33 @@ struct ActiveRideView: View {
                     Label("\(duration) min", systemImage: "clock")
                 }
                 .font(.caption)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
             }
 
             Divider()
+                .overlay(Theme.lxHairline)
 
             // Earnings breakdown
             VStack(spacing: 8) {
                 earningsRow(label: "Ride Fare", amount: fare)
-                earningsRow(label: "Platform Fee", amount: -fee, color: .red)
+                earningsRow(label: "Platform Fee", amount: -fee, color: Theme.lxError)
                 if tip > 0 {
-                    earningsRow(label: "Tip", amount: tip, color: .green)
+                    earningsRow(label: "Tip", amount: tip, color: Theme.lxSuccess)
                 }
 
                 Divider()
+                    .overlay(Theme.lxHairline)
 
                 HStack {
                     Text("Your Earnings")
                         .font(.headline)
                         .fontWeight(.bold)
+                        .foregroundColor(Theme.lxText)
                     Spacer()
                     Text("$\(String(format: "%.2f", payout + tip))")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
             }
 
@@ -638,30 +652,31 @@ struct ActiveRideView: View {
             if let name = completion?.customer_name ?? request?.customer_name {
                 HStack(spacing: 6) {
                     Image(systemName: "person.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                     Text("Passenger: \(name)")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Divider()
+                .overlay(Theme.lxHairline)
 
             // Rate Passenger
             if hasSubmittedRating {
                 VStack(spacing: 12) {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                         Text("Passenger rated \(passengerRating)/5")
                             .font(.subheadline)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                     // Done — navigate back to dashboard after ride completion
                     SwipeToConfirmButton(
                         label: "Slide to Done",
-                        accentColor: .gray,
+                        accentColor: Theme.lxTextMuted,
                         isDisabled: false,
                         onConfirm: { dismiss() }
                     )
@@ -673,24 +688,34 @@ struct ActiveRideView: View {
                     Text("Rate Passenger")
                         .font(.subheadline)
                         .fontWeight(.semibold)
+                        .foregroundColor(Theme.lxText)
 
                     HStack(spacing: 12) {
                         ForEach(1...5, id: \.self) { star in
                             Button(action: { passengerRating = star }) {
                                 Image(systemName: star <= passengerRating ? "star.fill" : "star")
                                     .font(.title2)
-                                    .foregroundColor(star <= passengerRating ? .yellow : .gray)
+                                    .foregroundColor(star <= passengerRating ? Theme.lxOrange : Theme.lxTextMuted)
                             }
                         }
                     }
 
                     TextField("Comment (optional)", text: $passengerComment)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
                         .font(.caption)
+                        .foregroundColor(Theme.lxText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Theme.lxSurface2)
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Theme.lxHairline, lineWidth: 1)
+                        )
 
                     SwipeToConfirmButton(
                         label: "Slide to Submit Rating",
-                        accentColor: .yellow,
+                        accentColor: Theme.lxOrange,
                         isDisabled: passengerRating == 0,
                         onConfirm: submitPassengerRating
                     )
@@ -706,11 +731,11 @@ struct ActiveRideView: View {
         hasSubmittedRating = true
     }
 
-    private func earningsRow(label: String, amount: Double, color: Color = .primary) -> some View {
+    private func earningsRow(label: String, amount: Double, color: Color = Theme.lxText) -> some View {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
             Spacer()
             Text(amount >= 0 ? "$\(String(format: "%.2f", amount))" : "-$\(String(format: "%.2f", abs(amount)))")
                 .font(.subheadline)
@@ -871,7 +896,7 @@ struct ActiveRideView: View {
 }
 
 // MARK: - Corner Radius Extension
-// Note: cornerRadius(_:corners:) and RoundedCorner are defined in MyDeliveriesView.swift
+// Note: cornerRadius(_:corners:) and RoundedCorner are defined in ViewHelpers.swift
 
 // MARK: - Preview
 

@@ -4561,6 +4561,212 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Driver Onboarding Documents (verified /auth/driver/documents contract)
+
+    /// Upload a verification document for the authenticated driver.
+    ///
+    /// Posts multipart/form-data to `POST /api/auth/driver/documents` with the
+    /// `document_type` + `file` fields the backend expects (main_new.py:6646).
+    /// `documentType` must be one of: `drivers_license`, `insurance`,
+    /// `vehicle_registration`. Driver JWT auth is taken from SecureStorage.
+    /// On success the backend sets `drivers_license`/`insurance` = true on the driver.
+    ///
+    /// This is distinct from `uploadDriverDocument(driverId:documentType:imageData:...)`,
+    /// which targets the `/drivers/{id}/documents` alias known to be mis-routed.
+    public func uploadDriverDocument(
+        documentType: String,
+        imageData: Data,
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let token = driverToken else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/auth/driver/documents") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+
+        // document_type text field
+        guard let docTypeField = "--\(boundary)\r\nContent-Disposition: form-data; name=\"document_type\"\r\n\r\n\(documentType)\r\n".data(using: .utf8),
+              let fileHeader = "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(documentType).jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".data(using: .utf8),
+              let newline = "\r\n".data(using: .utf8),
+              let closeBoundary = "--\(boundary)--\r\n".data(using: .utf8) else {
+            completion(.failure(P2PAPIError.encodingFailed))
+            return
+        }
+        body.append(docTypeField)
+        body.append(fileHeader)
+        body.append(imageData)
+        body.append(newline)
+        body.append(closeBoundary)
+
+        request.httpBody = body
+
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                if statusCode >= 400 {
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let detail = json["detail"] as? String {
+                        completion(.failure(P2PAPIError.serverError(detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("HTTP \(statusCode)")))
+                    }
+                    return
+                }
+
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    completion(.success(json))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
+    /// Fetch the authenticated driver's document status.
+    ///
+    /// Calls `GET /api/auth/driver/documents`, returning the raw JSON which
+    /// contains `documents.drivers_license.uploaded`, `documents.insurance.uploaded`
+    /// and `documents.background_check.completed` booleans (main_new.py:6700).
+    public func getDriverDocumentsStatus(
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let token = driverToken else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/auth/driver/documents") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        secureSession.dataTask(with: request) { data, _, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+                completion(.success(json))
+            }
+        }.resume()
+    }
+
+    /// Fetch the authenticated driver's live profile/status.
+    ///
+    /// Calls `GET /api/auth/driver/me` (main_new.py:3527). The returned JSON
+    /// includes `status` (`pending`/`approved`/`active`/…). On success this also
+    /// persists `status` + derived approval flag to UserDefaults so the gate
+    /// (AuthManager / P2PAPIService.isDriverApproved) reflects the latest value.
+    public func getDriverMe(
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let token = driverToken else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/auth/driver/me") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Check HTTP status BEFORE trusting the body as success — an error body like
+                // {"detail": "Authentication required"} is still valid JSON and would otherwise
+                // be mistaken for a successful profile response (callers rely on this function
+                // to detect a truly-invalid token, e.g. for session restore on launch).
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    let detail = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+                        .flatMap { $0?["detail"] as? String }
+                        ?? "Unable to load driver profile (\(http.statusCode))"
+                    if http.statusCode == 401 || http.statusCode == 403 {
+                        completion(.failure(P2PAPIError.unauthorized(detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError(detail)))
+                    }
+                    return
+                }
+
+                guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Persist latest status so isDriverApproved / gate stays in sync.
+                if let statusValue = json["status"] as? String {
+                    let approved = ["approved", "active", "online"].contains(statusValue.lowercased())
+                    UserDefaults.standard.set(statusValue, forKey: UserDefaultsKey.driverStatus)
+                    UserDefaults.standard.set(approved, forKey: UserDefaultsKey.driverIsApproved)
+                }
+                // Repopulate id/name/email in case local UserDefaults was cleared (e.g. a
+                // delete+reinstall that wipes UserDefaults but leaves a Keychain-backed token
+                // behind) while the backend session is still valid — keeps the driver logged
+                // in instead of forcing them back to the login screen.
+                if let id = json["id"] as? Int {
+                    UserDefaults.standard.set(id, forKey: UserDefaultsKey.driverId)
+                }
+                if let code = json["driver_code"] as? String {
+                    UserDefaults.standard.set(code, forKey: UserDefaultsKey.driverCode)
+                }
+                if let name = json["name"] as? String {
+                    UserDefaults.standard.set(name, forKey: UserDefaultsKey.driverName)
+                }
+                if let email = json["email"] as? String {
+                    UserDefaults.standard.set(email, forKey: UserDefaultsKey.driverEmail)
+                }
+
+                completion(.success(json))
+            }
+        }.resume()
+    }
+
     // MARK: - Driver Delivery APIs
 
     /// Fetch available orders for delivery
@@ -4904,6 +5110,111 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Refresh customer token - call when receiving 401 Unauthorized.
+    /// Mirrors `refreshDriverToken`: POST /api/auth/customer/refresh.
+    /// The stored customer refresh token (SecureStorage.customerRefreshToken) is sent in
+    /// the body so backends that key off the refresh token can use it, while the current
+    /// access token is sent as the Bearer (matching the driver flow's proven pattern).
+    public func refreshCustomerToken(completion: @escaping (Result<String, Error>) -> Void) {
+        guard let token = customerToken else {
+            completion(.failure(P2PAPIError.serverError("No token to refresh")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/auth/customer/refresh") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let refresh = SecureStorage.shared.customerRefreshToken {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: ["refresh_token": refresh])
+        }
+
+        secureSession.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError("Invalid response")))
+                }
+                return
+            }
+
+            if httpResponse.statusCode == 200, let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let newToken = json["access_token"] as? String {
+                // Persist new access token (and rotated refresh token when provided)
+                if let newRefresh = json["refresh_token"] as? String {
+                    SecureStorage.shared.saveAuthTokens(accessToken: newToken, refreshToken: newRefresh, type: .customer)
+                } else {
+                    SecureStorage.shared.customerAccessToken = newToken
+                }
+                DispatchQueue.main.async {
+                    #if DEBUG
+                    logger.info("Customer token refreshed successfully")
+                    #endif
+                    completion(.success(newToken))
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                completion(.failure(P2PAPIError.serverError("Token refresh failed - please log in again")))
+            }
+        }.resume()
+    }
+
+    /// Execute an authenticated customer request, refreshing the customer token once on 401.
+    ///
+    /// `makeRequest` is a closure so the retried attempt rebuilds the URLRequest and picks
+    /// up the freshly-refreshed Bearer token. Completion is always delivered on the main queue.
+    private func performCustomerRequest(
+        _ makeRequest: @escaping () -> URLRequest?,
+        retryOnExpired: Bool = true,
+        completion: @escaping (Result<Data, Error>) -> Void
+    ) {
+        guard let request = makeRequest() else {
+            DispatchQueue.main.async { completion(.failure(P2PAPIError.invalidURL)) }
+            return
+        }
+
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 401, retryOnExpired {
+                self?.refreshCustomerToken { result in
+                    switch result {
+                    case .success:
+                        self?.performCustomerRequest(makeRequest, retryOnExpired: false, completion: completion)
+                    case .failure:
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: Notification.Name("CustomerTokenExpired"), object: nil)
+                            completion(.failure(P2PAPIError.serverError("Session expired - please log in again")))
+                        }
+                    }
+                }
+                return
+            }
+
+            guard let data = data else {
+                DispatchQueue.main.async { completion(.failure(P2PAPIError.noData)) }
+                return
+            }
+
+            DispatchQueue.main.async { completion(.success(data)) }
+        }.resume()
+    }
+
     /// Update driver location (with automatic token refresh on 401)
     public func updateDriverLocation(
         latitude: Double,
@@ -4991,9 +5302,21 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
-    /// Set driver online/offline status
+    /// Set driver online/offline status (with automatic token refresh on 401)
+    ///
+    /// Backend `PUT /api/auth/driver/online` returns 403 until the background check
+    /// passes. We MUST inspect the HTTP status rather than reporting success for any
+    /// non-transport response (the previous implementation faked success on 403).
     public func setDriverOnlineStatus(
         isOnline: Bool,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        setDriverOnlineStatusInternal(isOnline: isOnline, retryOnExpired: true, completion: completion)
+    }
+
+    private func setDriverOnlineStatusInternal(
+        isOnline: Bool,
+        retryOnExpired: Bool,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
         guard let token = driverToken else {
@@ -5011,10 +5334,54 @@ public class P2PAPIService: ObservableObject {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         secureSession.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
+            if let error = error {
+                DispatchQueue.main.async {
                     self?.error = error.localizedDescription
                     completion(.failure(error))
+                }
+                return
+            }
+
+            let httpResponse = response as? HTTPURLResponse
+            let statusCode = httpResponse?.statusCode ?? 0
+
+            // 401 → attempt a single token refresh then retry (blocker 5)
+            if statusCode == 401, retryOnExpired {
+                self?.refreshDriverToken { result in
+                    switch result {
+                    case .success:
+                        self?.setDriverOnlineStatusInternal(isOnline: isOnline, retryOnExpired: false, completion: completion)
+                    case .failure:
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: Notification.Name("DriverTokenExpired"), object: nil)
+                            completion(.failure(P2PAPIError.serverError("Session expired - please log in again")))
+                        }
+                    }
+                }
+                return
+            }
+
+            // Extract server `detail` message when present
+            func serverDetail() -> String? {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    return nil
+                }
+                return json["detail"] as? String
+            }
+
+            DispatchQueue.main.async {
+                // 403 → compliance gate (background check not approved). Surface the reason.
+                if statusCode == 403 {
+                    let detail = serverDetail() ?? "You must complete your background check before going online."
+                    completion(.failure(P2PAPIError.gateError(detail)))
+                    return
+                }
+
+                // Any other HTTP error → real failure (do NOT fake success)
+                if statusCode >= 400 {
+                    let message = serverDetail() ?? "HTTP \(statusCode)"
+                    completion(.failure(P2PAPIError.serverError(message)))
                     return
                 }
 
@@ -5646,19 +6013,6 @@ public class P2PAPIService: ObservableObject {
         accessibilityNotes: String? = nil,
         completion: @escaping (Result<RideRequestResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/rides/request") else {
-            completion(.failure(P2PAPIError.invalidURL))
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        if let token = customerToken {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-
         // Build flat structure matching production API schema
         var body: [String: Any] = [
             "customer_id": customerId,
@@ -5687,20 +6041,23 @@ public class P2PAPIService: ObservableObject {
             }
         }
 
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        secureSession.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    completion(.failure(error))
-                    return
-                }
-
-                guard let data = data else {
-                    completion(.failure(P2PAPIError.noData))
-                    return
-                }
-
+        // Routed through performCustomerRequest so a 401 triggers a token refresh + retry
+        // instead of dead-ending the customer into a re-login.
+        performCustomerRequest({ [weak self] in
+            guard let self = self, let url = URL(string: "\(self.baseURL)/rides/request") else { return nil }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            if let token = self.customerToken {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            return request
+        }) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let data):
                 do {
                     let response = try JSONDecoder().decode(RideRequestResponse.self, from: data)
                     completion(.success(response))
@@ -5716,7 +6073,7 @@ public class P2PAPIService: ObservableObject {
                     }
                 }
             }
-        }.resume()
+        }
     }
 
     /// Track customer's active ride
@@ -5799,7 +6156,14 @@ public class P2PAPIService: ObservableObject {
                 }
 
                 guard let data = data else {
-                    completion(.success([]))
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Surface server errors instead of showing an empty list (which would hide
+                // a 5xx/401 and silently drop available rides).
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    completion(.failure(P2PAPIError.serverError("Unable to load available rides (\(http.statusCode))")))
                     return
                 }
 
@@ -5813,7 +6177,7 @@ public class P2PAPIService: ObservableObject {
                         logger.info("Raw response: \(jsonString.prefix(500))")
                     }
                     #endif
-                    completion(.success([]))
+                    completion(.failure(error))
                 }
             }
         }.resume()
@@ -5825,6 +6189,24 @@ public class P2PAPIService: ObservableObject {
         proposedPrice: Double,
         message: String? = nil,
         estimatedArrivalMinutes: Int? = nil,
+        completion: @escaping (Result<RideBidResponse, Error>) -> Void
+    ) {
+        submitRideBidInternal(
+            requestId: requestId,
+            proposedPrice: proposedPrice,
+            message: message,
+            estimatedArrivalMinutes: estimatedArrivalMinutes,
+            retryOnExpired: true,
+            completion: completion
+        )
+    }
+
+    private func submitRideBidInternal(
+        requestId: Int,
+        proposedPrice: Double,
+        message: String?,
+        estimatedArrivalMinutes: Int?,
+        retryOnExpired: Bool,
         completion: @escaping (Result<RideBidResponse, Error>) -> Void
     ) {
         guard let driverId = currentDriverId else {
@@ -5858,13 +6240,36 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        secureSession.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    completion(.failure(error))
-                    return
-                }
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
 
+            // 401 → refresh driver token once and retry (blocker 5)
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 401, retryOnExpired {
+                self?.refreshDriverToken { result in
+                    switch result {
+                    case .success:
+                        self?.submitRideBidInternal(
+                            requestId: requestId,
+                            proposedPrice: proposedPrice,
+                            message: message,
+                            estimatedArrivalMinutes: estimatedArrivalMinutes,
+                            retryOnExpired: false,
+                            completion: completion
+                        )
+                    case .failure:
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: Notification.Name("DriverTokenExpired"), object: nil)
+                            completion(.failure(P2PAPIError.serverError("Session expired - please log in again")))
+                        }
+                    }
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
                 guard let data = data else {
                     completion(.failure(P2PAPIError.noData))
                     return
@@ -5919,7 +6324,14 @@ public class P2PAPIService: ObservableObject {
                 }
 
                 guard let data = data else {
-                    completion(.success([]))
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Surface server errors instead of an empty list — a swallowed 5xx/401 here would
+                // silently drop the driver's active ride, accepted-ride nav, and counter-offers.
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    completion(.failure(P2PAPIError.serverError("Unable to load your bids (\(http.statusCode))")))
                     return
                 }
 
@@ -5930,7 +6342,7 @@ public class P2PAPIService: ObservableObject {
                     #if DEBUG
                     logger.error("fetchDriverBids decode error: \(error)")
                     #endif
-                    completion(.success([]))
+                    completion(.failure(error))
                 }
             }
         }.resume()
@@ -6264,6 +6676,17 @@ public class P2PAPIService: ObservableObject {
 
                 guard let data = data else {
                     completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Surface the real reason (e.g. "offer expired" / "already matched") instead of
+                // a generic decode error when the server returns a 4xx/5xx { "detail": ... }.
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    if let err = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(err.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Unable to accept the counter-offer (\(http.statusCode))")))
+                    }
                     return
                 }
 
@@ -6635,13 +7058,68 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
-    /// Get background check status (TNC-07)
-    /// Calls GET /api/tnc/background-check/{driver_id}/status
+    /// Initiate an in-app Checkr background check for the signed-in driver.
+    /// Calls POST /api/checkr/background-check/initiate
+    /// Returns the Checkr-hosted `invitation_url` the driver opens to complete the check.
+    public func initiateBackgroundCheck(
+        completion: @escaping (Result<CheckrInvitation, Error>) -> Void
+    ) {
+        guard let token = driverToken else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/checkr/background-check/initiate") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [:])
+
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                if statusCode >= 400 {
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let detail = json["detail"] as? String {
+                        completion(.failure(P2PAPIError.serverError(detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("HTTP \(statusCode)")))
+                    }
+                    return
+                }
+
+                do {
+                    let invitation = try JSONDecoder().decode(CheckrInvitation.self, from: data)
+                    completion(.success(invitation))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get background check status (TNC-07 / Checkr)
+    /// Calls GET /api/checkr/background-check/{driver_id}/status
     public func getBackgroundCheckStatus(
         driverId: Int,
         completion: @escaping ([String: Any]?) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/tnc/background-check/\(driverId)/status") else {
+        guard let url = URL(string: "\(baseURL)/checkr/background-check/\(driverId)/status") else {
             completion(nil)
             return
         }
@@ -7050,6 +7528,33 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Lightweight session validity check for the customer.
+    /// Returns `false` ONLY when the server rejects the token (HTTP 401/403), so a stale/expired
+    /// session can be dropped to the login screen. On network errors or other statuses it returns
+    /// `true` so a transient blip never signs the user out.
+    public func validateCustomerSession(completion: @escaping (Bool) -> Void) {
+        guard let token = customerToken else {
+            DispatchQueue.main.async { completion(false) }
+            return
+        }
+        guard let url = URL(string: "\(baseURL)/customer/rides/history?limit=1&offset=0") else {
+            DispatchQueue.main.async { completion(true) }
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        secureSession.dataTask(with: request) { _, response, _ in
+            DispatchQueue.main.async {
+                if let http = response as? HTTPURLResponse, http.statusCode == 401 || http.statusCode == 403 {
+                    completion(false) // token rejected by server
+                } else {
+                    completion(true)  // valid, or a transient error we won't sign out over
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Update Bid (Driver)
 
     /// Update an existing pending bid (driver only)
@@ -7309,6 +7814,121 @@ public class P2PAPIService: ObservableObject {
                         paymentStatus: "processed"
                     )
                     completion(.success(confirmation))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Founding Membership APIs
+
+    /// Fetch founding-member eligibility/status for the signed-in user.
+    /// Customer: GET /api/founding/status · Driver: GET /api/founding/driver/status
+    public func getFoundingStatus(
+        isDriver: Bool,
+        completion: @escaping (Result<FoundingStatus, Error>) -> Void
+    ) {
+        let path = isDriver ? "/founding/driver/status" : "/founding/status"
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = isDriver ? driverToken : customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                if statusCode >= 400 {
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let detail = json["detail"] as? String {
+                        completion(.failure(P2PAPIError.serverError(detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("HTTP \(statusCode)")))
+                    }
+                    return
+                }
+
+                do {
+                    let status = try JSONDecoder().decode(FoundingStatus.self, from: data)
+                    completion(.success(status))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Join the founding-member program ($100 lifetime fee lock).
+    /// Customer: POST /api/founding/join · Driver: POST /api/founding/driver/join
+    /// `paymentMethodId` is the Stripe PaymentMethod id collected via the app's existing
+    /// Stripe mechanism. Demo accounts bypass the charge server-side (id may be nil).
+    public func joinFounding(
+        isDriver: Bool,
+        paymentMethodId: String?,
+        completion: @escaping (Result<FoundingJoinResult, Error>) -> Void
+    ) {
+        let path = isDriver ? "/founding/driver/join" : "/founding/join"
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = isDriver ? driverToken : customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [:]
+        if let paymentMethodId = paymentMethodId {
+            body["payment_method_id"] = paymentMethodId
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                if statusCode >= 400 {
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let detail = json["detail"] as? String {
+                        completion(.failure(P2PAPIError.serverError(detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("HTTP \(statusCode)")))
+                    }
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(FoundingJoinResult.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
                 }
             }
         }.resume()
@@ -8003,16 +8623,26 @@ public class P2PAPIService: ObservableObject {
 
         secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
-                completion(.failure(error))
+                DispatchQueue.main.async { completion(.failure(error)) }
                 return
             }
 
             guard let data = data else {
-                completion(.failure(P2PAPIError.noData))
+                DispatchQueue.main.async { completion(.failure(P2PAPIError.noData)) }
                 return
             }
 
             DispatchQueue.main.async {
+                // Surface the real backend error instead of a silent/generic failure.
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        let bodyText = String(data: data, encoding: .utf8) ?? "Fare offer failed"
+                        completion(.failure(P2PAPIError.serverError("(\(httpResponse.statusCode)) \(bodyText)")))
+                    }
+                    return
+                }
                 do {
                     let response = try JSONDecoder().decode(FareNegotiationResponse.self, from: data)
                     completion(.success(response))
@@ -8614,6 +9244,10 @@ public enum P2PAPIError: Error, LocalizedError {
     case registrationRequired(String, String) // (message, registrationURL)
     case priceChanged(String, [[String: Any]])  // (message, price_changes array)
     case vendorOffline(String)                   // (detail message)
+    case gateError(String)                       // (detail) — compliance/eligibility gate (e.g. 403 background check not approved)
+    case unauthorized(String)                    // (detail) — server rejected the token (401/403); distinct from serverError so
+                                                  // callers (e.g. session-restore-on-launch) can tell "token is truly invalid"
+                                                  // apart from any other failure without string-matching the message.
 
     public var errorDescription: String? {
         switch self {
@@ -8634,6 +9268,10 @@ public enum P2PAPIError: Error, LocalizedError {
         case .priceChanged(let message, _):
             return message
         case .vendorOffline(let message):
+            return message
+        case .gateError(let message):
+            return message
+        case .unauthorized(let message):
             return message
         }
     }
@@ -10825,6 +11463,91 @@ public struct AcceptedRideLocation: Codable {
     public let address: String?
     public let latitude: Double?
     public let longitude: Double?
+}
+
+// MARK: - Checkr / Founding Membership Models
+
+/// Checkr-hosted background-check invitation returned by POST /api/checkr/background-check/initiate
+public struct CheckrInvitation: Decodable {
+    public let invitationUrl: String?
+    public let status: String?
+    public let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case invitationUrl = "invitation_url"
+        case status
+        case message
+    }
+}
+
+/// Founding-member eligibility/status. Decoded leniently to tolerate backend field variations.
+public struct FoundingStatus: Decodable {
+    public let eligible: Bool
+    public let isMember: Bool
+    public let slotsRemaining: Int?
+    public let slotsTotal: Int?
+    public let state: String?
+    public let feeAmount: Double
+    public let benefitDescription: String?
+    public let demo: Bool
+    public let publishableKey: String?
+
+    enum CodingKeys: String, CodingKey {
+        case eligible
+        case isMember = "is_member"
+        case isFoundingMember = "is_founding_member"
+        case slotsRemaining = "slots_remaining"
+        case slotsTotal = "slots_total"
+        case state
+        case feeAmount = "fee_amount"
+        case fee
+        case benefit
+        case benefitDescription = "benefit_description"
+        case demo
+        case publishableKey = "publishable_key"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        eligible = (try? c.decodeIfPresent(Bool.self, forKey: .eligible)).flatMap { $0 } ?? true
+        let member1 = (try? c.decodeIfPresent(Bool.self, forKey: .isMember)).flatMap { $0 }
+        let member2 = (try? c.decodeIfPresent(Bool.self, forKey: .isFoundingMember)).flatMap { $0 }
+        isMember = member1 ?? member2 ?? false
+        slotsRemaining = (try? c.decodeIfPresent(Int.self, forKey: .slotsRemaining)).flatMap { $0 }
+        slotsTotal = (try? c.decodeIfPresent(Int.self, forKey: .slotsTotal)).flatMap { $0 }
+        state = (try? c.decodeIfPresent(String.self, forKey: .state)).flatMap { $0 }
+        let fee1 = (try? c.decodeIfPresent(Double.self, forKey: .feeAmount)).flatMap { $0 }
+        let fee2 = (try? c.decodeIfPresent(Double.self, forKey: .fee)).flatMap { $0 }
+        feeAmount = fee1 ?? fee2 ?? 100.0
+        let b1 = (try? c.decodeIfPresent(String.self, forKey: .benefit)).flatMap { $0 }
+        let b2 = (try? c.decodeIfPresent(String.self, forKey: .benefitDescription)).flatMap { $0 }
+        benefitDescription = b1 ?? b2
+        demo = (try? c.decodeIfPresent(Bool.self, forKey: .demo)).flatMap { $0 } ?? false
+        publishableKey = (try? c.decodeIfPresent(String.self, forKey: .publishableKey)).flatMap { $0 }
+    }
+}
+
+/// Result of POST /api/founding/join (or /api/founding/driver/join)
+public struct FoundingJoinResult: Decodable {
+    public let success: Bool
+    public let message: String?
+    public let isMember: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case message
+        case isMember = "is_member"
+        case isFoundingMember = "is_founding_member"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        success = (try? c.decodeIfPresent(Bool.self, forKey: .success)).flatMap { $0 } ?? true
+        message = (try? c.decodeIfPresent(String.self, forKey: .message)).flatMap { $0 }
+        let member1 = (try? c.decodeIfPresent(Bool.self, forKey: .isMember)).flatMap { $0 }
+        let member2 = (try? c.decodeIfPresent(Bool.self, forKey: .isFoundingMember)).flatMap { $0 }
+        isMember = member1 ?? member2 ?? true
+    }
 }
 
 /// Ride bid model

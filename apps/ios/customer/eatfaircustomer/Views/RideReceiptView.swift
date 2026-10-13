@@ -44,9 +44,19 @@ struct RideReceipt: Codable {
     var pickupAddress: String { route.pickupAddress }
     var dropoffAddress: String { route.dropoffAddress }
     var baseFare: Double { fareBreakdown.baseFare }
-    var platformFee: Double { fareBreakdown.platformFee }
+    /// Full ride fare (base + distance + time). Prefer `ride_fare`; fall back to base_fare.
+    var rideFareAmount: Double { fareBreakdown.rideFare ?? fareBreakdown.baseFare }
+    /// Customer's platform fee ($1/$2/$3 by tier).
+    var platformFee: Double { fareBreakdown.customerPlatformFee ?? fareBreakdown.platformFee ?? 0 }
     var tipAmount: Double { fareBreakdown.tip }
     var totalCharged: Double { fareBreakdown.total }
+    /// Regulatory (CPUC) + anything the total includes beyond fare + platform fee + tip.
+    /// Only computed when the full ride_fare is available, so the lines always sum to the total.
+    var regulatoryFee: Double {
+        guard fareBreakdown.rideFare != nil else { return 0 }
+        let remainder = totalCharged - rideFareAmount - platformFee - tipAmount
+        return remainder > 0.005 ? remainder : 0
+    }
     var driverName: String? { driver?.name }
     var driverPhoto: String? { driver?.photoUrl }
     var driverRating: Double? { driver?.rating }
@@ -74,13 +84,17 @@ struct ReceiptRoute: Codable {
 
 struct ReceiptFareBreakdown: Codable {
     let baseFare: Double
-    let platformFee: Double
+    let rideFare: Double?            // full fare (base + distance + time); preferred
+    let platformFee: Double?         // customer's platform fee (some endpoints)
+    let customerPlatformFee: Double? // customer's platform fee (detailed breakdown)
     let tip: Double
     let total: Double
 
     enum CodingKeys: String, CodingKey {
         case baseFare = "base_fare"
+        case rideFare = "ride_fare"
         case platformFee = "platform_fee"
+        case customerPlatformFee = "customer_platform_fee"
         case tip
         case total
     }
@@ -144,6 +158,8 @@ struct RideReceiptView: View {
             Group {
                 if isLoading {
                     ProgressView("Loading receipt...")
+                        .tint(Theme.lxOrange)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let error = errorMessage {
                     errorView(message: error)
@@ -151,6 +167,8 @@ struct RideReceiptView: View {
                     receiptContent(receipt)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Ride Receipt")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -159,6 +177,7 @@ struct RideReceiptView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
         .onAppear { fetchReceipt() }
         .sheet(isPresented: $showDisputeSheet) {
             DisputeRideView(rideRequestId: rideId)
@@ -176,15 +195,16 @@ struct RideReceiptView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .resizable()
                         .frame(width: 48, height: 48)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
 
                     Text("Ride Complete")
                         .font(.title2)
                         .fontWeight(.bold)
+                        .foregroundColor(Theme.lxText)
 
                     Text("Ride #\(receipt.rideId)")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 .padding(.top)
 
@@ -219,15 +239,15 @@ struct RideReceiptView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(spacing: 4) {
                     Circle()
-                        .fill(Color.green)
+                        .fill(Theme.lxSuccess)
                         .frame(width: 12, height: 12)
 
                     Rectangle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(Theme.lxHairline)
                         .frame(width: 2, height: 30)
 
                     Circle()
-                        .fill(Color.red)
+                        .fill(Theme.lxError)
                         .frame(width: 12, height: 12)
                 }
 
@@ -235,19 +255,21 @@ struct RideReceiptView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Pickup")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextMuted)
                         Text(receipt.pickupAddress)
                             .font(.subheadline)
                             .fontWeight(.medium)
+                            .foregroundColor(Theme.lxText)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Dropoff")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextMuted)
                         Text(receipt.dropoffAddress)
                             .font(.subheadline)
                             .fontWeight(.medium)
+                            .foregroundColor(Theme.lxText)
                     }
                 }
 
@@ -256,21 +278,25 @@ struct RideReceiptView: View {
             .padding()
 
             if let distance = receipt.distanceMiles, let duration = receipt.durationMinutes {
-                Divider()
+                Divider().overlay(Theme.lxHairline)
                 HStack {
                     Label(String(format: "%.1f mi", distance), systemImage: "map")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Spacer()
                     Label(String(format: "%.0f min", duration), systemImage: "clock")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 .padding()
             }
         }
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Timestamps Card
@@ -281,40 +307,47 @@ struct RideReceiptView: View {
             HStack {
                 Text("Trip Timeline")
                     .font(.headline)
+                    .foregroundColor(Theme.lxText)
                 Spacer()
             }
 
             if let requested = receipt.requestedAt {
                 HStack {
                     Image(systemName: "clock")
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                         .frame(width: 24)
                     Text("Requested")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Spacer()
                     Text(formatTimestamp(requested))
                         .font(.subheadline)
                         .fontWeight(.medium)
+                        .foregroundColor(Theme.lxText)
                 }
             }
 
             if let completed = receipt.completedAt {
                 HStack {
                     Image(systemName: "checkmark.circle")
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                         .frame(width: 24)
                     Text("Completed")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Spacer()
                     Text(formatTimestamp(completed))
                         .font(.subheadline)
                         .fontWeight(.medium)
+                        .foregroundColor(Theme.lxText)
                 }
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Driver Info Card
@@ -325,6 +358,7 @@ struct RideReceiptView: View {
             HStack {
                 Text("Driver")
                     .font(.headline)
+                    .foregroundColor(Theme.lxText)
                 Spacer()
             }
 
@@ -337,7 +371,7 @@ struct RideReceiptView: View {
                     } placeholder: {
                         Image(systemName: "person.circle.fill")
                             .resizable()
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextMuted)
                     }
                     .frame(width: 56, height: 56)
                     .clipShape(Circle())
@@ -345,21 +379,22 @@ struct RideReceiptView: View {
                     Image(systemName: "person.circle.fill")
                         .resizable()
                         .frame(width: 56, height: 56)
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextMuted)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(receipt.driverName ?? "Driver")
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
 
                     if let rating = receipt.driverRating, rating > 0 {
                         HStack(spacing: 4) {
                             Image(systemName: "star.fill")
                                 .font(.caption)
-                                .foregroundColor(.yellow)
+                                .foregroundColor(Theme.lxOrange)
                             Text(String(format: "%.1f", rating))
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                     }
                 }
@@ -371,23 +406,28 @@ struct RideReceiptView: View {
                     if let vehicle = receipt.vehicleInfo, !vehicle.isEmpty {
                         Text(vehicle)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                     if let plate = receipt.licensePlate {
                         Text(plate)
                             .font(.caption)
                             .fontWeight(.bold)
+                            .foregroundColor(Theme.lxText)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color(.systemGray5))
+                            .background(Theme.lxSurface2)
                             .cornerRadius(4)
                     }
                 }
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Fare Breakdown Card
@@ -398,41 +438,64 @@ struct RideReceiptView: View {
             HStack {
                 Text("Fare Breakdown")
                     .font(.headline)
+                    .foregroundColor(Theme.lxText)
                 Spacer()
             }
 
             VStack(spacing: 8) {
-                fareRow(label: "Base Fare", amount: receipt.baseFare)
+                fareRow(label: "Ride Fare", amount: receipt.rideFareAmount)
 
-                fareRow(label: "Platform Fee", amount: receipt.platformFee)
-
-                if receipt.tipAmount > 0 {
-                    fareRow(label: "Tip", amount: receipt.tipAmount, color: .green)
+                // Connection fee — charged to BOTH rider and driver ($1 each)
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Connection Fee")
+                            .foregroundColor(Theme.lxTextSecondary)
+                        Text("Driver pays a matching $\(String(format: "%.2f", receipt.platformFee))")
+                            .font(.caption2)
+                            .foregroundColor(Theme.lxTextMuted)
+                    }
+                    Spacer()
+                    Text("$\(String(format: "%.2f", receipt.platformFee))")
+                        .fontWeight(.medium)
+                        .foregroundColor(Theme.lxText)
                 }
 
-                Divider()
+                if receipt.regulatoryFee > 0 {
+                    fareRow(label: "Regulatory Fee (CPUC)", amount: receipt.regulatoryFee)
+                }
+
+                if receipt.tipAmount > 0 {
+                    fareRow(label: "Tip", amount: receipt.tipAmount, color: Theme.lxSuccess)
+                }
+
+                Divider().overlay(Theme.lxHairline)
 
                 HStack {
                     Text("Total")
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
                     Spacer()
                     Text("$\(String(format: "%.2f", receipt.totalCharged))")
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxOrange)
                 }
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     @ViewBuilder
-    private func fareRow(label: String, amount: Double, color: Color = .primary) -> some View {
+    private func fareRow(label: String, amount: Double, color: Color = Theme.lxText) -> some View {
         HStack {
             Text(label)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.lxTextSecondary)
             Spacer()
             Text("$\(String(format: "%.2f", amount))")
                 .fontWeight(.medium)
@@ -462,8 +525,17 @@ struct RideReceiptView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(emailSent ? Color.gray : Color.green)
-                .cornerRadius(12)
+                .background(
+                    Group {
+                        if emailSent {
+                            Theme.lxSurface2
+                        } else {
+                            Theme.lxButtonGradient
+                        }
+                    }
+                )
+                .cornerRadius(14)
+                .shadow(color: emailSent ? .clear : Theme.lxOrange.opacity(0.4), radius: 14, y: 6)
             }
             .disabled(isSendingEmail || emailSent)
 
@@ -476,10 +548,10 @@ struct RideReceiptView: View {
                     Text("Report Issue")
                 }
                 .font(.subheadline)
-                .foregroundColor(.red)
+                .foregroundColor(Theme.lxError)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.red.opacity(0.1))
+                .background(Theme.lxError.opacity(0.12))
                 .cornerRadius(12)
             }
 
@@ -493,10 +565,10 @@ struct RideReceiptView: View {
                         Text("Report Safety Concern")
                     }
                     .font(.subheadline)
-                    .foregroundColor(.red)
+                    .foregroundColor(Theme.lxError)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.red.opacity(0.05))
+                    .background(Theme.lxError.opacity(0.08))
                     .cornerRadius(12)
                 }
                 .sheet(isPresented: $showSafetyReport) {
@@ -505,7 +577,7 @@ struct RideReceiptView: View {
 
                 Text("Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers. Report a suspected violation with the button above, by phone +1-800-365-5671, or email support@dollor.ai. You may also contact the CPUC: 1-800-894-9444 | CIU_intake@cpuc.ca.gov")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.lxTextMuted)
                     .padding(.horizontal)
             }
         }
@@ -519,19 +591,20 @@ struct RideReceiptView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .resizable()
                 .frame(width: 48, height: 48)
-                .foregroundColor(.orange)
+                .foregroundColor(Theme.lxOrange)
 
             Text("Unable to Load Receipt")
                 .font(.headline)
+                .foregroundColor(Theme.lxText)
 
             Text(message)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
 
             Button("Retry") { fetchReceipt() }
                 .buttonStyle(.borderedProminent)
-                .tint(.green)
+                .tint(Theme.lxOrange)
         }
         .padding()
     }

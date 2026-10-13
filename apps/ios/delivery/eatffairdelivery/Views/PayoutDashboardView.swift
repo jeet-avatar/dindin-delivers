@@ -168,12 +168,12 @@ struct PayoutDashboardView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.largeTitle)
-                            .foregroundColor(.orange)
+                            .foregroundColor(Theme.lxOrange)
                         Text(error)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                         Button("Retry") { fetchPayoutHistory() }
                             .buttonStyle(.borderedProminent)
-                            .tint(.green)
+                            .tint(Theme.lxOrange)
                     }
                     Spacer()
                 } else if let response = response {
@@ -187,19 +187,24 @@ struct PayoutDashboardView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Payout History")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Done") { dismiss() }
+                        .foregroundColor(Theme.lxOrange)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: openStripeDashboard) {
                         Image(systemName: "building.columns")
+                            .foregroundColor(Theme.lxOrange)
                     }
                 }
             }
         }
+        .preferredColorScheme(.dark)
         .onAppear { fetchPayoutHistory() }
     }
 
@@ -212,22 +217,22 @@ struct PayoutDashboardView: View {
             VStack(spacing: 4) {
                 Text("Net Earnings")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.lxTextSecondary)
                 Text("$\(String(format: "%.2f", summary.totalNet))")
                     .font(.system(size: 36, weight: .bold))
-                    .foregroundColor(.green)
+                    .foregroundColor(Theme.lxText)
             }
 
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             // Breakdown
             HStack(spacing: 20) {
-                summaryItem(label: "Gross", value: summary.totalGross, color: .primary)
-                summaryItem(label: "Fees", value: -summary.totalFees, color: .red)
-                summaryItem(label: "Tips", value: summary.totalTips, color: .green)
+                summaryItem(label: "Gross", value: summary.totalGross, color: Theme.lxText)
+                summaryItem(label: "Fees", value: -summary.totalFees, color: Theme.lxError)
+                summaryItem(label: "Tips", value: summary.totalTips, color: Theme.lxSuccess)
             }
 
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             // Stats
             HStack {
@@ -235,24 +240,27 @@ struct PayoutDashboardView: View {
                     Text("\(summary.rideCount)")
                         .font(.title3)
                         .fontWeight(.bold)
+                        .foregroundColor(Theme.lxText)
                     Text("Rides")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 Spacer()
                 VStack(spacing: 2) {
                     Text("$\(String(format: "%.2f", summary.avgPerRide))")
                         .font(.title3)
                         .fontWeight(.bold)
+                        .foregroundColor(Theme.lxText)
                     Text("Avg/Ride")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
     }
 
     @ViewBuilder
@@ -264,7 +272,7 @@ struct PayoutDashboardView: View {
                 .foregroundColor(color)
             Text(label)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.lxTextSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -277,9 +285,9 @@ struct PayoutDashboardView: View {
             VStack(spacing: 8) {
                 Image(systemName: "car.slash")
                     .font(.largeTitle)
-                    .foregroundColor(.gray)
+                    .foregroundColor(Theme.lxTextMuted)
                 Text("No rides this period")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
             .padding(.vertical, 40)
         } else {
@@ -287,23 +295,25 @@ struct PayoutDashboardView: View {
                 HStack {
                     Text("Rides")
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
                     Spacer()
                     Text("\(rides.count) rides")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 .padding(.bottom, 8)
 
                 ForEach(rides) { ride in
                     rideRow(ride)
                     if ride.id != rides.last?.id {
-                        Divider()
+                        Divider().overlay(Theme.lxHairline)
                     }
                 }
             }
             .padding()
-            .background(Color(.systemGray6))
+            .background(Theme.lxSurface)
             .cornerRadius(12)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
         }
     }
 
@@ -318,11 +328,11 @@ struct PayoutDashboardView: View {
                         Text("Ride #\(ride.id)")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(.primary)
+                            .foregroundColor(Theme.lxText)
                         if let date = ride.date {
                             Text(formatDate(date))
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                     }
 
@@ -334,11 +344,11 @@ struct PayoutDashboardView: View {
                     Text("$\(String(format: "%.2f", ride.netPayout))")
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
 
                     Image(systemName: expandedRideId == ride.id ? "chevron.up" : "chevron.down")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextMuted)
                 }
             }
             .padding(.vertical, 10)
@@ -348,34 +358,34 @@ struct PayoutDashboardView: View {
                 VStack(spacing: 6) {
                     if let pickup = ride.pickupAddress {
                         HStack(spacing: 6) {
-                            Circle().fill(Color.green).frame(width: 6, height: 6)
-                            Text(pickup).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                            Circle().fill(Theme.lxSuccess).frame(width: 6, height: 6)
+                            Text(pickup).font(.caption).foregroundColor(Theme.lxTextSecondary).lineLimit(1)
                             Spacer()
                         }
                     }
                     if let dropoff = ride.dropoffAddress {
                         HStack(spacing: 6) {
-                            Circle().fill(Color.red).frame(width: 6, height: 6)
-                            Text(dropoff).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                            Circle().fill(Theme.lxError).frame(width: 6, height: 6)
+                            Text(dropoff).font(.caption).foregroundColor(Theme.lxTextSecondary).lineLimit(1)
                             Spacer()
                         }
                     }
-                    Divider()
+                    Divider().overlay(Theme.lxHairline)
                     HStack {
-                        Text("Fare").font(.caption).foregroundColor(.secondary)
+                        Text("Fare").font(.caption).foregroundColor(Theme.lxTextSecondary)
                         Spacer()
-                        Text("$\(String(format: "%.2f", ride.fare))").font(.caption)
+                        Text("$\(String(format: "%.2f", ride.fare))").font(.caption).foregroundColor(Theme.lxText)
                     }
                     HStack {
-                        Text("Platform Fee").font(.caption).foregroundColor(.secondary)
+                        Text("Platform Fee").font(.caption).foregroundColor(Theme.lxTextSecondary)
                         Spacer()
-                        Text("-$\(String(format: "%.2f", ride.platformFee))").font(.caption).foregroundColor(.red)
+                        Text("-$\(String(format: "%.2f", ride.platformFee))").font(.caption).foregroundColor(Theme.lxError)
                     }
                     if ride.tip > 0 {
                         HStack {
-                            Text("Tip").font(.caption).foregroundColor(.secondary)
+                            Text("Tip").font(.caption).foregroundColor(Theme.lxTextSecondary)
                             Spacer()
-                            Text("+$\(String(format: "%.2f", ride.tip))").font(.caption).foregroundColor(.green)
+                            Text("+$\(String(format: "%.2f", ride.tip))").font(.caption).foregroundColor(Theme.lxSuccess)
                         }
                     }
                 }
@@ -389,10 +399,10 @@ struct PayoutDashboardView: View {
     private func statusBadge(_ status: String?) -> some View {
         let (label, color): (String, Color) = {
             switch status?.lowercased() {
-            case "paid", "succeeded": return ("Paid", .green)
-            case "pending": return ("Pending", .orange)
-            case "failed": return ("Failed", .red)
-            default: return ("--", .gray)
+            case "paid", "succeeded": return ("Paid", Theme.lxSuccess)
+            case "pending": return ("Pending", Theme.lxOrange)
+            case "failed": return ("Failed", Theme.lxError)
+            default: return ("--", Theme.lxTextMuted)
             }
         }()
 
@@ -447,6 +457,7 @@ struct PayoutDashboardView: View {
             Text("Prop 22 Compliance")
                 .font(.headline)
                 .fontWeight(.semibold)
+                .foregroundColor(Theme.lxText)
                 .padding(.top, 8)
 
             if prop22Loading {
@@ -458,11 +469,11 @@ struct PayoutDashboardView: View {
                 .padding()
             } else if let error = prop22Error {
                 Text(error)
-                    .foregroundColor(.red)
+                    .foregroundColor(Theme.lxError)
                     .font(.caption)
             } else if prop22Periods.isEmpty {
                 Text("No Prop 22 periods yet. Periods are calculated every 14 days.")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.lxTextSecondary)
                     .font(.caption)
             } else {
                 ForEach(prop22Periods) { period in
@@ -483,26 +494,29 @@ struct PayoutDashboardView: View {
                 Text(formatProp22PeriodDate(period.periodStart, period.periodEnd))
                     .font(.subheadline)
                     .fontWeight(.medium)
+                    .foregroundColor(Theme.lxText)
                 Spacer()
                 prop22StatusBadge(period.status)
             }
 
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Engaged Hours")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text(String(format: "%.1f hrs", period.engagedHours))
                         .font(.subheadline)
+                        .foregroundColor(Theme.lxText)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Engaged Miles")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text(String(format: "%.1f mi", period.engagedMiles))
                         .font(.subheadline)
+                        .foregroundColor(Theme.lxText)
                 }
             }
 
@@ -510,25 +524,27 @@ struct PayoutDashboardView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Your Earnings")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text(String(format: "$%.2f", period.netEarnings))
                         .font(.subheadline)
+                        .foregroundColor(Theme.lxText)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Earnings Floor")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text(String(format: "$%.2f", period.prop22Floor))
                         .font(.subheadline)
+                        .foregroundColor(Theme.lxText)
                 }
                 if period.topUpAmount > 0 {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Top-Up")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                         Text(String(format: "$%.2f", period.topUpAmount))
                             .font(.subheadline)
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                     }
                 }
             }
@@ -538,12 +554,13 @@ struct PayoutDashboardView: View {
                let deadline = period.deadlineAt {
                 Text("Payment due by: \(formatDeadlineDate(deadline))")
                     .font(.caption)
-                    .foregroundColor(period.status == "OVERDUE" ? .red : .orange)
+                    .foregroundColor(period.status == "OVERDUE" ? Theme.lxError : Theme.lxOrange)
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
         .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
     }
 
@@ -551,12 +568,12 @@ struct PayoutDashboardView: View {
     private func prop22StatusBadge(_ status: String) -> some View {
         let (label, color): (String, Color) = {
             switch status {
-            case "PENDING":       return ("Calculating", .orange)
-            case "RECONCILED":    return ("No Top-Up", .green)
-            case "PAID":          return ("Paid", .green)
-            case "MANUAL_REVIEW": return ("Review", .orange)
-            case "OVERDUE":       return ("Overdue", .red)
-            default:              return (status, .gray)
+            case "PENDING":       return ("Calculating", Theme.lxOrange)
+            case "RECONCILED":    return ("No Top-Up", Theme.lxSuccess)
+            case "PAID":          return ("Paid", Theme.lxSuccess)
+            case "MANUAL_REVIEW": return ("Review", Theme.lxOrange)
+            case "OVERDUE":       return ("Overdue", Theme.lxError)
+            default:              return (status, Theme.lxTextMuted)
             }
         }()
 
@@ -724,21 +741,24 @@ struct Prop22PeriodDetailView: View {
                         VStack(alignment: .leading) {
                             Text("QTD Engaged Hours")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Text(String(format: "%.1f hours", qtdHours))
                                 .font(.title3)
                                 .fontWeight(.semibold)
+                                .foregroundColor(Theme.lxText)
                         }
                         Spacer()
                     }
                     .padding()
-                    .background(Color(.secondarySystemBackground))
+                    .background(Theme.lxSurface2)
                     .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.lxHairline, lineWidth: 1))
                     .padding(.horizontal)
                 }
 
                 Text("Rides / Deliveries")
                     .font(.headline)
+                    .foregroundColor(Theme.lxText)
                     .padding(.horizontal)
 
                 if loading {
@@ -750,7 +770,7 @@ struct Prop22PeriodDetailView: View {
                     .padding()
                 } else if rides.isEmpty {
                     Text("No rides found for this period.")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .font(.caption)
                         .padding(.horizontal)
                 } else {
@@ -760,12 +780,13 @@ struct Prop22PeriodDetailView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(formatCompletedAt(ride.completedAt))
                                         .font(.subheadline)
+                                        .foregroundColor(Theme.lxText)
                                     if let hours = ride.prop22EngagedHours {
                                         Text(String(format: "%.2f hrs · %.1f mi",
                                                     hours,
                                                     ride.prop22EngagedMiles ?? 0))
                                             .font(.caption)
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(Theme.lxTextSecondary)
                                     }
                                 }
                                 Spacer()
@@ -774,23 +795,27 @@ struct Prop22PeriodDetailView: View {
                                     Text(String(format: "$%.2f", floor))
                                         .font(.subheadline)
                                         .fontWeight(.medium)
+                                        .foregroundColor(Theme.lxText)
                                 } else {
                                     Text("—")
                                         .font(.subheadline)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Theme.lxTextSecondary)
                                 }
                             }
                             .padding(.horizontal)
                             .padding(.vertical, 6)
-                            Divider().padding(.horizontal)
+                            Divider().overlay(Theme.lxHairline).padding(.horizontal)
                         }
                     }
                 }
             }
             .padding(.top)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.lxBg.ignoresSafeArea())
         .navigationTitle("Period Detail")
         .navigationBarTitleDisplayMode(.inline)
+        .preferredColorScheme(.dark)
         .onAppear { fetchRides() }
     }
 

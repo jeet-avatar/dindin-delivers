@@ -1,20 +1,20 @@
 import SwiftUI
 
 struct Theme {
-    // Primary Brand Colors - Dollor AI Service
-    static let brandRed = Color(hex: "EB1700")  // Primary red
-    static let brandGreen = Color(hex: "00A651")  // Earnings/success (Dollar green)
-    static let brandOrange = Color(hex: "FF6D00")  // Accent orange
-    static let brandBlack = Color(hex: "191919")  // Dark text
+    // Primary Brand Colors - Dollor.ai rideshare (SOURCE OF TRUTH: EatFairShared/Theme.swift)
+    static let brandRed = Color(hex: "EF4444")  // Danger/destructive red (de-DoorDash'd)
+    static let brandGreen = Color(hex: "06C167")  // Brand green
+    static let brandOrange = Color(hex: "F2994A")  // Accent orange
+    static let brandBlack = Color(hex: "101010")  // Dark text
     static let brandWhite = Color.white
-    
+
     // Background Colors
-    static let backgroundGrey = Color(hex: "F8F8F8")
+    static let backgroundGrey = Color(hex: "F5F5F5")
     static let cardBackground = Color.white
     static let lightGrey = Color(hex: "E0E0E0")
-    
+
     // Text Colors
-    static let textPrimary = Color(hex: "191919")
+    static let textPrimary = Color(hex: "101010")
     static let textSecondary = Color(hex: "6B7280")
     static let textGrey = Color(hex: "9CA3AF")
     
@@ -24,6 +24,25 @@ struct Theme {
     static let statusError = Color(hex: "EF4444")  // Red
     static let statusInfo = Color(hex: "3B82F6")  // Blue
     
+    // MARK: - Luxury Theme (black + orange) — app-wide redesign palette
+    // Orange is the Dollor accent/identity (matches the orange smiley stickers on driver cars).
+    static let lxBg           = Color(hex: "0B0B0D")  // page canvas (rich black)
+    static let lxSurface      = Color(hex: "17171A")  // cards / inputs
+    static let lxSurface2     = Color(hex: "202024")  // elevated surfaces
+    static let lxHairline     = Color(hex: "2A2A2E")  // borders / dividers
+    static let lxOrange       = Color(hex: "FF7A1A")  // primary accent
+    static let lxOrangeBright = Color(hex: "FF9A3D")  // gradient top / highlight
+    static let lxOrangeDeep   = Color(hex: "E85D04")  // pressed
+    static let lxText         = Color.white           // primary text
+    static let lxTextSecondary = Color(hex: "A1A1AA") // secondary text
+    static let lxTextMuted    = Color(hex: "6E6E78")  // muted / placeholders
+    static let lxSuccess      = Color(hex: "30D158")
+    static let lxError        = Color(hex: "FF453A")
+    static let lxButtonGradient = LinearGradient(
+        colors: [lxOrangeBright, lxOrange],
+        startPoint: .top, endPoint: .bottom
+    )
+
     // Gradients
     static let earningsGradient = LinearGradient(
         colors: [Color(hex: "10B981"), Color(hex: "059669")],

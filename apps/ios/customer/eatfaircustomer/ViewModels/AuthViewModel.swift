@@ -54,6 +54,15 @@ class AuthViewModel: NSObject, ObservableObject {
             // Restore customer name/email from UserDefaults (set during login)
             self.customerName = UserDefaults.standard.string(forKey: "p2p_customer_name") ?? ""
             self.customerEmail = UserDefaults.standard.string(forKey: "p2p_customer_email") ?? ""
+
+            // Validate the restored session in the background. If the server rejects the
+            // token (stale/expired), drop to the login screen so the user isn't stuck
+            // "already signed in" with a dead session.
+            p2pService.validateCustomerSession { [weak self] isValid in
+                if !isValid {
+                    self?.logout()
+                }
+            }
         }
     }
 
@@ -158,14 +167,21 @@ class AuthViewModel: NSObject, ObservableObject {
 
     /// Helper to find topmost view controller
     private func getTopViewController() -> UIViewController? {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+        // Prefer the FOREGROUND-ACTIVE window scene. `connectedScenes.first` can return a
+        // background/inactive scene, which gives Google Sign-In's web session an invalid
+        // presentation anchor and makes the flow hang after the account is chosen.
+        let windowScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let activeScene = windowScenes.first { $0.activationState == .foregroundActive } ?? windowScenes.first
+
+        guard let windowScene = activeScene,
               let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first,
               var topController = window.rootViewController else {
             return nil
         }
 
-        while let presentedViewController = topController.presentedViewController {
-            topController = presentedViewController
+        // Walk to the topmost presented controller, skipping one that's being dismissed.
+        while let presented = topController.presentedViewController, !presented.isBeingDismissed {
+            topController = presented
         }
 
         return topController

@@ -60,7 +60,7 @@ struct CounterOfferResponseSheet: View {
                 }
                 .padding()
             }
-            .background(Theme.backgroundGrey.ignoresSafeArea())
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Counter-Offer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -69,6 +69,7 @@ struct CounterOfferResponseSheet: View {
                         dismiss()
                         onDismiss()
                     }
+                    .foregroundColor(Theme.lxOrange)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -80,6 +81,7 @@ struct CounterOfferResponseSheet: View {
                 Text(viewModel.errorMessage ?? "An error occurred")
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Header Icon
@@ -88,22 +90,22 @@ struct CounterOfferResponseSheet: View {
         VStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.blue.opacity(0.15))
+                    .fill(Theme.lxOrange.opacity(0.15))
                     .frame(width: 100, height: 100)
 
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.system(size: 40))
-                    .foregroundColor(.blue)
+                    .foregroundColor(Theme.lxOrange)
             }
 
             Text("Customer Counter-Offer")
                 .font(.title3)
                 .fontWeight(.bold)
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(Theme.lxText)
 
             Text("The customer has made a counter-offer on your bid")
                 .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
         }
     }
@@ -117,11 +119,11 @@ struct CounterOfferResponseSheet: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Your Bid")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text("$\(String(format: "%.0f", originalPrice))")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                 }
 
                 Spacer()
@@ -129,7 +131,7 @@ struct CounterOfferResponseSheet: View {
                 // Arrow
                 Image(systemName: "arrow.right")
                     .font(.title2)
-                    .foregroundColor(Theme.textGrey)
+                    .foregroundColor(Theme.lxTextMuted)
 
                 Spacer()
 
@@ -137,67 +139,71 @@ struct CounterOfferResponseSheet: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Their Offer")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text("$\(String(format: "%.0f", customerCounterPrice))")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                 }
             }
             .padding()
-            .background(Color.blue.opacity(0.05))
+            .background(Theme.lxOrange.opacity(0.08))
             .cornerRadius(12)
 
             // Difference Badge
             HStack {
                 if priceDifference > 0 {
                     Image(systemName: "arrow.up.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                     Text("+$\(String(format: "%.0f", priceDifference)) more than your bid")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 } else if priceDifference < 0 {
                     Image(systemName: "arrow.down.circle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
                     Text("$\(String(format: "%.0f", abs(priceDifference))) less than your bid")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
                 } else {
                     Image(systemName: "equal.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                     Text("Same as your bid")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(priceDifference >= 0 ? Color.green.opacity(0.1) : Color.orange.opacity(0.1))
+            .background(priceDifference >= 0 ? Theme.lxSuccess.opacity(0.12) : Theme.lxOrange.opacity(0.12))
             .cornerRadius(10)
 
             // Earnings Preview
             HStack {
                 Text("If you accept:")
                     .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("$\(String(format: "%.2f", driverEarningsIfAccept))")
                         .font(.headline)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                     Text("after $\(String(format: "%.0f", platformFee)) fee")
                         .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
             }
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Route Info
@@ -207,22 +213,22 @@ struct CounterOfferResponseSheet: View {
             HStack {
                 Text("Trip Details")
                     .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(Theme.lxText)
                 Spacer()
             }
 
             // Pickup
             HStack(spacing: 12) {
                 Circle()
-                    .fill(Color.green)
+                    .fill(Theme.lxSuccess)
                     .frame(width: 10, height: 10)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Pickup")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text(request.pickup.address)
                         .font(.subheadline)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                         .lineLimit(2)
                 }
                 Spacer()
@@ -231,15 +237,15 @@ struct CounterOfferResponseSheet: View {
             // Dropoff
             HStack(spacing: 12) {
                 Circle()
-                    .fill(Color.red)
+                    .fill(Theme.lxError)
                     .frame(width: 10, height: 10)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Drop-off")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text(request.dropoff.address)
                         .font(.subheadline)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                         .lineLimit(2)
                 }
                 Spacer()
@@ -254,7 +260,7 @@ struct CounterOfferResponseSheet: View {
                         Text(String(format: "%.1f mi", distance * 0.621371))
                             .font(.caption)
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(Theme.lxOrange)
                 }
 
                 if let duration = request.estimated_duration_minutes {
@@ -264,13 +270,17 @@ struct CounterOfferResponseSheet: View {
                         Text("\(duration) min")
                             .font(.caption)
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(Theme.lxOrange)
                 }
             }
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - New Counter Offer Section
@@ -279,25 +289,25 @@ struct CounterOfferResponseSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Your New Price")
                 .font(.headline)
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(Theme.lxText)
 
             HStack {
                 Text("$")
                     .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
 
                 TextField("0", text: $newCounterPrice)
                     .font(.system(size: 28, weight: .bold))
                     .keyboardType(.decimalPad)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(Theme.lxText)
                     .focused($isPriceFocused)
             }
             .padding()
-            .background(Color.white)
+            .background(Theme.lxSurface2)
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.blue, lineWidth: 2)
+                    .stroke(Theme.lxOrange, lineWidth: 2)
             )
 
             // Quick adjustments
@@ -308,10 +318,10 @@ struct CounterOfferResponseSheet: View {
                     Text("Match Offer")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.1))
+                        .background(Theme.lxOrange.opacity(0.12))
                         .cornerRadius(8)
                 }
 
@@ -322,10 +332,10 @@ struct CounterOfferResponseSheet: View {
                     Text("Split Difference")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.1))
+                        .background(Theme.lxOrange.opacity(0.12))
                         .cornerRadius(8)
                 }
             }
@@ -335,18 +345,22 @@ struct CounterOfferResponseSheet: View {
                 HStack {
                     Text("You'll receive:")
                         .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Spacer()
                     Text("$\(String(format: "%.2f", max(0, newCounterAmount - newCounterFee)))")
                         .font(.headline)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
             }
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Platform Fee Info
@@ -354,14 +368,14 @@ struct CounterOfferResponseSheet: View {
     private var platformFeeInfo: some View {
         HStack(spacing: 12) {
             Image(systemName: "info.circle.fill")
-                .foregroundColor(.green)
+                .foregroundColor(Theme.lxSuccess)
 
             Text("Only $\(String(format: "%.0f", platformFee)) connection fee deducted from your earnings")
                 .font(.caption)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
         }
         .padding()
-        .background(Color.green.opacity(0.1))
+        .background(Theme.lxSuccess.opacity(0.1))
         .cornerRadius(12)
     }
 
@@ -373,7 +387,7 @@ struct CounterOfferResponseSheet: View {
                 // Send New Counter
                 SwipeToConfirmButton(
                     label: "Slide to Send $\(String(format: "%.0f", newCounterAmount)) Offer",
-                    accentColor: .orange,
+                    accentColor: Theme.lxOrange,
                     isDisabled: newCounterAmount <= 0 || viewModel.isLoading,
                     onConfirm: {
                         isPriceFocused = false
@@ -392,7 +406,7 @@ struct CounterOfferResponseSheet: View {
                 }) {
                     Text("Cancel")
                         .font(.headline)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .frame(maxWidth: .infinity)
                         .padding()
                 }
@@ -400,7 +414,7 @@ struct CounterOfferResponseSheet: View {
                 // Accept Counter-Offer
                 SwipeToConfirmButton(
                     label: "Slide to Accept $\(String(format: "%.0f", customerCounterPrice))",
-                    accentColor: .green,
+                    accentColor: Theme.lxSuccess,
                     isDisabled: viewModel.isLoading,
                     onConfirm: { viewModel.acceptCounterOffer(bid) }
                 )
@@ -419,10 +433,10 @@ struct CounterOfferResponseSheet: View {
                         Text("Counter with Different Price")
                     }
                     .font(.headline)
-                    .foregroundColor(.blue)
+                    .foregroundColor(Theme.lxOrange)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue.opacity(0.1))
+                    .background(Theme.lxOrange.opacity(0.12))
                     .cornerRadius(16)
                 }
 
@@ -432,14 +446,20 @@ struct CounterOfferResponseSheet: View {
                 }) {
                     Text("Reject Offer")
                         .font(.headline)
-                        .foregroundColor(.red)
+                        .foregroundColor(Theme.lxError)
                         .frame(maxWidth: .infinity)
                         .padding()
                 }
             }
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
+        .overlay(
+            Rectangle()
+                .fill(Theme.lxHairline)
+                .frame(height: 1),
+            alignment: .top
+        )
     }
 }
 

@@ -103,16 +103,17 @@ public class AppConfig: ObservableObject {
     @Published public var foodDriverFee: Double = 0.00        // FREE - drivers keep 100%
     @Published public var tipPlatformFee: Double = 0.00       // 100% of tips go to driver
 
-    // RIDESHARE - TIERED FARE-BASED PRICING
+    // RIDESHARE - TIERED FARE-BASED PRICING ("25/50/75" scheme — must match backend
+    // founding_members.ride_fee_tier: <=$25 -> $1, <=$50 -> $2, else $3)
     // Fare tier thresholds (in dollars)
-    @Published public var rideshareTier1MaxFare: Double = 35.00   // Fares up to $35
-    @Published public var rideshareTier2MaxFare: Double = 70.00   // Fares $35.01 to $70
-    // Tier 3: Fares above $70
+    @Published public var rideshareTier1MaxFare: Double = 25.00   // Fares up to $25
+    @Published public var rideshareTier2MaxFare: Double = 50.00   // Fares $25.01 to $50
+    // Tier 3: Fares above $50 (capped at $3)
 
     // Platform fees per fare tier (both rider AND driver pay)
-    @Published public var rideshareTier1Fee: Double = 1.00   // $1 for fares ≤ $35
-    @Published public var rideshareTier2Fee: Double = 2.00   // $2 for fares $35.01-$70
-    @Published public var rideshareTier3Fee: Double = 3.00   // $3 for fares > $70
+    @Published public var rideshareTier1Fee: Double = 1.00   // $1 for fares ≤ $25
+    @Published public var rideshareTier2Fee: Double = 2.00   // $2 for fares $25.01-$50
+    @Published public var rideshareTier3Fee: Double = 3.00   // $3 for fares > $50
 
     // Legacy properties (kept for backwards compatibility)
     @Published public var ridesharePlatformFeePerMile: Double = 0.10  // Deprecated

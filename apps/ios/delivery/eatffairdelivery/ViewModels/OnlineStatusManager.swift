@@ -24,6 +24,10 @@ final class OnlineStatusManager: ObservableObject {
 
     @Published private(set) var isOnline: Bool = false
 
+    /// Last reason the driver could not go online (e.g. 403 background-check gate).
+    /// Views observe this to show the server-provided reason; cleared on a new attempt/success.
+    @Published var statusError: String?
+
     private let p2pService = P2PAPIService.shared
     private var isRequestInFlight = false
 
@@ -42,6 +46,7 @@ final class OnlineStatusManager: ObservableObject {
         // Optimistic update
         isOnline = online
         isRequestInFlight = true
+        statusError = nil
 
         // Start/stop location tracking immediately (before API response)
         if online {
@@ -68,13 +73,18 @@ final class OnlineStatusManager: ObservableObject {
                     }
 
                 case .failure(let error):
-                    // Revert optimistic update
+                    // Revert optimistic update — never leave isOnline=true on a failed go-online.
                     self.isOnline = !online
                     // Revert location tracking
                     if !online {
                         LocationManager.shared.startTracking() // We tried to go offline but failed
                     } else {
                         LocationManager.shared.stopTracking()  // We tried to go online but failed
+                    }
+                    // Surface the server reason (403 background-check gate, etc.) so the UI can show it.
+                    // Do NOT speak "you're online" — we are not online.
+                    if online {
+                        self.statusError = error.localizedDescription
                     }
                     #if DEBUG
                     logger.error("[OnlineStatusManager] setOnlineStatus failed: \(error.localizedDescription)")

@@ -18,7 +18,7 @@ struct ReferAndEarnView: View {
 
     var body: some View {
         ZStack {
-            Theme.brandGrey.edgesIgnoringSafeArea(.all)
+            Theme.lxBg.edgesIgnoringSafeArea(.all)
 
             ScrollView {
                 VStack(spacing: 25) {
@@ -26,24 +26,27 @@ struct ReferAndEarnView: View {
                     VStack(spacing: 15) {
                         Image(systemName: "gift.fill")
                             .font(.system(size: 60))
-                            .foregroundColor(Theme.brandOrange)
+                            .foregroundColor(Theme.lxOrange)
 
                         Text("Refer Friends, Earn Rewards")
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundColor(Theme.brandBlack)
+                            .foregroundColor(Theme.lxText)
 
                         Text("Share Dollor.ai with friends and both of you earn credits!")
                             .font(.subheadline)
-                            .foregroundColor(Theme.textGrey)
+                            .foregroundColor(Theme.lxTextSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
                     }
                     .padding(.vertical, 30)
                     .frame(maxWidth: .infinity)
-                    .background(Color.white)
+                    .background(Theme.lxSurface)
                     .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Theme.lxHairline, lineWidth: 1)
+                    )
                     .padding(.horizontal)
 
                     // Referral Code Card
@@ -51,24 +54,28 @@ struct ReferAndEarnView: View {
                         Text("YOUR REFERRAL CODE")
                             .font(.caption)
                             .fontWeight(.bold)
-                            .foregroundColor(Theme.textGrey)
+                            .foregroundColor(Theme.lxTextSecondary)
 
                         HStack {
                             Text(referralCode.isEmpty ? "LOADING..." : referralCode)
                                 .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                .foregroundColor(Theme.brandOrange)
+                                .foregroundColor(Theme.lxText)
 
                             Spacer()
 
                             Button(action: copyCode) {
                                 Image(systemName: copiedToClipboard ? "checkmark" : "doc.on.doc")
-                                    .foregroundColor(copiedToClipboard ? .green : Theme.brandOrange)
+                                    .foregroundColor(copiedToClipboard ? Theme.lxSuccess : Theme.lxOrange)
                                     .font(.title3)
                             }
                         }
                         .padding()
-                        .background(Theme.brandOrange.opacity(0.1))
+                        .background(Theme.lxSurface2)
                         .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Theme.lxHairline, lineWidth: 1)
+                        )
 
                         // Share Buttons
                         HStack(spacing: 15) {
@@ -81,8 +88,9 @@ struct ReferAndEarnView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(Theme.brandOrange)
-                                .cornerRadius(10)
+                                .background(Theme.lxButtonGradient)
+                                .cornerRadius(14)
+                                .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                             }
 
                             Button(action: copyCode) {
@@ -91,22 +99,25 @@ struct ReferAndEarnView: View {
                                     Text("Copy")
                                 }
                                 .font(.headline)
-                                .foregroundColor(Theme.brandOrange)
+                                .foregroundColor(Theme.lxOrange)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(Color.white)
-                                .cornerRadius(10)
+                                .background(Theme.lxSurface2)
+                                .cornerRadius(14)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Theme.brandOrange, lineWidth: 2)
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(Theme.lxOrange, lineWidth: 2)
                                 )
                             }
                         }
                     }
                     .padding(20)
-                    .background(Color.white)
+                    .background(Theme.lxSurface)
                     .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Theme.lxHairline, lineWidth: 1)
+                    )
                     .padding(.horizontal)
 
                     // Stats Cards
@@ -136,7 +147,7 @@ struct ReferAndEarnView: View {
                         Text("HOW IT WORKS")
                             .font(.caption)
                             .fontWeight(.bold)
-                            .foregroundColor(Theme.textGrey)
+                            .foregroundColor(Theme.lxTextSecondary)
 
                         VStack(spacing: 0) {
                             HowItWorksRow(
@@ -167,21 +178,26 @@ struct ReferAndEarnView: View {
                                 isLast: true
                             )
                         }
-                        .background(Color.white)
+                        .background(Theme.lxSurface)
                         .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Theme.lxHairline, lineWidth: 1)
+                        )
                     }
                     .padding(.horizontal)
 
                     // Terms
                     Text("Referral credits expire 90 days after issue. Terms apply.")
                         .font(.caption)
-                        .foregroundColor(Theme.textGrey)
+                        .foregroundColor(Theme.lxTextMuted)
                         .padding(.horizontal)
                         .padding(.bottom, 30)
                 }
                 .padding(.top, 20)
             }
         }
+        .preferredColorScheme(.dark)
         .navigationTitle("Refer & Earn")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -234,22 +250,25 @@ struct StatCard: View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(Theme.brandOrange)
+                .foregroundColor(Theme.lxOrange)
 
             Text(value)
                 .font(.title3)
                 .fontWeight(.bold)
-                .foregroundColor(Theme.brandBlack)
+                .foregroundColor(Theme.lxText)
 
             Text(label)
                 .font(.caption)
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxTextSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
-        .background(Color.white)
+        .background(Theme.lxSurface)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 }
 
@@ -266,7 +285,7 @@ struct HowItWorksRow: View {
             VStack {
                 ZStack {
                     Circle()
-                        .fill(Theme.brandOrange)
+                        .fill(Theme.lxOrange)
                         .frame(width: 30, height: 30)
 
                     Text(step)
@@ -277,7 +296,7 @@ struct HowItWorksRow: View {
 
                 if !isLast {
                     Rectangle()
-                        .fill(Theme.brandOrange.opacity(0.3))
+                        .fill(Theme.lxOrange.opacity(0.3))
                         .frame(width: 2, height: 30)
                 }
             }
@@ -287,11 +306,11 @@ struct HowItWorksRow: View {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(Theme.brandBlack)
+                    .foregroundColor(Theme.lxText)
 
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(Theme.textGrey)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
             .padding(.bottom, isLast ? 0 : 10)
 

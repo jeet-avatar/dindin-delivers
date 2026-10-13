@@ -83,33 +83,40 @@ struct RecurringRidesView: View {
             Group {
                 if isLoading {
                     ProgressView("Loading saved rides...")
+                        .tint(Theme.lxOrange)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let error = errorMessage {
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.largeTitle)
-                            .foregroundColor(.orange)
+                            .foregroundColor(Theme.lxOrange)
                         Text(error)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                         Button("Retry") { fetchRecurringRides() }
                             .buttonStyle(.borderedProminent)
-                            .tint(.green)
+                            .tint(Theme.lxOrange)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if rides.isEmpty {
                     emptyState
                 } else {
                     ridesList
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Recurring Rides")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Done") { dismiss() }
+                        .foregroundColor(Theme.lxOrange)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showSetupSheet = true }) {
                         Image(systemName: "plus")
+                            .foregroundColor(Theme.lxOrange)
                     }
                 }
             }
@@ -117,6 +124,7 @@ struct RecurringRidesView: View {
                 RecurringRideSetupSheet { fetchRecurringRides() }
             }
         }
+        .preferredColorScheme(.dark)
         .onAppear { fetchRecurringRides() }
     }
 
@@ -128,15 +136,16 @@ struct RecurringRidesView: View {
             Image(systemName: "repeat.circle")
                 .resizable()
                 .frame(width: 64, height: 64)
-                .foregroundColor(.gray)
+                .foregroundColor(Theme.lxTextMuted)
 
             Text("No Recurring Rides")
                 .font(.title3)
                 .fontWeight(.bold)
+                .foregroundColor(Theme.lxText)
 
             Text("Save your regular routes to quickly request rides with your preferred drivers.")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
@@ -148,10 +157,12 @@ struct RecurringRidesView: View {
                 .font(.headline)
                 .foregroundColor(.white)
                 .padding()
-                .background(Color.green)
-                .cornerRadius(12)
+                .background(Theme.lxButtonGradient)
+                .cornerRadius(14)
+                .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Rides List
@@ -161,10 +172,14 @@ struct RecurringRidesView: View {
         List {
             ForEach(rides) { ride in
                 recurringRideRow(ride)
+                    .listRowBackground(Theme.lxSurface)
+                    .listRowSeparatorTint(Theme.lxHairline)
             }
             .onDelete(perform: deleteRide)
         }
         .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Theme.lxBg)
     }
 
     @ViewBuilder
@@ -173,51 +188,56 @@ struct RecurringRidesView: View {
             // Route
             HStack(spacing: 8) {
                 VStack(spacing: 4) {
-                    Circle().fill(Color.green).frame(width: 8, height: 8)
-                    Rectangle().fill(Color.gray.opacity(0.3)).frame(width: 1, height: 14)
-                    Circle().fill(Color.red).frame(width: 8, height: 8)
+                    Circle().fill(Theme.lxSuccess).frame(width: 8, height: 8)
+                    Rectangle().fill(Theme.lxHairline).frame(width: 1, height: 14)
+                    Circle().fill(Theme.lxError).frame(width: 8, height: 8)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(ride.pickupAddress ?? "Pickup")
                         .font(.caption)
+                        .foregroundColor(Theme.lxText)
                         .lineLimit(1)
                     Text(ride.dropoffAddress ?? "Dropoff")
                         .font(.caption)
+                        .foregroundColor(Theme.lxText)
                         .lineLimit(1)
                 }
             }
 
             Divider()
+                .overlay(Theme.lxHairline)
 
             // Schedule
             HStack {
                 Image(systemName: "calendar")
-                    .foregroundColor(.blue)
+                    .foregroundColor(Theme.lxOrange)
                     .frame(width: 20)
                 Text(ride.formattedDays)
                     .font(.caption)
                     .fontWeight(.medium)
+                    .foregroundColor(Theme.lxText)
 
                 Spacer()
 
                 Image(systemName: "clock")
-                    .foregroundColor(.orange)
+                    .foregroundColor(Theme.lxOrange)
                     .frame(width: 20)
                 Text(ride.scheduleTime)
                     .font(.caption)
                     .fontWeight(.medium)
+                    .foregroundColor(Theme.lxText)
             }
 
             // Status + Max Price
             HStack {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(ride.isActive ? Color.green : Color.gray)
+                        .fill(ride.isActive ? Theme.lxSuccess : Theme.lxTextMuted)
                         .frame(width: 8, height: 8)
                     Text(ride.isActive ? "Active" : "Paused")
                         .font(.caption2)
-                        .foregroundColor(ride.isActive ? .green : .gray)
+                        .foregroundColor(ride.isActive ? Theme.lxSuccess : Theme.lxTextMuted)
                 }
 
                 Spacer()
@@ -225,13 +245,13 @@ struct RecurringRidesView: View {
                 if let maxPrice = ride.maxPrice {
                     Text("Max $\(String(format: "%.0f", maxPrice))")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
 
                 if ride.preferredDriverId != nil {
                     Label("Preferred Driver", systemImage: "star.fill")
                         .font(.caption2)
-                        .foregroundColor(.yellow)
+                        .foregroundColor(Theme.lxOrange)
                 }
             }
         }
@@ -250,7 +270,7 @@ struct RecurringRidesView: View {
                 Label(ride.isActive ? "Pause" : "Activate",
                       systemImage: ride.isActive ? "pause.circle" : "play.circle")
             }
-            .tint(ride.isActive ? .orange : .green)
+            .tint(ride.isActive ? Theme.lxOrange : Theme.lxSuccess)
         }
     }
 
@@ -386,17 +406,22 @@ struct RecurringRideSetupSheet: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("Route") {
+                Section {
                     TextField("Pickup Address", text: $pickupAddress)
+                        .foregroundColor(Theme.lxText)
                     TextField("Dropoff Address", text: $dropoffAddress)
+                        .foregroundColor(Theme.lxText)
+                } header: {
+                    Text("Route").foregroundColor(Theme.lxTextSecondary)
                 }
+                .listRowBackground(Theme.lxSurface)
 
-                Section("Schedule") {
+                Section {
                     // Day picker
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Days")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
 
                         HStack(spacing: 8) {
                             ForEach(daysOfWeek, id: \.0) { day in
@@ -411,36 +436,50 @@ struct RecurringRideSetupSheet: View {
                                         .font(.caption)
                                         .fontWeight(.medium)
                                         .frame(width: 36, height: 36)
-                                        .background(selectedDays.contains(day.0) ? Color.green : Color(.systemGray5))
-                                        .foregroundColor(selectedDays.contains(day.0) ? .white : .primary)
+                                        .background(selectedDays.contains(day.0) ? Theme.lxOrange : Theme.lxSurface2)
+                                        .foregroundColor(selectedDays.contains(day.0) ? .white : Theme.lxText)
                                         .cornerRadius(8)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
                     .padding(.vertical, 4)
 
                     DatePicker("Time", selection: $scheduleTime, displayedComponents: .hourAndMinute)
+                        .foregroundColor(Theme.lxText)
+                        .tint(Theme.lxOrange)
+                } header: {
+                    Text("Schedule").foregroundColor(Theme.lxTextSecondary)
                 }
+                .listRowBackground(Theme.lxSurface)
 
-                Section("Preferences") {
+                Section {
                     TextField("Max Price (optional)", text: $maxPrice)
+                        .foregroundColor(Theme.lxText)
                         .keyboardType(.decimalPad)
+                } header: {
+                    Text("Preferences").foregroundColor(Theme.lxTextSecondary)
                 }
+                .listRowBackground(Theme.lxSurface)
 
                 if let error = errorMessage {
                     Section {
                         Text(error)
-                            .foregroundColor(.red)
+                            .foregroundColor(Theme.lxError)
                             .font(.caption)
                     }
+                    .listRowBackground(Theme.lxSurface)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("New Recurring Ride")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(Theme.lxOrange)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: createRecurringRide) {
@@ -451,10 +490,12 @@ struct RecurringRideSetupSheet: View {
                                 .fontWeight(.bold)
                         }
                     }
+                    .foregroundColor(Theme.lxOrange)
                     .disabled(pickupAddress.isEmpty || dropoffAddress.isEmpty || selectedDays.isEmpty || isSubmitting)
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     private func createRecurringRide() {

@@ -268,6 +268,18 @@ public final class SecureStorage {
         }
     }
 
+    /// Current customer refresh token (used by P2PAPIService.refreshCustomerToken)
+    public var customerRefreshToken: String? {
+        get { getString(for: .customerRefreshToken) }
+        set {
+            if let token = newValue {
+                save(token, for: .customerRefreshToken)
+            } else {
+                delete(.customerRefreshToken)
+            }
+        }
+    }
+
     /// Current driver access token
     public var driverAccessToken: String? {
         get { getString(for: .driverAccessToken) }

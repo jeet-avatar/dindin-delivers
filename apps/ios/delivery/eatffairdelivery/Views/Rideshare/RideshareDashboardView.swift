@@ -6,6 +6,7 @@ import EatFairShared
 /// Matches web app RideBidding.tsx with Available Requests and My Bids tabs
 struct RideshareDashboardView: View {
     @StateObject private var viewModel = RideBiddingViewModel()
+    @ObservedObject private var onlineManager = OnlineStatusManager.shared
     @State private var selectedTab: RideshareTab = .available
     @State private var showPayoutDashboard = false
 
@@ -24,9 +25,9 @@ struct RideshareDashboardView: View {
 
         var color: Color {
             switch self {
-            case .available: return .blue
-            case .myBids: return .orange
-            case .active: return .green
+            case .available: return Theme.lxOrange
+            case .myBids: return Theme.lxOrangeBright
+            case .active: return Theme.lxSuccess
             }
         }
     }
@@ -34,19 +35,19 @@ struct RideshareDashboardView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Theme.backgroundGrey.ignoresSafeArea()
+                Theme.lxBg.ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Online/Offline Toggle
                     HStack(spacing: 12) {
                         Circle()
-                            .fill(viewModel.isOnline ? Color.green : Color.red)
+                            .fill(viewModel.isOnline ? Theme.lxSuccess : Theme.lxError)
                             .frame(width: 12, height: 12)
 
                         Text(viewModel.isOnline ? "Online" : "Offline")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundColor(viewModel.isOnline ? .green : .red)
+                            .foregroundColor(viewModel.isOnline ? Theme.lxSuccess : Theme.lxError)
 
                         Spacer()
 
@@ -55,11 +56,11 @@ struct RideshareDashboardView: View {
                             set: { viewModel.setOnlineStatus($0) }
                         ))
                         .labelsHidden()
-                        .tint(.green)
+                        .tint(Theme.lxSuccess)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 10)
-                    .background(viewModel.isOnline ? Color.green.opacity(0.08) : Color.red.opacity(0.08))
+                    .background(viewModel.isOnline ? Theme.lxSuccess.opacity(0.15) : Theme.lxError.opacity(0.15))
 
                     // Tab Selector
                     tabSelector
@@ -88,13 +89,13 @@ struct RideshareDashboardView: View {
                     HStack(spacing: 12) {
                         Button(action: { showPayoutDashboard = true }) {
                             Image(systemName: "dollarsign.circle")
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
                         }
                         .accessibilityLabel("View payout history")
 
                         Button(action: { viewModel.refreshData() }) {
                             Image(systemName: "arrow.clockwise")
-                                .foregroundColor(.blue)
+                                .foregroundColor(Theme.lxOrange)
                         }
                         .accessibilityLabel("Refresh rideshare data")
                     }
@@ -156,7 +157,18 @@ struct RideshareDashboardView: View {
             } message: {
                 Text(viewModel.successMessage ?? "")
             }
+            // Go-online gate (e.g. background check not yet approved). Reason comes from the
+            // backend 403 `detail` via OnlineStatusManager.statusError.
+            .alert("Can't go online yet", isPresented: Binding(
+                get: { onlineManager.statusError != nil },
+                set: { if !$0 { onlineManager.statusError = nil } }
+            )) {
+                Button("OK", role: .cancel) { onlineManager.statusError = nil }
+            } message: {
+                Text(onlineManager.statusError ?? "")
+            }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Tab Selector
@@ -188,7 +200,7 @@ struct RideshareDashboardView: View {
                             .background(selectedTab == tab ? tab.color : tab.color.opacity(0.2))
                             .cornerRadius(10)
                     }
-                    .foregroundColor(selectedTab == tab ? tab.color : Theme.textSecondary)
+                    .foregroundColor(selectedTab == tab ? tab.color : Theme.lxTextSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(
@@ -206,7 +218,12 @@ struct RideshareDashboardView: View {
                 .accessibilityHint(selectedTab == tab ? "Currently selected" : "Tap to view \(tab.rawValue.lowercased())")
             }
         }
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.lxHairline)
+                .frame(height: 1)
+        }
     }
 
     private func countForTab(_ tab: RideshareTab) -> Int {
@@ -840,88 +857,6 @@ struct TripStatBadge: View {
         .padding(.vertical, 8)
         .background(Color.blue.opacity(0.1))
         .cornerRadius(10)
-    }
-}
-
-// MARK: - Ride Requests Map View
-
-struct RideRequestsMapView: View {
-    let requests: [RideRequestForBidding]
-    let locationManager: LocationManager
-    let onRequestSelected: (RideRequestForBidding) -> Void
-
-    @State private var position: MapCameraPosition = .automatic
-
-    var body: some View {
-        Map(position: $position) {
-            // Driver's current location
-            if let coordinate = locationManager.currentCoordinate, coordinate.isValid {
-                Annotation("You", coordinate: coordinate) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.blue.opacity(0.2))
-                            .frame(width: 60, height: 60)
-
-                        Circle()
-                            .fill(Color.blue)
-                            .frame(width: 20, height: 20)
-                            .overlay(Circle().stroke(Color.white, lineWidth: 3))
-                            .shadow(color: .blue.opacity(0.5), radius: 4)
-                    }
-                }
-            }
-
-            // Ride request pickups
-            ForEach(requests) { request in
-                Annotation(
-                    "$\(String(format: "%.0f", request.suggested_price ?? 0))",
-                    coordinate: CLLocationCoordinate2D(
-                        latitude: request.pickup.latitude,
-                        longitude: request.pickup.longitude
-                    )
-                ) {
-                    Button(action: { onRequestSelected(request) }) {
-                        VStack(spacing: 2) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.blue)
-                                    .frame(width: 44, height: 44)
-                                    .shadow(color: Color.blue.opacity(0.4), radius: 6)
-
-                                Text("$\(Int(request.suggested_price ?? 0))")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                            }
-
-                            Image(systemName: "arrowtriangle.down.fill")
-                                .font(.system(size: 10))
-                                .foregroundColor(.blue)
-                                .offset(y: -4)
-                        }
-                    }
-                    .accessibilityLabel("Ride request for \(Int(request.suggested_price ?? 0)) dollars")
-                    .accessibilityHint("Tap to submit a bid")
-                }
-            }
-        }
-        .mapStyle(.standard(elevation: .realistic))
-        .mapControls {
-            MapUserLocationButton()
-            MapCompass()
-        }
-        .onAppear {
-            updateMapPosition()
-        }
-    }
-
-    private func updateMapPosition() {
-        if let coordinate = locationManager.currentCoordinate, coordinate.isValid {
-            position = .region(MKCoordinateRegion(
-                center: coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-            ))
-        }
     }
 }
 

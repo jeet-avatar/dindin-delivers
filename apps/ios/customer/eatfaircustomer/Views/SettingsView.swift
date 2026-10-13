@@ -474,23 +474,22 @@ struct PrivacyPolicyView: View {
                     PolicySection(title: "Information We Collect", content: """
                     We collect information you provide directly, such as:
                     • Account information (name, email, phone)
-                    • Delivery addresses
+                    • Pickup and dropoff addresses
                     • Payment information (processed securely via Stripe)
-                    • Order history
+                    • Ride history
                     """)
 
                     PolicySection(title: "How We Use Your Information", content: """
                     Your information is used to:
-                    • Process and deliver your orders
+                    • Process and complete your rides
                     • Connect you with independent drivers
                     • Improve our services
-                    • Send order updates and promotions
+                    • Send ride updates and promotions
                     """)
 
                     PolicySection(title: "Information Sharing", content: """
                     We share limited information with:
-                    • Restaurants to fulfill orders
-                    • Independent drivers for delivery
+                    • Independent drivers for your rides
                     • Payment processors (Stripe)
 
                     We never sell your personal information.
@@ -539,8 +538,6 @@ struct TermsOfServiceView: View {
 
                     PolicySection(title: "Platform Description", content: """
                     Dollor.ai is a matchmaking platform that connects:
-                    • Customers with local restaurants
-                    • Customers with independent delivery drivers
                     • Riders with independent drivers
 
                     We do not employ drivers. All drivers are independent contractors.
@@ -551,12 +548,11 @@ struct TermsOfServiceView: View {
                     • Provide accurate information
                     • Maintain account security
                     • Use the platform lawfully
-                    • Treat drivers and restaurants respectfully
+                    • Treat drivers respectfully
                     """)
 
                     PolicySection(title: "Platform Fees", content: """
                     Dollor.ai charges transparent platform fees:
-                    • Food Delivery: $1 platform fee per order
                     • Rideshare: Tiered fees ($1-$3 based on fare)
 
                     100% of tips go directly to drivers.

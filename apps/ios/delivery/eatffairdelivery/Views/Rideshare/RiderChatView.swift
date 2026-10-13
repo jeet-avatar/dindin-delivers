@@ -40,7 +40,7 @@ struct RiderChatView: View {
                 // Input Bar
                 inputBar
             }
-            .background(Theme.backgroundGrey.ignoresSafeArea())
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle(riderName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -48,13 +48,14 @@ struct RiderChatView: View {
                     Button("Close") {
                         dismiss()
                     }
+                    .foregroundColor(Theme.lxOrange)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if let phone = riderPhone, !phone.isEmpty {
                         Button(action: callRider) {
                             Image(systemName: "phone.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
                         }
                     }
                 }
@@ -67,6 +68,7 @@ struct RiderChatView: View {
                 stopPolling()
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Messages Scroll View
@@ -77,6 +79,7 @@ struct RiderChatView: View {
                 LazyVStack(spacing: 12) {
                     if isLoading {
                         ProgressView()
+                            .tint(Theme.lxOrange)
                             .padding(.top, 40)
                     } else if let error = errorMessage {
                         errorStateView(error)
@@ -108,21 +111,22 @@ struct RiderChatView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 50))
-                .foregroundColor(.orange)
+                .foregroundColor(Theme.lxOrange)
 
             Text("Connection Error")
                 .font(.headline)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
 
             Text(error)
                 .font(.subheadline)
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxTextMuted)
                 .multilineTextAlignment(.center)
 
             Button("Retry") {
                 loadMessages()
             }
             .buttonStyle(.borderedProminent)
+            .tint(Theme.lxOrange)
         }
         .padding(.top, 60)
     }
@@ -133,15 +137,15 @@ struct RiderChatView: View {
         VStack(spacing: 16) {
             Image(systemName: "message.badge.filled.fill")
                 .font(.system(size: 50))
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxOrange)
 
             Text("No messages yet")
                 .font(.headline)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
 
             Text("Send a message to let \(riderName) know you're on the way!")
                 .font(.subheadline)
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxTextMuted)
                 .multilineTextAlignment(.center)
         }
         .padding(.top, 60)
@@ -156,10 +160,10 @@ struct RiderChatView: View {
                     Button(action: { sendMessage(message) }) {
                         Text(message)
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.blue.opacity(0.1))
+                            .background(Theme.lxOrange.opacity(0.12))
                             .cornerRadius(16)
                     }
                 }
@@ -167,7 +171,13 @@ struct RiderChatView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
         }
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
+        .overlay(
+            Rectangle()
+                .fill(Theme.lxHairline)
+                .frame(height: 1),
+            alignment: .top
+        )
     }
 
     // MARK: - Input Bar
@@ -176,29 +186,41 @@ struct RiderChatView: View {
         HStack(spacing: 12) {
             TextField("Type a message...", text: $messageText)
                 .textFieldStyle(.plain)
+                .foregroundColor(Theme.lxText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Theme.lightGrey)
+                .background(Theme.lxSurface2)
                 .cornerRadius(24)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(Theme.lxHairline, lineWidth: 1)
+                )
                 .focused($isInputFocused)
 
             Button(action: { sendMessage(messageText) }) {
                 if isSending {
                     ProgressView()
+                        .tint(Theme.lxOrange)
                         .frame(width: 44, height: 44)
                 } else {
                     Image(systemName: "paperplane.fill")
                         .font(.title3)
                         .foregroundColor(.white)
                         .frame(width: 44, height: 44)
-                        .background(messageText.isEmpty ? Color.gray : Color.blue)
+                        .background(messageText.isEmpty ? AnyShapeStyle(Theme.lxSurface2) : AnyShapeStyle(Theme.lxButtonGradient))
                         .clipShape(Circle())
                 }
             }
             .disabled(messageText.isEmpty || isSending)
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
+        .overlay(
+            Rectangle()
+                .fill(Theme.lxHairline)
+                .frame(height: 1),
+            alignment: .top
+        )
     }
 
     // MARK: - Actions
@@ -298,13 +320,13 @@ private struct RideChatBubble: View {
                 Text(message.message)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(isFromMe ? Color.blue : Theme.lightGrey)
-                    .foregroundColor(isFromMe ? .white : Theme.textPrimary)
+                    .background(isFromMe ? Theme.lxOrange : Theme.lxSurface2)
+                    .foregroundColor(isFromMe ? .white : Theme.lxText)
                     .cornerRadius(18)
 
                 Text(formatTime(message.createdAt))
                     .font(.caption2)
-                    .foregroundColor(Theme.textGrey)
+                    .foregroundColor(Theme.lxTextMuted)
             }
 
             if !isFromMe { Spacer() }

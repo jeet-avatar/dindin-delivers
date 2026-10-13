@@ -52,21 +52,21 @@ struct ProfileView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Theme.brandGrey.edgesIgnoringSafeArea(.all)
-                
+                Theme.lxBg.edgesIgnoringSafeArea(.all)
+
                 ScrollView {
                     VStack(spacing: 25) {
                         // Profile Header
                         VStack(spacing: 15) {
                             ZStack {
                                 Circle()
-                                    .fill(Theme.brandGreen)
+                                    .fill(Theme.lxButtonGradient)
                                     .frame(width: 100, height: 100)
-                                    .shadow(radius: 5)
+                                    .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                                 Text(String(userName.prefix(1)))
                                     .font(.system(size: 40, weight: .bold))
                                     .foregroundColor(.white)
-                                
+
                                 // Edit Badge - Tappable
                                 VStack {
                                     Spacer()
@@ -74,9 +74,9 @@ struct ProfileView: View {
                                         Spacer()
                                         Button(action: { showEditProfile = true }) {
                                             Image(systemName: "pencil.circle.fill")
-                                                .foregroundColor(Theme.brandOrange)
+                                                .foregroundColor(Theme.lxOrange)
                                                 .font(.title)
-                                                .background(Color.white.clipShape(Circle()))
+                                                .background(Theme.lxSurface.clipShape(Circle()))
                                         }
                                         .accessibilityLabel("Edit profile")
                                     }
@@ -88,11 +88,11 @@ struct ProfileView: View {
                                 Text(userName)
                                     .font(.title2)
                                     .fontWeight(.bold)
-                                    .foregroundColor(Theme.brandBlack)
-                                
+                                    .foregroundColor(Theme.lxText)
+
                                 Text(userEmail)
                                     .font(.subheadline)
-                                    .foregroundColor(Theme.textGrey)
+                                    .foregroundColor(Theme.lxTextSecondary)
                             }
                         }
                         .padding(.top, 30)
@@ -102,26 +102,30 @@ struct ProfileView: View {
                             Text("ACCOUNT")
                                 .font(.caption)
                                 .fontWeight(.bold)
-                                .foregroundColor(Theme.textGrey)
+                                .foregroundColor(Theme.lxTextMuted)
                                 .padding(.leading, 20)
                                 .padding(.bottom, 10)
-                            
+
                             VStack(spacing: 0) {
                                 NavigationLink(destination: AddressListView()) {
                                     ProfileOptionRow(icon: "mappin.circle.fill", title: "Manage Addresses")
                                 }
-                                Divider()
+                                Divider().overlay(Theme.lxHairline)
                                 NavigationLink(destination: PaymentMethodsView()) {
                                     ProfileOptionRow(icon: "creditcard.fill", title: "Payment Methods")
                                 }
-                                Divider()
-                                NavigationLink(destination: FavoritesView()) {
-                                    ProfileOptionRow(icon: "heart.fill", title: "Favorites")
+                                Divider().overlay(Theme.lxHairline)
+                                NavigationLink(destination: FoundingMemberView()) {
+                                    ProfileOptionRow(icon: "star.circle.fill", title: "Founding Member")
                                 }
                             }
-                            .background(Color.white)
+                            .background(Theme.lxSurface)
                             .cornerRadius(12)
-                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Theme.lxHairline, lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.25), radius: 5, x: 0, y: 2)
                         }
                         .padding(.horizontal)
                         
@@ -130,34 +134,36 @@ struct ProfileView: View {
                             Text("APP SETTINGS")
                                 .font(.caption)
                                 .fontWeight(.bold)
-                                .foregroundColor(Theme.textGrey)
+                                .foregroundColor(Theme.lxTextMuted)
                                 .padding(.leading, 20)
                                 .padding(.bottom, 10)
-                            
+
                             VStack(spacing: 0) {
                                 NavigationLink(destination: SettingsView()) {
                                     ProfileOptionRow(icon: "gearshape.fill", title: "Settings")
                                 }
-                                Divider()
+                                Divider().overlay(Theme.lxHairline)
                                 NavigationLink(destination: NotificationsView()) {
                                     ProfileOptionRow(icon: "bell.fill", title: "Notifications")
                                 }
-                                Divider()
+                                Divider().overlay(Theme.lxHairline)
                                 NavigationLink(destination: ReferAndEarnView()) {
                                     ProfileOptionRow(icon: "gift.fill", title: "Refer & Earn")
                                 }
-                                Divider()
+                                Divider().overlay(Theme.lxHairline)
                                 NavigationLink(destination: HelpSupportView()) {
                                     ProfileOptionRow(icon: "questionmark.circle.fill", title: "Help & Support")
                                 }
-                                Divider()
-                                Button(action: { showRecurringRides = true }) {
-                                    ProfileOptionRow(icon: "repeat.circle.fill", title: "Recurring Rides")
-                                }
+                                // Recurring Rides hidden for launch: non-functional (no scheduler
+                                // materializes recurring rides yet). Re-enable when the scheduler ships.
                             }
-                            .background(Color.white)
+                            .background(Theme.lxSurface)
                             .cornerRadius(12)
-                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Theme.lxHairline, lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.25), radius: 5, x: 0, y: 2)
                         }
                         .padding(.horizontal)
 
@@ -166,7 +172,7 @@ struct ProfileView: View {
                             Text("PRIVACY & SAFETY")
                                 .font(.caption)
                                 .fontWeight(.bold)
-                                .foregroundColor(Theme.textGrey)
+                                .foregroundColor(Theme.lxTextMuted)
                                 .padding(.leading, 20)
                                 .padding(.bottom, 10)
 
@@ -174,18 +180,22 @@ struct ProfileView: View {
                                 NavigationLink(destination: WhatDriversSeePage()) {
                                     ProfileOptionRow(icon: "eye.fill", title: "What Drivers See")
                                 }
-                                Divider()
+                                Divider().overlay(Theme.lxHairline)
                                 NavigationLink(destination: YourPrivacyPage()) {
                                     ProfileOptionRow(icon: "lock.shield.fill", title: "Your Privacy")
                                 }
-                                Divider()
+                                Divider().overlay(Theme.lxHairline)
                                 NavigationLink(destination: SafetyFeaturesPage()) {
                                     ProfileOptionRow(icon: "checkmark.shield.fill", title: "Safety Features")
                                 }
                             }
-                            .background(Color.white)
+                            .background(Theme.lxSurface)
                             .cornerRadius(12)
-                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Theme.lxHairline, lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.25), radius: 5, x: 0, y: 2)
                         }
                         .padding(.horizontal)
 
@@ -203,7 +213,7 @@ struct ProfileView: View {
                             Text("DEVELOPER TOOLS")
                                 .font(.caption)
                                 .fontWeight(.bold)
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.lxOrange)
                                 .padding(.leading, 20)
                                 .padding(.bottom, 10)
 
@@ -220,27 +230,27 @@ struct ProfileView: View {
                                 }) {
                                     HStack {
                                         Image(systemName: "ladybug.fill")
-                                            .foregroundColor(.orange)
+                                            .foregroundColor(Theme.lxOrange)
                                             .font(.title3)
                                             .frame(width: 30)
 
                                         VStack(alignment: .leading) {
                                             Text("Seed Showcase Orders")
                                                 .font(.body)
-                                                .foregroundColor(Theme.brandBlack)
+                                                .foregroundColor(Theme.lxText)
                                             Text("Creates 10 orders with promotions")
                                                 .font(.caption)
-                                                .foregroundColor(.gray)
+                                                .foregroundColor(Theme.lxTextMuted)
                                         }
 
                                         Spacer()
 
                                         if isSeeding {
                                             ProgressView()
-                                                .tint(.orange)
+                                                .tint(Theme.lxOrange)
                                         } else {
                                             Image(systemName: "chevron.right")
-                                                .foregroundColor(.gray)
+                                                .foregroundColor(Theme.lxTextMuted)
                                                 .font(.caption)
                                         }
                                     }
@@ -248,7 +258,7 @@ struct ProfileView: View {
                                 }
                                 .disabled(isSeeding)
 
-                                Divider()
+                                Divider().overlay(Theme.lxHairline)
 
                                 // Cleanup Showcase Data
                                 Button(action: {
@@ -262,37 +272,41 @@ struct ProfileView: View {
                                 }) {
                                     HStack {
                                         Image(systemName: "trash.circle.fill")
-                                            .foregroundColor(.red)
+                                            .foregroundColor(Theme.lxError)
                                             .font(.title3)
                                             .frame(width: 30)
 
                                         VStack(alignment: .leading) {
                                             Text("Cleanup Showcase Data")
                                                 .font(.body)
-                                                .foregroundColor(Theme.brandBlack)
+                                                .foregroundColor(Theme.lxText)
                                             Text("Removes test orders")
                                                 .font(.caption)
-                                                .foregroundColor(.gray)
+                                                .foregroundColor(Theme.lxTextMuted)
                                         }
 
                                         Spacer()
 
                                         Image(systemName: "chevron.right")
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(Theme.lxTextMuted)
                                             .font(.caption)
                                     }
                                     .padding()
                                 }
                                 .disabled(isSeeding)
                             }
-                            .background(Color.orange.opacity(0.1))
+                            .background(Theme.lxSurface)
                             .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Theme.lxHairline, lineWidth: 1)
+                            )
 
                             // Seeding status message
                             if let message = seedingMessage {
                                 Text(message)
                                     .font(.caption)
-                                    .foregroundColor(message.contains("Error") ? .red : .green)
+                                    .foregroundColor(message.contains("Error") ? Theme.lxError : Theme.lxSuccess)
                                     .padding(.horizontal, 20)
                                     .padding(.top, 8)
                             }
@@ -308,18 +322,22 @@ struct ProfileView: View {
                             HStack {
                                 if isDeletingAccount {
                                     ProgressView()
-                                        .tint(.red)
+                                        .tint(Theme.lxError)
                                 } else {
                                     Image(systemName: "trash.fill")
                                     Text("Delete Account")
                                 }
                             }
                             .fontWeight(.semibold)
-                            .foregroundColor(.red)
+                            .foregroundColor(Theme.lxError)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.red.opacity(0.1))
+                            .background(Theme.lxError.opacity(0.15))
                             .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Theme.lxError.opacity(0.4), lineWidth: 1)
+                            )
                         }
                         .padding(.horizontal)
                         .padding(.bottom, 30)
@@ -329,6 +347,7 @@ struct ProfileView: View {
             }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
+            .preferredColorScheme(.dark)
             .sheet(isPresented: $showEditProfile) {
                 EditProfileView(authViewModel: authViewModel)
             }
@@ -561,7 +580,7 @@ struct LanguageSelectionSheet: View {
                             Spacer()
                             if language == selectedLanguage {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(Theme.brandOrange)
+                                    .foregroundColor(Theme.lxOrange)
                             }
                         }
                     }
@@ -604,18 +623,18 @@ struct ProfileOptionRow: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(Theme.brandOrange)
+                .foregroundColor(Theme.lxOrange)
                 .font(.title3)
                 .frame(width: 30)
-            
+
             Text(title)
                 .font(.body)
-                .foregroundColor(Theme.brandBlack)
-            
+                .foregroundColor(Theme.lxText)
+
             Spacer()
-            
+
             Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
+                .foregroundColor(Theme.lxTextMuted)
                 .font(.caption)
         }
         .padding()
@@ -636,9 +655,9 @@ struct AuthActionButton: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Theme.brandBlack)
-                    .cornerRadius(12)
-                    .shadow(radius: 5)
+                    .background(Theme.lxError)
+                    .cornerRadius(14)
+                    .shadow(color: Theme.lxError.opacity(0.4), radius: 14, x: 0, y: 6)
             }
         } else {
             NavigationLink(destination: LoginView(authViewModel: authViewModel)) {
@@ -647,9 +666,9 @@ struct AuthActionButton: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Theme.brandGreen)
-                    .cornerRadius(12)
-                    .shadow(radius: 5)
+                    .background(Theme.lxButtonGradient)
+                    .cornerRadius(14)
+                    .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
             }
         }
     }

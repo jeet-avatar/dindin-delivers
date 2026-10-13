@@ -12,6 +12,8 @@ struct WaybillSheet: View {
             Group {
                 if isLoading {
                     ProgressView("Loading trip information...")
+                        .tint(Theme.lxOrange)
+                        .foregroundColor(Theme.lxTextSecondary)
                 } else if let waybill = waybill {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
@@ -52,25 +54,29 @@ struct WaybillSheet: View {
                                 Text("CPUC: 1-800-894-9444")
                             }
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                             .padding(.top, 8)
                         }
                         .padding()
                     }
                 } else {
                     Text("Unable to load trip information")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Trip Information")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .foregroundColor(Theme.lxOrange)
                 }
             }
             .onAppear { loadWaybill() }
         }
+        .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
@@ -78,21 +84,27 @@ struct WaybillSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
+                .foregroundColor(Theme.lxOrange)
             ForEach(items, id: \.0) { label, value in
                 HStack {
                     Text(label)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .frame(width: 100, alignment: .leading)
                     Text(value)
                         .font(.subheadline)
+                        .foregroundColor(Theme.lxText)
                     Spacer()
                 }
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     private func nestedString(_ dict: [String: Any], _ key1: String, _ key2: String) -> String {

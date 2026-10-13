@@ -58,7 +58,7 @@ struct DriverProfileView: View {
                     }
                 }
             }
-            .background(Theme.backgroundGrey.ignoresSafeArea())
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -66,7 +66,7 @@ struct DriverProfileView: View {
                     Button(action: { viewModel.isEditing.toggle() }) {
                         Text(viewModel.isEditing ? "Done" : "Edit")
                             .fontWeight(.semibold)
-                            .foregroundColor(Theme.brandRed)
+                            .foregroundColor(Theme.lxOrange)
                     }
                     .accessibilityLabel(viewModel.isEditing ? "Done editing profile" : "Edit profile")
                 }
@@ -88,6 +88,7 @@ struct DriverProfileView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -121,7 +122,7 @@ struct ProfileHeaderView: View {
                             .font(.system(size: 14))
                             .foregroundColor(.white)
                             .frame(width: 36, height: 36)
-                            .background(Theme.brandRed)
+                            .background(Theme.lxOrange)
                             .clipShape(Circle())
                     }
                     .onChange(of: selectedItem) { _, newItem in
@@ -139,7 +140,7 @@ struct ProfileHeaderView: View {
                 Text(viewModel.driver?.name ?? "Driver Name")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(Theme.lxText)
 
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
@@ -147,9 +148,9 @@ struct ProfileHeaderView: View {
                     Text(String(format: "%.1f", viewModel.driver?.stats?.rating ?? 5.0))
                         .fontWeight(.semibold)
                     Text("•")
-                        .foregroundColor(Theme.textGrey)
-                    Text("\(viewModel.driver?.stats?.totalDeliveries ?? 0) deliveries")
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextMuted)
+                    Text("\(viewModel.driver?.stats?.totalDeliveries ?? 0) rides")
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 .font(.subheadline)
             }
@@ -167,7 +168,7 @@ struct ProfileHeaderView: View {
         .frame(maxWidth: .infinity)
         .background(
             LinearGradient(
-                colors: [Theme.brandRed.opacity(0.1), Theme.backgroundGrey],
+                colors: [Theme.lxOrange.opacity(0.1), Theme.lxBg],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -179,7 +180,7 @@ struct ProfileHeaderView: View {
             .resizable()
             .scaledToFit()
             .frame(width: 120, height: 120)
-            .foregroundColor(Theme.textGrey)
+            .foregroundColor(Theme.lxTextMuted)
     }
 
     private var statusBadge: some View {
@@ -209,22 +210,22 @@ struct ProfileHeaderView: View {
         .foregroundColor(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Theme.statusActive)
+        .background(Theme.lxSuccess)
         .cornerRadius(16)
     }
 
     private func statusInfo(for status: String) -> (Color, String, String) {
         switch status {
         case "approved":
-            return (Theme.statusActive, "checkmark.circle.fill", "Active")
+            return (Theme.lxSuccess, "checkmark.circle.fill", "Active")
         case "pending":
-            return (Theme.statusWarning, "clock.fill", "Pending Approval")
+            return (Theme.lxOrange, "clock.fill", "Pending Approval")
         case "rejected":
-            return (Theme.statusError, "xmark.circle.fill", "Rejected")
+            return (Theme.lxError, "xmark.circle.fill", "Rejected")
         case "suspended":
-            return (Theme.statusError, "exclamationmark.triangle.fill", "Suspended")
+            return (Theme.lxError, "exclamationmark.triangle.fill", "Suspended")
         default:
-            return (Theme.textGrey, "questionmark.circle.fill", "Unknown")
+            return (Theme.lxTextMuted, "questionmark.circle.fill", "Unknown")
         }
     }
 }
@@ -242,25 +243,25 @@ struct StatsOverviewCard: View {
                 color: .yellow
             )
 
-            Divider().frame(height: 40)
+            Divider().overlay(Theme.lxHairline).frame(height: 40)
 
             StatItem(
                 value: "\(stats?.totalDeliveries ?? 0)",
-                label: "Deliveries",
+                label: "Rides",
                 icon: "shippingbox.fill",
-                color: Theme.brandRed
+                color: Theme.lxOrange
             )
 
-            Divider().frame(height: 40)
+            Divider().overlay(Theme.lxHairline).frame(height: 40)
 
             StatItem(
                 value: "\(Int(stats?.acceptanceRate ?? 100))%",
                 label: "Acceptance",
                 icon: "checkmark.circle.fill",
-                color: Theme.statusActive
+                color: Theme.lxSuccess
             )
 
-            Divider().frame(height: 40)
+            Divider().overlay(Theme.lxHairline).frame(height: 40)
 
             StatItem(
                 value: "\(Int(stats?.onTimeRate ?? 100))%",
@@ -270,8 +271,9 @@ struct StatsOverviewCard: View {
             )
         }
         .padding(.vertical, 16)
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.lxHairline, lineWidth: 1))
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
         .padding(.horizontal)
         .padding(.bottom, 16)
@@ -296,7 +298,7 @@ struct StatItem: View {
             }
             Text(label)
                 .font(.caption2)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -315,10 +317,10 @@ struct ProfileTabSelector: View {
                         Text(tabs[index])
                             .font(.subheadline)
                             .fontWeight(selectedTab == index ? .semibold : .regular)
-                            .foregroundColor(selectedTab == index ? .white : Theme.textSecondary)
+                            .foregroundColor(selectedTab == index ? .white : Theme.lxTextSecondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(selectedTab == index ? Theme.brandRed : Theme.cardBackground)
+                            .background(selectedTab == index ? Theme.lxOrange : Theme.lxSurface)
                             .cornerRadius(20)
                     }
                     .accessibilityLabel("\(tabs[index]) tab")
@@ -374,17 +376,17 @@ struct PersonalInfoSection: View {
                         )
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Theme.backgroundGrey)
+                        .background(Theme.lxSurface2)
                         .cornerRadius(8)
                     } else if let dob = viewModel.dateOfBirth {
                         HStack {
                             Image(systemName: "calendar")
-                                .foregroundColor(Theme.textGrey)
+                                .foregroundColor(Theme.lxTextMuted)
                             Text("Date of Birth")
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Spacer()
                             Text(dob, style: .date)
-                                .foregroundColor(Theme.textPrimary)
+                                .foregroundColor(Theme.lxText)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -452,9 +454,10 @@ struct PersonalInfoSection: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Theme.brandRed)
+                .background(Theme.lxButtonGradient)
                 .foregroundColor(.white)
-                .cornerRadius(12)
+                .cornerRadius(14)
+                .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                 .padding(.horizontal)
                 .disabled(viewModel.isLoading)
                 .accessibilityLabel("Save profile changes")
@@ -497,7 +500,7 @@ struct VehicleDocumentsSection: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Year")
                                     .font(.caption)
-                                    .foregroundColor(Theme.textSecondary)
+                                    .foregroundColor(Theme.lxTextSecondary)
                                 Picker("Year", selection: $viewModel.vehicleYear) {
                                     ForEach((2000...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
                                         Text(String(year)).tag(year)
@@ -506,7 +509,7 @@ struct VehicleDocumentsSection: View {
                                 .pickerStyle(.menu)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Theme.backgroundGrey)
+                                .background(Theme.lxSurface2)
                                 .cornerRadius(8)
                             }
                         } else {
@@ -537,7 +540,7 @@ struct VehicleDocumentsSection: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Vehicle Type")
                                 .font(.caption)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Picker("Vehicle Type", selection: $viewModel.vehicleType) {
                                 ForEach(["Sedan", "SUV", "Truck", "Van", "Motorcycle", "Bicycle", "Scooter"], id: \.self) { type in
                                     Text(type).tag(type)
@@ -548,12 +551,12 @@ struct VehicleDocumentsSection: View {
                     } else if !viewModel.vehicleType.isEmpty {
                         HStack {
                             Image(systemName: "car.2.fill")
-                                .foregroundColor(Theme.textGrey)
+                                .foregroundColor(Theme.lxTextMuted)
                             Text("Vehicle Type")
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Spacer()
                             Text(viewModel.vehicleType)
-                                .foregroundColor(Theme.textPrimary)
+                                .foregroundColor(Theme.lxText)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -572,32 +575,32 @@ struct VehicleDocumentsSection: View {
                             if response.allVerified {
                                 Image(systemName: "checkmark.shield.fill")
                                     .font(.title2)
-                                    .foregroundColor(Theme.statusActive)
+                                    .foregroundColor(Theme.lxSuccess)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("All Documents Verified")
                                         .font(.headline)
-                                        .foregroundColor(Theme.statusActive)
+                                        .foregroundColor(Theme.lxSuccess)
                                     Text("Your account is fully verified")
                                         .font(.caption)
-                                        .foregroundColor(Theme.textSecondary)
+                                        .foregroundColor(Theme.lxTextSecondary)
                                 }
                             } else {
                                 Image(systemName: "exclamationmark.shield.fill")
                                     .font(.title2)
-                                    .foregroundColor(Theme.statusWarning)
+                                    .foregroundColor(Theme.lxOrange)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Verification Incomplete")
                                         .font(.headline)
-                                        .foregroundColor(Theme.statusWarning)
+                                        .foregroundColor(Theme.lxOrange)
                                     Text("\(response.documents.filter { $0.verified }.count)/\(response.count) documents verified")
                                         .font(.caption)
-                                        .foregroundColor(Theme.textSecondary)
+                                        .foregroundColor(Theme.lxTextSecondary)
                                 }
                             }
                             Spacer()
                         }
                         .padding()
-                        .background((response.allVerified ? Theme.statusActive : Theme.statusWarning).opacity(0.1))
+                        .background((response.allVerified ? Theme.lxSuccess : Theme.lxOrange).opacity(0.1))
                         .cornerRadius(12)
 
                         // Document Status List (Read-only)
@@ -613,7 +616,7 @@ struct VehicleDocumentsSection: View {
                             ProgressView()
                             Text("Loading verification status...")
                                 .font(.subheadline)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -622,25 +625,25 @@ struct VehicleDocumentsSection: View {
                         VStack(spacing: 12) {
                             Image(systemName: "doc.badge.plus")
                                 .font(.system(size: 40))
-                                .foregroundColor(Theme.textGrey)
+                                .foregroundColor(Theme.lxTextMuted)
                             Text("No Documents Submitted")
                                 .font(.headline)
-                                .foregroundColor(Theme.textPrimary)
+                                .foregroundColor(Theme.lxText)
                             Text("Complete your verification on the web portal")
                                 .font(.subheadline)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                                 .multilineTextAlignment(.center)
                         }
                         .padding()
                     }
 
-                    Divider()
+                    Divider().overlay(Theme.lxHairline)
 
                     // Web Verification Button
                     VStack(spacing: 8) {
                         Text("Upload documents through our secure web portal:")
                             .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                             .multilineTextAlignment(.center)
 
                         Button(action: { showWebVerification = true }) {
@@ -653,8 +656,9 @@ struct VehicleDocumentsSection: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Theme.brandRed)
-                            .cornerRadius(10)
+                            .background(Theme.lxButtonGradient)
+                            .cornerRadius(14)
+                            .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                         }
                         .accessibilityLabel("Upload documents on web")
                         .accessibilityHint("Opens the web portal for document upload")
@@ -675,9 +679,10 @@ struct VehicleDocumentsSection: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Theme.brandRed)
+                .background(Theme.lxButtonGradient)
                 .foregroundColor(.white)
-                .cornerRadius(12)
+                .cornerRadius(14)
+                .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                 .padding(.horizontal)
                 .disabled(viewModel.isLoading)
                 .accessibilityLabel("Save vehicle and document changes")
@@ -702,11 +707,11 @@ struct DocumentStatusRowItem: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 14))
-                .foregroundColor(Theme.brandRed)
+                .foregroundColor(Theme.lxOrange)
                 .frame(width: 24)
             Text(text)
                 .font(.subheadline)
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(Theme.lxText)
             Spacer()
         }
     }
@@ -726,11 +731,11 @@ struct VehiclePhotoUploadView: View {
             HStack {
                 Text("Vehicle Photo")
                     .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
                 Spacer()
                 Text("Visible to customers")
                     .font(.caption2)
-                    .foregroundColor(Theme.textGrey)
+                    .foregroundColor(Theme.lxTextMuted)
             }
 
             if let imageUrl = imageUrl, !imageUrl.isEmpty {
@@ -761,7 +766,7 @@ struct VehiclePhotoUploadView: View {
                             Image(systemName: "pencil.circle.fill")
                                 .font(.title2)
                                 .foregroundColor(.white)
-                                .background(Circle().fill(Theme.brandRed))
+                                .background(Circle().fill(Theme.lxOrange))
                                 .padding(8)
                         }
                         .onChange(of: selectedItem) { _, newItem in
@@ -779,24 +784,24 @@ struct VehiclePhotoUploadView: View {
                         } else {
                             Image(systemName: "camera.fill")
                                 .font(.system(size: 32))
-                                .foregroundColor(Theme.brandRed)
+                                .foregroundColor(Theme.lxOrange)
                             Text("Add Vehicle Photo")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundColor(Theme.brandRed)
+                                .foregroundColor(Theme.lxOrange)
                             Text("Help customers identify your vehicle")
                                 .font(.caption)
-                                .foregroundColor(Theme.textGrey)
+                                .foregroundColor(Theme.lxTextMuted)
                         }
                     }
                     .frame(height: 150)
                     .frame(maxWidth: .infinity)
-                    .background(Theme.backgroundGrey)
+                    .background(Theme.lxSurface)
                     .cornerRadius(12)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
-                            .foregroundColor(Theme.brandRed.opacity(0.3))
+                            .foregroundColor(Theme.lxOrange.opacity(0.3))
                     )
                 }
                 .onChange(of: selectedItem) { _, newItem in
@@ -813,14 +818,14 @@ struct VehiclePhotoUploadView: View {
         VStack(spacing: 8) {
             Image(systemName: "car.fill")
                 .font(.system(size: 32))
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxTextMuted)
             Text("No photo uploaded")
                 .font(.caption)
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxTextMuted)
         }
         .frame(height: 150)
         .frame(maxWidth: .infinity)
-        .background(Theme.backgroundGrey)
+        .background(Theme.lxSurface)
         .cornerRadius(12)
     }
 
@@ -854,7 +859,7 @@ struct EarningsPaymentSection: View {
                             amount: earningsViewModel.weekEarnings
                         )
 
-                        Divider().frame(height: 50)
+                        Divider().overlay(Theme.lxHairline).frame(height: 50)
 
                         EarningsStat(
                             title: "This Month",
@@ -862,13 +867,13 @@ struct EarningsPaymentSection: View {
                         )
                     }
 
-                    Divider()
+                    Divider().overlay(Theme.lxHairline)
 
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Weekly Trips")
                                 .font(.caption)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             HStack(spacing: 4) {
                                 Text("\(earningsViewModel.weekDeliveries)")
                                     .font(.title3)
@@ -876,7 +881,7 @@ struct EarningsPaymentSection: View {
                                 if earningsViewModel.weekRideshareRides > 0 {
                                     Text("(\(earningsViewModel.weekFoodDeliveries)d + \(earningsViewModel.weekRideshareRides)r)")
                                         .font(.caption2)
-                                        .foregroundColor(Theme.textSecondary)
+                                        .foregroundColor(Theme.lxTextSecondary)
                                 }
                             }
                         }
@@ -886,7 +891,7 @@ struct EarningsPaymentSection: View {
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("Weekly Hours")
                                 .font(.caption)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Text(String(format: "%.1f hrs", earningsViewModel.weekHours))
                                 .font(.title3)
                                 .fontWeight(.bold)
@@ -920,7 +925,7 @@ struct EarningsPaymentSection: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Account Type")
                                     .font(.caption)
-                                    .foregroundColor(Theme.textSecondary)
+                                    .foregroundColor(Theme.lxTextSecondary)
                                 Picker("Account Type", selection: $viewModel.accountType) {
                                     Text("Checking").tag("checking")
                                     Text("Savings").tag("savings")
@@ -948,12 +953,12 @@ struct EarningsPaymentSection: View {
                     } else {
                         HStack {
                             Image(systemName: "creditcard")
-                                .foregroundColor(Theme.textGrey)
+                                .foregroundColor(Theme.lxTextMuted)
                             Text("Account")
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Spacer()
                             Text("****\(viewModel.driver?.bankAccount?.accountNumberLast4 ?? "****")")
-                                .foregroundColor(Theme.textPrimary)
+                                .foregroundColor(Theme.lxText)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -996,16 +1001,17 @@ struct EarningsPaymentSection: View {
             NavigationLink(destination: PayoutHistoryView()) {
                 HStack {
                     Image(systemName: "clock.arrow.circlepath")
-                        .foregroundColor(Theme.brandRed)
+                        .foregroundColor(Theme.lxOrange)
                     Text("View Payout History")
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .foregroundColor(Theme.textGrey)
+                        .foregroundColor(Theme.lxTextMuted)
                 }
                 .padding()
-                .background(Theme.cardBackground)
+                .background(Theme.lxSurface)
                 .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
                 .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
             }
             .padding(.horizontal)
@@ -1023,9 +1029,10 @@ struct EarningsPaymentSection: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Theme.brandRed)
+                .background(Theme.lxButtonGradient)
                 .foregroundColor(.white)
-                .cornerRadius(12)
+                .cornerRadius(14)
+                .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                 .padding(.horizontal)
                 .disabled(viewModel.isLoading)
                 .accessibilityLabel("Save earnings and payment changes")
@@ -1043,11 +1050,11 @@ struct EarningsStat: View {
         VStack(spacing: 4) {
             Text(title)
                 .font(.caption)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
             Text("$\(String(format: "%.2f", amount))")
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundColor(Theme.statusActive)
+                .foregroundColor(Theme.lxSuccess)
         }
         .frame(maxWidth: .infinity)
     }
@@ -1071,11 +1078,27 @@ struct SettingsSection: View {
                     HStack {
                         Text("Background check, vehicle inspection, accessibility")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Founding Member ($100 lifetime fee lock)
+            NavigationLink(destination: FoundingMemberView()) {
+                ProfileCard(title: "Founding Member", icon: "star.circle.fill") {
+                    HStack {
+                        Text("Join for $100 and lock your fees for life")
+                            .font(.caption)
+                            .foregroundColor(Theme.lxTextSecondary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                 }
             }
@@ -1087,37 +1110,40 @@ struct SettingsSection: View {
                     Toggle(isOn: $viewModel.notificationsEnabled) {
                         HStack {
                             Image(systemName: "bell.fill")
-                                .foregroundColor(Theme.brandRed)
+                                .foregroundColor(Theme.lxOrange)
                             Text("Push Notifications")
                         }
                     }
+                    .tint(Theme.lxOrange)
 
                     Toggle(isOn: $viewModel.soundEnabled) {
                         HStack {
                             Image(systemName: "speaker.wave.2.fill")
-                                .foregroundColor(Theme.brandRed)
+                                .foregroundColor(Theme.lxOrange)
                             Text("Sound Effects")
                         }
                     }
+                    .tint(Theme.lxOrange)
 
                     Toggle(isOn: $viewModel.acceptCashOrders) {
                         HStack {
                             Image(systemName: "banknote.fill")
-                                .foregroundColor(Theme.brandRed)
-                            Text("Accept Cash Orders")
+                                .foregroundColor(Theme.lxOrange)
+                            Text("Accept Cash Rides")
                         }
                     }
+                    .tint(Theme.lxOrange)
 
-                    Divider()
+                    Divider().overlay(Theme.lxHairline)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Max Delivery Distance")
+                        Text("Max pickup distance")
                             .font(.subheadline)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(Theme.lxTextSecondary)
 
                         HStack {
                             Slider(value: $viewModel.maxDeliveryDistance, in: 1...25, step: 1)
-                                .tint(Theme.brandRed)
+                                .tint(Theme.lxOrange)
                             Text("\(Int(viewModel.maxDeliveryDistance)) mi")
                                 .fontWeight(.semibold)
                                 .frame(width: 50)
@@ -1133,19 +1159,19 @@ struct SettingsSection: View {
                         Link(destination: termsURL) {
                             SettingsRow(icon: "doc.text.fill", title: "Terms of Service", color: Theme.statusInfo)
                         }
-                        Divider()
+                        Divider().overlay(Theme.lxHairline)
                     }
                     if let privacyURL = URL(string: AppConstants.privacyPolicyURL) {
                         Link(destination: privacyURL) {
                             SettingsRow(icon: "hand.raised.fill", title: "Privacy Policy", color: Theme.statusInfo)
                         }
-                        Divider()
+                        Divider().overlay(Theme.lxHairline)
                     }
                     if let supportURL = URL(string: "mailto:\(AppConfig.shared.supportEmail)") {
                         Link(destination: supportURL) {
-                            SettingsRow(icon: "envelope.fill", title: "Contact Support", color: Theme.statusActive)
+                            SettingsRow(icon: "envelope.fill", title: "Contact Support", color: Theme.lxSuccess)
                         }
-                        Divider()
+                        Divider().overlay(Theme.lxHairline)
                     }
                     if let rateURL = URL(string: "https://apps.apple.com/app/id\(Bundle.main.bundleIdentifier ?? "")") {
                         Link(destination: rateURL) {
@@ -1161,11 +1187,12 @@ struct SettingsSection: View {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
                     Text("Logout")
                 }
-                .foregroundColor(.red)
+                .foregroundColor(Theme.lxError)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Theme.cardBackground)
+                .background(Theme.lxSurface)
                 .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
                 .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
             }
             .accessibilityLabel("Logout from account")
@@ -1187,10 +1214,10 @@ struct SettingsSection: View {
                     Image(systemName: "trash.fill")
                     Text("Delete Account")
                 }
-                .foregroundColor(.red)
+                .foregroundColor(Theme.lxError)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.red.opacity(0.1))
+                .background(Theme.lxError.opacity(0.1))
                 .cornerRadius(12)
             }
             .accessibilityLabel("Delete account permanently")
@@ -1227,7 +1254,7 @@ struct SettingsSection: View {
             // App Version
             Text("Version \(AppConfig.shared.appVersion)")
                 .font(.caption)
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxTextMuted)
                 .padding(.top, 8)
         }
         .padding(.bottom, 24)
@@ -1310,10 +1337,10 @@ struct SettingsRow: View {
                 .foregroundColor(color)
                 .frame(width: 24)
             Text(title)
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(Theme.lxText)
             Spacer()
             Image(systemName: "chevron.right")
-                .foregroundColor(Theme.textGrey)
+                .foregroundColor(Theme.lxTextMuted)
                 .font(.caption)
         }
         .padding(.vertical, 12)
@@ -1330,17 +1357,18 @@ struct ProfileCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Image(systemName: icon)
-                    .foregroundColor(Theme.brandRed)
+                    .foregroundColor(Theme.lxOrange)
                 Text(title)
                     .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(Theme.lxText)
             }
 
             content
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.lxHairline, lineWidth: 1))
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
         .padding(.horizontal)
     }
@@ -1358,11 +1386,11 @@ struct ProfileField: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
 
             HStack {
                 Image(systemName: icon)
-                    .foregroundColor(Theme.textGrey)
+                    .foregroundColor(Theme.lxTextMuted)
                     .frame(width: 20)
 
                 if isEditing {
@@ -1374,13 +1402,13 @@ struct ProfileField: View {
                     }
                 } else {
                     Text(value.isEmpty ? "-" : value)
-                        .foregroundColor(value.isEmpty ? Theme.textGrey : Theme.textPrimary)
+                        .foregroundColor(value.isEmpty ? Theme.lxTextMuted : Theme.lxText)
                     Spacer()
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(isEditing ? Theme.backgroundGrey : Color.clear)
+            .background(isEditing ? Theme.lxSurface2 : Color.clear)
             .cornerRadius(8)
         }
     }
@@ -1396,10 +1424,10 @@ struct VerificationStatusBadge: View {
             Text(isVerified ? "Verified" : "Pending Verification")
         }
         .font(.caption)
-        .foregroundColor(isVerified ? Theme.statusActive : Theme.statusWarning)
+        .foregroundColor(isVerified ? Theme.lxSuccess : Theme.lxOrange)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background((isVerified ? Theme.statusActive : Theme.statusWarning).opacity(0.1))
+        .background((isVerified ? Theme.lxSuccess : Theme.lxOrange).opacity(0.1))
         .cornerRadius(8)
     }
 }
@@ -1410,13 +1438,13 @@ struct DocumentStatusRow: View {
     private var statusColor: Color {
         switch document.status.lowercased() {
         case "verified", "approved":
-            return Theme.statusActive
+            return Theme.lxSuccess
         case "pending", "pending_review", "under_review":
-            return Theme.statusWarning
+            return Theme.lxOrange
         case "rejected", "expired":
-            return Theme.statusError
+            return Theme.lxError
         default:
-            return Theme.textGrey
+            return Theme.lxTextMuted
         }
     }
 
@@ -1444,7 +1472,7 @@ struct DocumentStatusRow: View {
             // Document type icon
             Image(systemName: documentIcon)
                 .font(.system(size: 18))
-                .foregroundColor(Theme.brandRed)
+                .foregroundColor(Theme.lxOrange)
                 .frame(width: 28)
 
             // Document name and upload date
@@ -1452,12 +1480,12 @@ struct DocumentStatusRow: View {
                 Text(displayName)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(Theme.lxText)
 
                 if let uploadDate = document.uploadDate {
                     Text("Uploaded \(formatDate(uploadDate))")
                         .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
             }
 
@@ -1479,7 +1507,7 @@ struct DocumentStatusRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Theme.backgroundGrey)
+        .background(Theme.lxSurface2)
         .cornerRadius(8)
     }
 
@@ -1543,12 +1571,12 @@ struct CurrentLocationMapView: View {
                     Image(systemName: "car.fill")
                         .foregroundColor(.white)
                         .padding(8)
-                        .background(Theme.brandRed)
+                        .background(Theme.lxOrange)
                         .clipShape(Circle())
                         .shadow(radius: 3)
 
                     Image(systemName: "arrowtriangle.down.fill")
-                        .foregroundColor(Theme.brandRed)
+                        .foregroundColor(Theme.lxOrange)
                         .font(.system(size: 10))
                         .offset(y: -3)
                 }
@@ -1570,14 +1598,14 @@ struct PayoutHistoryView: View {
                     VStack(alignment: .leading) {
                         Text("Week Total")
                             .fontWeight(.semibold)
-                        Text("\(earningsViewModel.weekFoodDeliveries) deliveries · \(earningsViewModel.weekRideshareRides) rides")
+                        Text("\(earningsViewModel.weekRideshareRides) rides")
                             .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                     Spacer()
                     Text(String(format: "$%.2f", earningsViewModel.weekEarnings))
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.statusActive)
+                        .foregroundColor(Theme.lxSuccess)
                 }
                 .padding(.vertical, 4)
             }
@@ -1586,7 +1614,7 @@ struct PayoutHistoryView: View {
             Section(header: Text("Daily Breakdown")) {
                 if earningsViewModel.dailyEarnings.isEmpty {
                     Text("No earnings data yet")
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .italic()
                 } else {
                     ForEach(earningsViewModel.dailyEarnings) { daily in
@@ -1598,7 +1626,7 @@ struct PayoutHistoryView: View {
                             Spacer()
                             Text(String(format: "$%.2f", daily.amount))
                                 .fontWeight(.bold)
-                                .foregroundColor(daily.amount > 0 ? Theme.statusActive : Theme.textSecondary)
+                                .foregroundColor(daily.amount > 0 ? Theme.lxSuccess : Theme.lxTextSecondary)
                         }
                         .padding(.vertical, 4)
                     }
@@ -1611,19 +1639,23 @@ struct PayoutHistoryView: View {
                     VStack(alignment: .leading) {
                         Text("Month Total")
                             .fontWeight(.semibold)
-                        Text("\(earningsViewModel.monthFoodDeliveries) deliveries · \(earningsViewModel.monthRideshareRides) rides")
+                        Text("\(earningsViewModel.monthRideshareRides) rides")
                             .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                     Spacer()
                     Text(String(format: "$%.2f", earningsViewModel.monthEarnings))
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.statusActive)
+                        .foregroundColor(Theme.lxSuccess)
                 }
                 .padding(.vertical, 4)
             }
         }
+        .listRowBackground(Theme.lxSurface)
+        .scrollContentBackground(.hidden)
+        .background(Theme.lxBg.ignoresSafeArea())
         .navigationTitle("Payout History")
+        .preferredColorScheme(.dark)
         .onAppear {
             earningsViewModel.fetchEarnings()
         }
@@ -1660,10 +1692,10 @@ struct ExpirationAlertsBanner: View {
                         Text(hasExpired ? "Document(s) Expired" : "Documents Expiring Soon")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                            .foregroundColor(Theme.lxText)
                         Text("\(alerts.count) item\(alerts.count == 1 ? "" : "s") need\(alerts.count == 1 ? "s" : "") attention")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
 
                     Spacer()
@@ -1671,7 +1703,7 @@ struct ExpirationAlertsBanner: View {
                     // Expand Arrow
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
                 .padding()
                 .background(urgentColor.opacity(0.1))
@@ -1704,8 +1736,8 @@ struct ExpirationAlertsBanner: View {
     }
 
     private var urgentColor: Color {
-        if hasExpired { return .red }
-        if alerts.contains(where: { $0.isUrgent }) { return .orange }
+        if hasExpired { return Theme.lxError }
+        if alerts.contains(where: { $0.isUrgent }) { return Theme.lxOrange }
         return .yellow
     }
 }
@@ -1722,7 +1754,7 @@ struct ExpirationAlertRow: View {
 
             Text(alert.message)
                 .font(.subheadline)
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.lxText)
 
             Spacer()
 
@@ -1733,17 +1765,17 @@ struct ExpirationAlertRow: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.red)
+                    .background(Theme.lxError)
                     .cornerRadius(4)
             } else {
                 Text(formattedDate)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Color(.systemBackground))
+        .background(Theme.lxSurface)
         .cornerRadius(8)
     }
 

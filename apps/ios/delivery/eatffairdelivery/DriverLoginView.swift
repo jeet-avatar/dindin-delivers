@@ -10,6 +10,11 @@ import os
 private let logger = Logger(subsystem: "com.dollorai.delivery", category: "DriverLogin")
 
 // MARK: - Keychain Helper for Secure Password Storage
+//
+// Remembers the driver's email/password login so a return to this screen
+// (session expired, logged out, reinstall) can be prefilled instead of
+// forcing the driver to retype credentials. See `loadRememberedCredentials()`
+// and the `driverLogin`/`driverRegister` success handlers below.
 struct KeychainHelper {
 
     enum KeychainError: Error {
@@ -35,7 +40,7 @@ struct KeychainHelper {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: email,
-            kSecAttrService as String: "com.dollor.driver.google-oauth",
+            kSecAttrService as String: "com.dollorai.driver.login-password",
             kSecValueData as String: data
         ]
 
@@ -64,7 +69,7 @@ struct KeychainHelper {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: email,
-            kSecAttrService as String: "com.dollor.driver.google-oauth",
+            kSecAttrService as String: "com.dollorai.driver.login-password",
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
@@ -88,7 +93,7 @@ struct KeychainHelper {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: email,
-            kSecAttrService as String: "com.dollor.driver.google-oauth"
+            kSecAttrService as String: "com.dollorai.driver.login-password"
         ]
         let status = SecItemDelete(query as CFDictionary)
 
@@ -120,12 +125,42 @@ struct DriverLoginView: View {
     @State private var showRegistrationAlert = false
     @State private var registrationURL: String = ""
     @Binding var isLoggedIn: Bool
+    @EnvironmentObject var authManager: AuthManager
 
     private let p2pService = P2PAPIService.shared
 
     // Keys for storing Apple user info (Apple only provides name on first sign-in)
     private let appleUserNameKey = "driver_apple_user_name"
     private let appleUserIdKey = "driver_apple_user_id"
+
+    // Key for the last email used to sign in — paired with KeychainHelper to
+    // prefill the login form so a driver who does land back here (session
+    // expired, logged out, new install) doesn't have to retype credentials.
+    private let lastLoginEmailKey = "driver_last_login_email"
+
+    /// Prefills email + password from the last successful login, if any.
+    /// Only applies to the sign-in form (not sign-up) and never overwrites
+    /// text the driver has already started typing.
+    private func loadRememberedCredentials() {
+        guard !isSignUp, email.isEmpty, password.isEmpty,
+              let savedEmail = UserDefaults.standard.string(forKey: lastLoginEmailKey),
+              !savedEmail.isEmpty else { return }
+        email = savedEmail
+        if let savedPassword = KeychainHelper.getPassword(for: savedEmail) {
+            password = savedPassword
+        }
+    }
+
+    /// Completes a successful sign-in: refreshes the driver's real approval
+    /// status from the backend before flipping `isLoggedIn`, so an already-
+    /// approved driver lands straight on the dashboard instead of flashing
+    /// through the onboarding/pending screen (which only self-corrects after
+    /// a background poll). See AuthManager.refreshApprovalStatus.
+    private func completeLogin() {
+        authManager.refreshApprovalStatus { _ in
+            self.isLoggedIn = true
+        }
+    }
 
     /// Load Google Client ID from GoogleService-Info.plist - no hardcoded credentials
     private var googleClientID: String {
@@ -217,105 +252,105 @@ struct DriverLoginView: View {
                 // App branding with dollar sign
                 ZStack {
                     Circle()
-                        .fill(Theme.brandGreen.opacity(0.15))
+                        .fill(Theme.lxOrange.opacity(0.15))
                         .frame(width: 120, height: 120)
 
                     Text("$")
                         .font(.system(size: 60, weight: .bold))
-                        .foregroundColor(Theme.brandGreen)
+                        .foregroundColor(Theme.lxOrange)
                 }
                 .padding(.bottom, isSignUp ? 10 : 20)
 
                 Text("Dollor AI Service")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundColor(Theme.brandBlack)
+                    .foregroundColor(Theme.lxText)
 
                 Text("$ online store")
                     .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
                     .padding(.bottom, isSignUp ? 10 : 20)
 
                 Text(isSignUp ? "Driver Sign Up" : "Driver Login")
                     .font(.title2)
                     .fontWeight(.semibold)
-                    .foregroundColor(Theme.brandBlack)
+                    .foregroundColor(Theme.lxText)
 
                 if isSignUp {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
                             TextField("First Name", text: $firstName)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(.plain).lxField()
                                 .autocapitalization(.words)
                             if isSignUp && firstName.isEmpty {
                                 Text("Required")
                                     .font(.caption2)
-                                    .foregroundColor(.red)
+                                    .foregroundColor(Theme.lxError)
                             }
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
                             TextField("Last Name", text: $lastName)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(.plain).lxField()
                                 .autocapitalization(.words)
                             if isSignUp && lastName.isEmpty {
                                 Text("Required")
                                     .font(.caption2)
-                                    .foregroundColor(.red)
+                                    .foregroundColor(Theme.lxError)
                             }
                         }
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
                         TextField("Phone Number", text: $phone)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textFieldStyle(.plain).lxField()
                             .keyboardType(.phonePad)
                         if !phone.isEmpty && !isValidPhone {
                             Text("Enter valid phone (10-15 digits)")
                                 .font(.caption2)
-                                .foregroundColor(.red)
+                                .foregroundColor(Theme.lxError)
                         }
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     TextField("Email", text: $email)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.plain).lxField()
                         .autocapitalization(.none)
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
                     if !email.isEmpty && !isValidEmail {
                         Text(emailValidationError ?? "Enter a valid email address")
                             .font(.caption2)
-                            .foregroundColor(.red)
+                            .foregroundColor(Theme.lxError)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     SecureField("Password", text: $password)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.plain).lxField()
                         .textContentType(isSignUp ? .newPassword : .password)
                     if isSignUp && !password.isEmpty {
                         if !isValidPassword {
                             Text("Min 8 chars, uppercase, lowercase, number & special char (!@#$%)")
                                 .font(.caption2)
-                                .foregroundColor(.red)
+                                .foregroundColor(Theme.lxError)
                         }
                         // Password strength indicator
                         HStack(spacing: 4) {
                             ForEach(0..<5, id: \.self) { index in
                                 Rectangle()
                                     .fill(index < passwordStrength.level ?
-                                          (passwordStrength.level <= 2 ? Color.red :
-                                           passwordStrength.level <= 4 ? Color.orange : Color.green) :
-                                          Color.gray.opacity(0.3))
+                                          (passwordStrength.level <= 2 ? Theme.lxError :
+                                           passwordStrength.level <= 4 ? Theme.lxOrange : Theme.lxSuccess) :
+                                          Theme.lxHairline)
                                     .frame(height: 4)
                                     .cornerRadius(2)
                             }
                             Text(passwordStrength.message)
                                 .font(.caption2)
-                                .foregroundColor(passwordStrength.level <= 2 ? .red :
-                                                passwordStrength.level <= 4 ? .orange : .green)
+                                .foregroundColor(passwordStrength.level <= 2 ? Theme.lxError :
+                                                passwordStrength.level <= 4 ? Theme.lxOrange : Theme.lxSuccess)
                         }
                     }
                 }
@@ -327,7 +362,7 @@ struct DriverLoginView: View {
                         Button(action: { showForgotPassword = true }) {
                             Text("Forgot Password?")
                                 .font(.subheadline)
-                                .foregroundColor(Theme.brandGreen)
+                                .foregroundColor(Theme.lxOrange)
                         }
                     }
                 }
@@ -335,12 +370,12 @@ struct DriverLoginView: View {
                 if isSignUp {
                     VStack(alignment: .leading, spacing: 4) {
                         SecureField("Confirm Password", text: $confirmPassword)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textFieldStyle(.plain).lxField()
                             .textContentType(.newPassword)
                         if !confirmPassword.isEmpty && password != confirmPassword {
                             Text("Passwords do not match")
                                 .font(.caption2)
-                                .foregroundColor(.red)
+                                .foregroundColor(Theme.lxError)
                         }
                     }
 
@@ -348,16 +383,16 @@ struct DriverLoginView: View {
                     HStack(spacing: 8) {
                         Button(action: { agreedToTerms.toggle() }) {
                             Image(systemName: agreedToTerms ? "checkmark.square.fill" : "square")
-                                .foregroundColor(agreedToTerms ? Theme.brandGreen : .gray)
+                                .foregroundColor(agreedToTerms ? Theme.lxOrange : Theme.lxTextMuted)
                         }
 
                         Text("I agree to the ")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextSecondary)
                         +
                         Text("Terms & Conditions")
                             .font(.caption)
-                            .foregroundColor(Theme.brandGreen)
+                            .foregroundColor(Theme.lxOrange)
                             .underline()
                     }
                     .onTapGesture {
@@ -367,7 +402,7 @@ struct DriverLoginView: View {
 
                 if !errorMessage.isEmpty {
                     Text(errorMessage)
-                        .foregroundColor(.red)
+                        .foregroundColor(Theme.lxError)
                         .font(.caption)
                         .multilineTextAlignment(.center)
                 }
@@ -378,16 +413,18 @@ struct DriverLoginView: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Theme.brandGreen)
-                            .cornerRadius(10)
+                            .background(Theme.lxButtonGradient)
+                            .cornerRadius(14)
+                            .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                     } else {
                         Text(isSignUp ? "Sign Up" : "Login")
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Theme.brandGreen)
-                            .cornerRadius(10)
+                            .background(Theme.lxButtonGradient)
+                            .cornerRadius(14)
+                            .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                     }
                 }
                 .disabled(isLoading)
@@ -405,19 +442,20 @@ struct DriverLoginView: View {
                     }
                 }) {
                     Text(isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up")
-                        .foregroundColor(Theme.brandGreen)
+                        .foregroundColor(Theme.lxOrange)
                 }
 
                 HStack {
-                    VStack { Divider() }
+                    VStack { Divider().overlay(Theme.lxHairline) }
                     Text("OR")
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextMuted)
                         .font(.caption)
-                    VStack { Divider() }
+                    VStack { Divider().overlay(Theme.lxHairline) }
                 }
                 .padding(.vertical)
 
                 GoogleSignInButton(action: handleGoogleLogin)
+                    .colorScheme(.dark)
 
                 // Sign in with Apple Button (Required by Apple for App Store)
                 SignInWithAppleButton(.signIn) { request in
@@ -428,13 +466,18 @@ struct DriverLoginView: View {
                 } onCompletion: { result in
                     handleAppleSignIn(result: result)
                 }
-                .signInWithAppleButtonStyle(.black)
+                .signInWithAppleButtonStyle(.white)
                 .frame(height: 50)
                 .cornerRadius(10)
 
                 Spacer()
             }
             .padding()
+        }
+        .background(Theme.lxBg.ignoresSafeArea())
+        .preferredColorScheme(.dark)
+        .onAppear {
+            loadRememberedCredentials()
         }
         .sheet(isPresented: $showTerms) {
             DriverTermsSheet(agreedToTerms: $agreedToTerms)
@@ -545,7 +588,7 @@ struct DriverLoginView: View {
                     self.isLoading = false
                     switch result {
                     case .success:
-                        self.isLoggedIn = true
+                        self.completeLogin()
                     case .failure(let error):
                         if case P2PAPIError.registrationRequired(_, let url) = error {
                             self.registrationURL = url
@@ -655,7 +698,7 @@ struct DriverLoginView: View {
                     self.isLoading = false
                     switch result {
                     case .success:
-                        self.isLoggedIn = true
+                        self.completeLogin()
                     case .failure(let error):
                         if case P2PAPIError.registrationRequired(_, let url) = error {
                             self.registrationURL = url
@@ -731,7 +774,9 @@ struct DriverLoginView: View {
                     self.isLoading = false
                     switch result {
                     case .success:
-                        self.isLoggedIn = true
+                        UserDefaults.standard.set(self.email, forKey: self.lastLoginEmailKey)
+                        KeychainHelper.save(password: self.password, for: self.email)
+                        self.completeLogin()
                     case .failure(let error):
                         let errMsg = error.localizedDescription.lowercased()
                         if errMsg.contains("email") && errMsg.contains("exist") {
@@ -752,7 +797,9 @@ struct DriverLoginView: View {
                     self.isLoading = false
                     switch result {
                     case .success:
-                        self.isLoggedIn = true
+                        UserDefaults.standard.set(self.email, forKey: self.lastLoginEmailKey)
+                        KeychainHelper.save(password: self.password, for: self.email)
+                        self.completeLogin()
                     case .failure(let error):
                         let errMsg = error.localizedDescription.lowercased()
                         if errMsg.contains("invalid") || errMsg.contains("password") || errMsg.contains("credential") {
@@ -785,14 +832,15 @@ struct DriverTermsSheet: View {
                     Text("Terms & Conditions")
                         .font(.title)
                         .fontWeight(.bold)
+                        .foregroundColor(Theme.lxText)
 
                     Text("Last Updated: December 2024")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextMuted)
 
                     Group {
                         sectionHeader("1. Driver Agreement")
-                        Text("By registering as a driver on Dollor AI Service, you agree to provide delivery services in accordance with these terms. You must maintain a valid driver's license, vehicle insurance, and pass our background verification process.")
+                        Text("By registering as a driver on Dollor AI Service, you agree to provide rideshare services in accordance with these terms. You must maintain a valid driver's license, vehicle insurance, and pass our background verification process.")
 
                         sectionHeader("2. Account Requirements")
                         Text("You must be at least 18 years old, possess a valid driver's license, and have access to a reliable vehicle. You are responsible for maintaining accurate account information.")
@@ -801,13 +849,13 @@ struct DriverTermsSheet: View {
                         Text("All submitted documents (driver's license, insurance, etc.) will be verified by our AI-powered verification system. Approval is automatic upon successful verification. Falsified documents will result in immediate account termination.")
 
                         sectionHeader("4. Earnings & Payments")
-                        Text("You will receive payment for completed deliveries as per the agreed rates. Payments are processed weekly via direct deposit or your preferred payment method.")
+                        Text("You will receive payment for completed rides as per the agreed rates. Payments are processed weekly via direct deposit or your preferred payment method.")
 
                         sectionHeader("5. Code of Conduct")
                         Text("You agree to provide professional, courteous service. Any violations of our code of conduct may result in account suspension or termination.")
 
                         sectionHeader("6. Privacy")
-                        Text("Your personal information is protected under our Privacy Policy. We collect only necessary information for service delivery and compliance purposes.")
+                        Text("Your personal information is protected under our Privacy Policy. We collect only necessary information for providing our services and compliance purposes.")
                     }
 
                     Spacer(minLength: 40)
@@ -821,26 +869,31 @@ struct DriverTermsSheet: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Theme.brandGreen)
-                            .cornerRadius(10)
+                            .background(Theme.lxButtonGradient)
+                            .cornerRadius(14)
+                            .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                     }
                 }
                 .padding()
             }
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Close") {
                         dismiss()
                     }
+                    .foregroundColor(Theme.lxOrange)
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     private func sectionHeader(_ text: String) -> some View {
         Text(text)
             .font(.headline)
+            .foregroundColor(Theme.lxText)
             .padding(.top, 8)
     }
 }
@@ -867,13 +920,14 @@ struct DriverForgotPasswordView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 80, height: 80)
-                    .foregroundColor(Theme.brandGreen)
+                    .foregroundColor(Theme.lxOrange)
                     .padding(.top, 40)
 
                 // Title
                 Text(showCodeEntry ? "Enter Reset Code" : "Reset Password")
                     .font(.title)
                     .fontWeight(.bold)
+                    .foregroundColor(Theme.lxText)
 
                 if resetComplete {
                     // Success State
@@ -882,15 +936,15 @@ struct DriverForgotPasswordView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 60, height: 60)
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
 
                         Text("Password Reset Successful!")
                             .font(.headline)
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
 
                         Text("You can now login with your new password.")
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextSecondary)
                             .multilineTextAlignment(.center)
 
                         Button(action: { isPresented = false }) {
@@ -899,8 +953,9 @@ struct DriverForgotPasswordView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Theme.brandGreen)
-                                .cornerRadius(12)
+                                .background(Theme.lxButtonGradient)
+                                .cornerRadius(14)
+                                .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                         }
                         .padding(.horizontal)
                         .padding(.top, 20)
@@ -910,7 +965,7 @@ struct DriverForgotPasswordView: View {
                     VStack(spacing: 16) {
                         Text("We sent a code to \(email). Enter it below with your new password.")
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
 
@@ -918,10 +973,10 @@ struct DriverForgotPasswordView: View {
                             Text("Reset Code")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundColor(.gray)
+                                .foregroundColor(Theme.lxTextSecondary)
 
                             TextField("Enter code", text: $resetCode)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(.plain).lxField()
                                 .keyboardType(.numberPad)
                         }
                         .padding(.horizontal)
@@ -930,17 +985,17 @@ struct DriverForgotPasswordView: View {
                             Text("New Password")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundColor(.gray)
+                                .foregroundColor(Theme.lxTextSecondary)
 
                             SecureField("Enter new password", text: $newPassword)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(.plain).lxField()
                                 .textContentType(.newPassword)
                         }
                         .padding(.horizontal)
 
                         if !errorMessage.isEmpty {
                             Text(errorMessage)
-                                .foregroundColor(.red)
+                                .foregroundColor(Theme.lxError)
                                 .font(.subheadline)
                                 .padding(.horizontal)
                         }
@@ -958,8 +1013,9 @@ struct DriverForgotPasswordView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Theme.brandGreen)
-                            .cornerRadius(12)
+                            .background(Theme.lxButtonGradient)
+                            .cornerRadius(14)
+                            .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                         }
                         .disabled(isLoading || resetCode.isEmpty || newPassword.isEmpty)
                         .opacity((resetCode.isEmpty || newPassword.isEmpty) ? 0.6 : 1.0)
@@ -970,7 +1026,7 @@ struct DriverForgotPasswordView: View {
                     VStack(spacing: 16) {
                         Text("Enter your email address and we'll send you a code to reset your password.")
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
 
@@ -978,10 +1034,10 @@ struct DriverForgotPasswordView: View {
                             Text("Email")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundColor(.gray)
+                                .foregroundColor(Theme.lxTextSecondary)
 
                             TextField("Enter your email", text: $email)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(.plain).lxField()
                                 .autocapitalization(.none)
                                 .keyboardType(.emailAddress)
                                 .textContentType(.emailAddress)
@@ -990,7 +1046,7 @@ struct DriverForgotPasswordView: View {
 
                         if !errorMessage.isEmpty {
                             Text(errorMessage)
-                                .foregroundColor(.red)
+                                .foregroundColor(Theme.lxError)
                                 .font(.subheadline)
                                 .padding(.horizontal)
                         }
@@ -1008,8 +1064,9 @@ struct DriverForgotPasswordView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Theme.brandGreen)
-                            .cornerRadius(12)
+                            .background(Theme.lxButtonGradient)
+                            .cornerRadius(14)
+                            .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, x: 0, y: 6)
                         }
                         .disabled(isLoading || email.isEmpty)
                         .opacity(email.isEmpty ? 0.6 : 1.0)
@@ -1019,16 +1076,19 @@ struct DriverForgotPasswordView: View {
 
                 Spacer()
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: { isPresented = false }) {
                         Image(systemName: "xmark")
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     func sendResetEmail() {
@@ -1104,6 +1164,29 @@ struct DriverForgotPasswordView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Luxury Dark Text Field Styling
+private struct LxFieldModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .foregroundColor(Theme.lxText)
+            .tint(Theme.lxOrange)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Theme.lxSurface)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Theme.lxHairline, lineWidth: 1)
+            )
+    }
+}
+
+private extension View {
+    func lxField() -> some View {
+        modifier(LxFieldModifier())
     }
 }
 

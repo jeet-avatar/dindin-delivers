@@ -36,7 +36,7 @@ struct DriverChatView: View {
                 quickMessagesBar
                 inputBar
             }
-            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle(driverName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -44,13 +44,14 @@ struct DriverChatView: View {
                     Button("Close") {
                         dismiss()
                     }
+                    .foregroundColor(Theme.lxOrange)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if let phone = driverPhone, !phone.isEmpty {
                         Button(action: callDriver) {
                             Image(systemName: "phone.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxOrange)
                         }
                     }
                 }
@@ -63,6 +64,7 @@ struct DriverChatView: View {
                 stopPolling()
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Messages Scroll View
@@ -103,21 +105,22 @@ struct DriverChatView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 50))
-                .foregroundColor(.orange)
+                .foregroundColor(Theme.lxOrange)
 
             Text("Connection Error")
                 .font(.headline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.lxText)
 
             Text(error)
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
 
             Button("Retry") {
                 loadMessages()
             }
             .buttonStyle(.borderedProminent)
+            .tint(Theme.lxOrange)
         }
         .padding(.top, 60)
     }
@@ -128,15 +131,15 @@ struct DriverChatView: View {
         VStack(spacing: 16) {
             Image(systemName: "message.badge.filled.fill")
                 .font(.system(size: 50))
-                .foregroundColor(.gray)
+                .foregroundColor(Theme.lxTextMuted)
 
             Text("No messages yet")
                 .font(.headline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.lxText)
 
             Text("Send a message to \(driverName)!")
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(.top, 60)
@@ -151,30 +154,39 @@ struct DriverChatView: View {
                     Button(action: { sendMessage(message) }) {
                         Text(message)
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.blue.opacity(0.1))
+                            .background(Theme.lxOrange.opacity(0.12))
                             .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Theme.lxHairline, lineWidth: 1)
+                            )
                     }
                 }
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
         }
-        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .background(Theme.lxSurface)
     }
 
     // MARK: - Input Bar
 
     private var inputBar: some View {
         HStack(spacing: 12) {
-            TextField("Type a message...", text: $messageText)
+            TextField("", text: $messageText, prompt: Text("Type a message...").foregroundColor(Theme.lxTextMuted))
                 .textFieldStyle(.plain)
+                .foregroundColor(Theme.lxText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color(UIColor.tertiarySystemGroupedBackground))
+                .background(Theme.lxSurface2)
                 .cornerRadius(24)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(Theme.lxHairline, lineWidth: 1)
+                )
                 .focused($isInputFocused)
 
             Button(action: { sendMessage(messageText) }) {
@@ -186,14 +198,15 @@ struct DriverChatView: View {
                         .font(.title3)
                         .foregroundColor(.white)
                         .frame(width: 44, height: 44)
-                        .background(messageText.isEmpty ? Color.gray : Color.blue)
+                        .background(messageText.isEmpty ? AnyShapeStyle(Theme.lxTextMuted) : AnyShapeStyle(Theme.lxButtonGradient))
                         .clipShape(Circle())
+                        .shadow(color: messageText.isEmpty ? Color.clear : Theme.lxOrange.opacity(0.4), radius: 10, x: 0, y: 4)
                 }
             }
             .disabled(messageText.isEmpty || isSending)
         }
         .padding()
-        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .background(Theme.lxSurface)
     }
 
     // MARK: - Actions
@@ -282,13 +295,13 @@ private struct RideChatBubbleCustomer: View {
                 Text(message.message)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(isFromMe ? Color.blue : Color(UIColor.tertiarySystemGroupedBackground))
-                    .foregroundColor(isFromMe ? .white : .primary)
+                    .background(isFromMe ? Theme.lxOrange : Theme.lxSurface2)
+                    .foregroundColor(isFromMe ? .white : Theme.lxText)
                     .cornerRadius(18)
 
                 Text(formatTime(message.createdAt))
                     .font(.caption2)
-                    .foregroundColor(.gray)
+                    .foregroundColor(Theme.lxTextMuted)
             }
 
             if !isFromMe { Spacer() }

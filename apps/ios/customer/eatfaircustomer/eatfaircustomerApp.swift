@@ -19,8 +19,7 @@
 //  - EatFairShared: Shared models and services across all Dollor apps
 //
 //  ENVIRONMENT OBJECTS (App-wide state):
-//  - AddressViewModel: User's delivery addresses
-//  - MultiRestaurantCartViewModel: Shopping cart (supports multiple restaurants)
+//  - AddressViewModel: User's saved addresses
 //
 //  Created by Dollor.ai Team
 //  Copyright © 2024-2026 Dollor.ai. All rights reserved.
@@ -247,14 +246,12 @@ struct EatfaircustomerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     @StateObject var addressViewModel = AddressViewModel()
-    @StateObject var multiCartViewModel = MultiRestaurantCartViewModel()
     @State private var showJailbreakWarning = false
 
     var body: some Scene {
         WindowGroup {
             MainAppView()
                 .environmentObject(addressViewModel)
-                .environmentObject(multiCartViewModel)
                 .onAppear {
                     // Clear badge on app launch
                     NotificationManager.shared.clearBadge()

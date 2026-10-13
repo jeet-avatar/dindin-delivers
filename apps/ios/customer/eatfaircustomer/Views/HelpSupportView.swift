@@ -36,7 +36,7 @@ struct HelpSupportView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 32)
             }
-            .background(Color(UIColor.systemGroupedBackground))
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Help & Support")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -44,36 +44,43 @@ struct HelpSupportView: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .foregroundColor(Theme.lxOrange)
                 }
             }
             .sheet(isPresented: $showLiveChat) {
                 LiveChatView()
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Search Bar
     private var searchBar: some View {
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
+                .foregroundColor(Theme.lxTextMuted)
 
-            TextField("Search for help...", text: $searchQuery)
+            TextField("", text: $searchQuery, prompt: Text("Search for help...").foregroundColor(Theme.lxTextMuted))
                 .textFieldStyle(.plain)
+                .foregroundColor(Theme.lxText)
 
             if !searchQuery.isEmpty {
                 Button {
                     searchQuery = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextMuted)
                 }
             }
         }
         .padding(12)
-        .background(Color.white)
+        .background(Theme.lxSurface)
         .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
     }
 
     // MARK: - Contact Us Section
@@ -81,14 +88,14 @@ struct HelpSupportView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Contact Us")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.lxText)
 
             HStack(spacing: 12) {
                 ContactOptionCard(
                     icon: "message.fill",
                     title: "Live Chat",
                     subtitle: "Chat with us",
-                    color: Color(hex: "4CAF50")
+                    color: Theme.lxOrange
                 ) {
                     showLiveChat = true
                 }
@@ -97,7 +104,7 @@ struct HelpSupportView: View {
                     icon: "envelope.fill",
                     title: "Email",
                     subtitle: "support@dollor.ai",
-                    color: Color(hex: "2196F3")
+                    color: Theme.lxOrange
                 ) {
                     openEmail()
                 }
@@ -106,7 +113,7 @@ struct HelpSupportView: View {
                     icon: "phone.fill",
                     title: "Phone",
                     subtitle: "Call us",
-                    color: Color(hex: "FF6B35")
+                    color: Theme.lxOrange
                 ) {
                     openPhone()
                 }
@@ -119,7 +126,7 @@ struct HelpSupportView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("FAQ Categories")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.lxText)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -141,7 +148,7 @@ struct HelpSupportView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Frequently Asked Questions")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.lxText)
 
             VStack(spacing: 8) {
                 ForEach(filteredFAQs) { faq in
@@ -167,32 +174,38 @@ struct HelpSupportView: View {
         VStack(spacing: 12) {
             Image(systemName: "questionmark.circle.fill")
                 .font(.system(size: 40))
-                .foregroundColor(Color(hex: "FF6B35"))
+                .foregroundColor(Theme.lxOrange)
 
             Text("Still need help?")
                 .font(.headline)
+                .foregroundColor(Theme.lxText)
 
             Text("Our support team is available 24/7 to assist you with any questions or concerns.")
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
 
             Button {
                 openEmail()
             } label: {
                 Text("Contact Support")
-                    .fontWeight(.semibold)
+                    .fontWeight(.bold)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color(hex: "FF6B35"))
-                    .cornerRadius(12)
+                    .background(Theme.lxButtonGradient)
+                    .cornerRadius(14)
+                    .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, y: 6)
             }
         }
         .padding(20)
-        .background(Color.white)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
     }
 
     // MARK: - Filtered FAQs
@@ -232,7 +245,7 @@ enum FAQCategory: String, CaseIterable {
     case orders = "Orders"
     case payments = "Payments"
     case account = "Account"
-    case delivery = "Delivery"
+    case delivery = "Rides"
 
     var icon: String {
         switch self {
@@ -257,26 +270,26 @@ struct FAQItem: Identifiable {
 private let allFAQs: [FAQItem] = [
     FAQItem(
         id: "1",
-        question: "How do I track my order?",
-        answer: "You can track your order in real-time from the Orders tab. Once your order is confirmed, you'll see a map showing your driver's location and estimated arrival time.",
+        question: "How do I track my ride?",
+        answer: "You can track your ride in real-time from the Trips tab. Once your ride is confirmed, you'll see a map showing your driver's location and estimated arrival time.",
         category: .orders
     ),
     FAQItem(
         id: "2",
         question: "What are the platform fees?",
-        answer: "We charge a flat $1 matchmaking fee per order for food delivery. For rideshare, it's $1 per party for fares up to $35, $2 for fares $35-$70, and $3 for fares over $70. 100% of tips go directly to drivers.",
+        answer: "We charge a $1 platform fee for fares up to $25, $2 for fares $25-$50, and $3 for fares over $50. 100% of tips go directly to drivers.",
         category: .payments
     ),
     FAQItem(
         id: "3",
-        question: "How do I change my delivery address?",
+        question: "How do I change my saved address?",
         answer: "Go to your Profile, then tap 'Saved Addresses'. You can add, edit, or delete addresses. Set your preferred address as default for faster checkout.",
         category: .account
     ),
     FAQItem(
         id: "4",
-        question: "Can I cancel my order?",
-        answer: "You can cancel your order before it's picked up by the driver. Go to your active order and tap 'Cancel Order'. Cancellation fees may apply depending on the order status.",
+        question: "Can I cancel my ride?",
+        answer: "You can cancel your ride before the driver arrives for pickup. Go to your active ride and tap 'Cancel Ride'. Cancellation fees may apply depending on the ride status.",
         category: .orders
     ),
     FAQItem(
@@ -287,14 +300,14 @@ private let allFAQs: [FAQItem] = [
     ),
     FAQItem(
         id: "6",
-        question: "What if my order is wrong or missing items?",
-        answer: "Contact our support team immediately through the app or call us. We'll work with the restaurant to resolve the issue and may provide a refund or credit.",
+        question: "What if there's an issue with my ride?",
+        answer: "Contact our support team immediately through the app or call us. We'll work with you and your driver to resolve the issue and may provide a refund or credit.",
         category: .orders
     ),
     FAQItem(
         id: "7",
         question: "How do I tip my driver?",
-        answer: "You can add a tip during checkout or after delivery. 100% of your tip goes directly to the driver - we never take a cut!",
+        answer: "You can add a tip during checkout or after your trip. 100% of your tip goes directly to the driver - we never take a cut!",
         category: .delivery
     ),
     FAQItem(
@@ -305,14 +318,14 @@ private let allFAQs: [FAQItem] = [
     ),
     FAQItem(
         id: "9",
-        question: "Why is my delivery taking longer than expected?",
-        answer: "Delivery times can vary due to traffic, weather, or high demand. You can track your driver in real-time and contact them through the app if needed.",
+        question: "Why is my ride taking longer than expected?",
+        answer: "Ride times can vary due to traffic, weather, or high demand. You can track your driver in real-time and contact them through the app if needed.",
         category: .delivery
     ),
     FAQItem(
         id: "10",
         question: "How does the referral program work?",
-        answer: "Share your unique referral code with friends. When they place their first order, you both get $5 credit! Go to Profile > Refer & Earn to get your code.",
+        answer: "Share your unique referral code with friends. When they take their first ride, you both get $5 credit! Go to Profile > Refer & Earn to get your code.",
         category: .account
     )
 ]
@@ -335,18 +348,22 @@ struct ContactOptionCard: View {
                 Text(title)
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.lxText)
 
                 Text(subtitle)
                     .font(.caption2)
-                    .foregroundColor(.gray)
+                    .foregroundColor(Theme.lxTextMuted)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(Color.white)
+            .background(Theme.lxSurface)
             .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Theme.lxHairline, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
         }
     }
 }
@@ -368,12 +385,12 @@ struct FAQCategoryChip: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(isSelected ? Color(hex: "FF6B35") : Color.white)
-            .foregroundColor(isSelected ? .white : .primary)
+            .background(isSelected ? Theme.lxOrange : Theme.lxSurface)
+            .foregroundColor(isSelected ? .white : Theme.lxText)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(isSelected ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
+                    .stroke(isSelected ? Color.clear : Theme.lxHairline, lineWidth: 1)
             )
         }
     }
@@ -392,14 +409,14 @@ struct FAQItemView: View {
                     Text(faq.question)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Theme.lxText)
                         .multilineTextAlignment(.leading)
 
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxOrange)
                 }
                 .padding(16)
             }
@@ -407,14 +424,18 @@ struct FAQItemView: View {
             if isExpanded {
                 Text(faq.answer)
                     .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .foregroundColor(Theme.lxTextSecondary)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
             }
         }
-        .background(Color.white)
+        .background(Theme.lxSurface)
         .cornerRadius(12)
-        .shadow(color: .black.opacity(0.03), radius: 3, y: 1)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
     }
 }
 

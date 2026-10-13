@@ -11,6 +11,12 @@ import EatFairShared
 
 /// Uber-style Ride Request View for Customers
 struct RideRequestView: View {
+    /// When true, the bottom-sheet close (X) button is hidden. Used when this
+    /// view is embedded as a root tab (rideshare-only build) where there is
+    /// nothing to dismiss back to. Defaults to false so the pushed/presented
+    /// usage (from the food Home screen) is unchanged.
+    var hideCloseButton: Bool = false
+
     @StateObject private var viewModel = RideRequestViewModel()
     @StateObject private var locationManager = RideLocationManager()
     @EnvironmentObject var authViewModel: AuthViewModel
@@ -43,6 +49,7 @@ struct RideRequestView: View {
                     viewModel: viewModel,
                     showPickupSearch: $showPickupSearch,
                     showDropoffSearch: $showDropoffSearch,
+                    hideCloseButton: hideCloseButton,
                     onRequestRide: requestRide,
                     onDismiss: { dismiss() }
                 )
@@ -50,12 +57,15 @@ struct RideRequestView: View {
 
             // Fare Estimation Overlay (opaque — prevents reading default values)
             if viewModel.isEstimatingFare {
-                Color.white.opacity(0.95)
+                Theme.lxBg.opacity(0.95)
                     .ignoresSafeArea()
                 ProgressView("Estimating fare...")
+                    .tint(Theme.lxOrange)
+                    .foregroundColor(Theme.lxText)
                     .padding()
-                    .background(Color.white)
+                    .background(Theme.lxSurface)
                     .cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
                     .shadow(radius: 4)
             }
 
@@ -64,9 +74,12 @@ struct RideRequestView: View {
                 Color.black.opacity(0.75)
                     .ignoresSafeArea()
                 ProgressView(viewModel.fareEstimateReceived ? "Requesting ride…" : "Getting fare estimate…")
+                    .tint(Theme.lxOrange)
+                    .foregroundColor(Theme.lxText)
                     .padding()
-                    .background(Color.white)
+                    .background(Theme.lxSurface)
                     .cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
             }
 
             // Ride Expired Banner
@@ -74,13 +87,14 @@ struct RideRequestView: View {
                 VStack {
                     HStack(spacing: 12) {
                         Image(systemName: "clock.badge.exclamationmark")
-                            .foregroundColor(.orange)
+                            .foregroundColor(Theme.lxOrange)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("No drivers available")
                                 .font(.subheadline).fontWeight(.semibold)
+                                .foregroundColor(Theme.lxText)
                             Text("No drivers accepted your request. Try again?")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                         Spacer()
                         Button("Try Again") {
@@ -92,13 +106,14 @@ struct RideRequestView: View {
                         .font(.caption).fontWeight(.semibold)
                         .foregroundColor(.white)
                         .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(Color.orange)
+                        .background(Theme.lxOrange)
                         .cornerRadius(8)
                     }
                     .padding()
-                    .background(Color(.systemBackground))
+                    .background(Theme.lxSurface)
                     .cornerRadius(12)
-                    .shadow(color: .black.opacity(0.15), radius: 8)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
+                    .shadow(color: .black.opacity(0.4), radius: 8)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     Spacer()
@@ -108,6 +123,7 @@ struct RideRequestView: View {
                 .zIndex(100)
             }
         }
+        .preferredColorScheme(.dark)
         .navigationBarHidden(true)
         .sheet(isPresented: $showPickupSearch) {
             RideLocationSearchView(
@@ -298,7 +314,7 @@ struct RideDropoffMarker: View {
         VStack(spacing: 0) {
             ZStack {
                 Circle()
-                    .fill(Color.green)
+                    .fill(Theme.lxSuccess)
                     .frame(width: 44, height: 44)
                     .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
 
@@ -309,7 +325,7 @@ struct RideDropoffMarker: View {
 
             Image(systemName: "triangle.fill")
                 .font(.system(size: 10))
-                .foregroundColor(.green)
+                .foregroundColor(Theme.lxSuccess)
                 .rotationEffect(.degrees(180))
                 .offset(y: -4)
         }
@@ -321,6 +337,7 @@ struct RideBottomSheet: View {
     @ObservedObject var viewModel: RideRequestViewModel
     @Binding var showPickupSearch: Bool
     @Binding var showDropoffSearch: Bool
+    var hideCloseButton: Bool = false
     let onRequestRide: () -> Void
     let onDismiss: () -> Void
 
@@ -331,24 +348,33 @@ struct RideBottomSheet: View {
         VStack(spacing: 0) {
             // Handle
             RoundedRectangle(cornerRadius: 3)
-                .fill(Color.gray.opacity(0.3))
+                .fill(Theme.lxHairline)
                 .frame(width: 40, height: 5)
                 .padding(.top, 10)
 
             // Header
             HStack {
-                Button(action: onDismiss) {
+                if hideCloseButton {
+                    // Keep layout symmetry with the trailing placeholder while
+                    // omitting the no-op close control on the root rideshare tab.
                     Image(systemName: "xmark")
                         .font(.title3)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.clear)
+                } else {
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.title3)
+                            .foregroundColor(Theme.lxTextSecondary)
+                    }
+                    .accessibilityLabel("Close ride request")
+                    .accessibilityHint("Returns to the home screen")
                 }
-                .accessibilityLabel("Close ride request")
-                .accessibilityHint("Returns to the home screen")
 
                 Spacer()
 
                 Text("Find a Driver")
                     .font(.headline)
+                    .foregroundColor(Theme.lxText)
 
                 Spacer()
 
@@ -359,7 +385,7 @@ struct RideBottomSheet: View {
             }
             .padding()
 
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             // Location Inputs
             VStack(spacing: 0) {
@@ -383,14 +409,14 @@ struct RideBottomSheet: View {
 
                             Text(viewModel.pickupAddress?.fullAddress ?? "Select pickup location")
                                 .font(.subheadline)
-                                .foregroundColor(viewModel.pickupAddress != nil ? .primary : .gray)
+                                .foregroundColor(viewModel.pickupAddress != nil ? Theme.lxText : Theme.lxTextMuted)
                                 .lineLimit(1)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextMuted)
                             .font(.caption)
                     }
                     .padding()
@@ -401,7 +427,7 @@ struct RideBottomSheet: View {
                 // Connector
                 HStack {
                     Rectangle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(Theme.lxHairline)
                         .frame(width: 2, height: 24)
                         .padding(.leading, 29)
                     Spacer()
@@ -412,10 +438,10 @@ struct RideBottomSheet: View {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(Color.green.opacity(0.15))
+                                .fill(Theme.lxSuccess.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "mappin")
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
                                 .font(.system(size: 14, weight: .bold))
                         }
 
@@ -423,18 +449,18 @@ struct RideBottomSheet: View {
                             Text("DROPOFF")
                                 .font(.caption2)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
 
                             Text(viewModel.dropoffAddress?.fullAddress ?? "Select dropoff location")
                                 .font(.subheadline)
-                                .foregroundColor(viewModel.dropoffAddress != nil ? .primary : .gray)
+                                .foregroundColor(viewModel.dropoffAddress != nil ? Theme.lxText : Theme.lxTextMuted)
                                 .lineLimit(1)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextMuted)
                             .font(.caption)
                     }
                     .padding()
@@ -443,7 +469,7 @@ struct RideBottomSheet: View {
                 .accessibilityHint("Opens location search to set your destination")
             }
 
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             // TNC-12: Accessibility Request
             if viewModel.canRequestRide {
@@ -467,9 +493,10 @@ struct RideBottomSheet: View {
                             ForEach(AccessibilityOption.allCases, id: \.self) { option in
                                 HStack {
                                     Image(systemName: viewModel.selectedAccessibilityOptions.contains(option) ? "checkmark.square.fill" : "square")
-                                        .foregroundColor(viewModel.selectedAccessibilityOptions.contains(option) ? .blue : .gray)
+                                        .foregroundColor(viewModel.selectedAccessibilityOptions.contains(option) ? Theme.lxOrange : Theme.lxTextMuted)
                                     Text(option.label)
                                         .font(.subheadline)
+                                        .foregroundColor(Theme.lxText)
                                     Spacer()
                                 }
                                 .contentShape(Rectangle())
@@ -490,21 +517,22 @@ struct RideBottomSheet: View {
                 .padding(.horizontal)
                 .animation(.easeInOut(duration: 0.2), value: viewModel.accessibilityRequested)
 
-                Divider()
+                Divider().overlay(Theme.lxHairline)
             }
 
             // Notes (optional)
             if viewModel.canRequestRide {
                 HStack(spacing: 12) {
                     Image(systemName: "note.text")
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextSecondary)
 
                     TextField("Add notes for driver (optional)", text: $viewModel.notes)
                         .font(.subheadline)
+                        .foregroundColor(Theme.lxText)
                 }
                 .padding()
 
-                Divider()
+                Divider().overlay(Theme.lxHairline)
             }
 
             // Price Summary - World Class Fare Breakdown (Scrollable to ensure buttons visible)
@@ -518,13 +546,13 @@ struct RideBottomSheet: View {
                             Text("SUGGESTED OFFER")
                                 .font(.caption2)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             HStack(spacing: 12) {
                                 Label(viewModel.estimatedDistanceText, systemImage: "road.lanes")
                                 Label(viewModel.estimatedTimeText, systemImage: "clock")
                             }
                             .font(.subheadline)
-                            .foregroundColor(.primary)
+                            .foregroundColor(Theme.lxText)
                         }
                         Spacer()
                         if viewModel.surgeMultiplier > 1.0 {
@@ -535,86 +563,96 @@ struct RideBottomSheet: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(Color.orange)
+                                    .background(Theme.lxOrange)
                                     .cornerRadius(6)
                                 Text(viewModel.surgeLabel)
                                     .font(.caption2)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(Theme.lxOrange)
                             }
                         }
                     }
                     .padding(.vertical, 4)
 
-                    Divider()
+                    Divider().overlay(Theme.lxHairline)
 
                     // Surge info banner
                     if viewModel.surgeMultiplier > 1.0 {
                         HStack(spacing: 6) {
                             Image(systemName: "flame.fill")
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.lxOrange)
                             Text("Prices are \(Int((viewModel.surgeMultiplier - 1) * 100))% higher due to \(viewModel.surgeLabel.lowercased())")
                                 .font(.caption)
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.lxOrange)
                             Spacer()
                         }
                         .padding(8)
-                        .background(Color.orange.opacity(0.1))
+                        .background(Theme.lxOrange.opacity(0.1))
                         .cornerRadius(8)
                     }
 
                     // Suggested Payment Breakdown (Driver sets final price)
                     VStack(spacing: 6) {
-                        // Base fare breakdown components
-                        FareLineItem(label: "Base Fare", amount: viewModel.baseFare)
-                        FareLineItem(label: "Distance (\(viewModel.estimatedDistanceText))", amount: viewModel.distanceFee)
-                        FareLineItem(label: "Time (\(viewModel.estimatedTimeText))", amount: viewModel.timeFee)
+                        // Ride fare (distance + time, from the backend estimate)
+                        FareLineItem(
+                            label: "Ride Fare (\(viewModel.estimatedDistanceText) · \(viewModel.estimatedTimeText))",
+                            amount: viewModel.fareBeforeTax
+                        )
 
-                        Divider()
+                        Divider().overlay(Theme.lxHairline)
 
                         // Tiered Connection Fee with tier description
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Connection Fee")
                                     .font(.subheadline)
+                                    .foregroundColor(Theme.lxText)
                                 Text(viewModel.platformFeeTierDescription)
                                     .font(.caption2)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(Theme.lxOrange)
+                                Text("Driver pays a matching $\(String(format: "%.2f", viewModel.platformFee))")
+                                    .font(.caption2)
+                                    .foregroundColor(Theme.lxTextMuted)
                             }
                             Spacer()
                             Text("$\(String(format: "%.2f", viewModel.platformFee))")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
+                                .foregroundColor(Theme.lxText)
                         }
 
-                        if viewModel.taxAmount > 0 {
+                        if viewModel.regulatoryFee > 0 {
+                            FareLineItem(label: "Regulatory Fee (CPUC)", amount: viewModel.regulatoryFee)
+                        }
+
+                        if viewModel.backendTotal == nil && viewModel.taxAmount > 0 {
                             FareLineItem(
                                 label: "Tax (\(String(format: "%.2f", viewModel.taxRate * 100))%)",
                                 amount: viewModel.taxAmount
                             )
                         }
 
-                        Divider()
+                        Divider().overlay(Theme.lxHairline)
 
                         // 96% to driver messaging in green
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
                                 .font(.subheadline)
                             Text("\(AppConfig.shared.driverEarningsPercentage)% goes to your driver")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
                             Spacer()
                         }
                     }
 
-                    Divider()
+                    Divider().overlay(Theme.lxHairline)
 
                     // Additional Amount for Driver
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Add Extra for Driver (Optional)")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
 
                         HStack(spacing: 8) {
                             ForEach(AppConfig.shared.rideTipOptions, id: \.self) { amount in
@@ -624,53 +662,54 @@ struct RideBottomSheet: View {
                                         .fontWeight(.medium)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 10)
-                                        .background(viewModel.tip == amount ? Color.blue : Color.gray.opacity(0.1))
-                                        .foregroundColor(viewModel.tip == amount ? .white : .primary)
+                                        .background(viewModel.tip == amount ? Theme.lxOrange : Theme.lxSurface2)
+                                        .foregroundColor(viewModel.tip == amount ? .white : Theme.lxText)
                                         .cornerRadius(10)
                                 }
                             }
                         }
                     }
 
-                    Divider()
+                    Divider().overlay(Theme.lxHairline)
 
                     // Your Offer Summary
                     VStack(spacing: 8) {
                         HStack {
                             Text("Your Offer")
                                 .font(.headline)
+                                .foregroundColor(Theme.lxText)
                             Spacer()
                             Text("$\(String(format: "%.2f", viewModel.totalAmount))")
                                 .font(.title2)
                                 .fontWeight(.bold)
-                                .foregroundColor(.blue)
+                                .foregroundColor(Theme.lxOrange)
                         }
 
                         // Driver receives info
                         HStack {
                             Image(systemName: "person.fill.checkmark")
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
                             Text("Driver receives: $\(String(format: "%.2f", viewModel.driverEarnings))")
                                 .font(.caption)
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
                             Text("(You pay driver directly)")
                                 .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                     }
 
-                    Divider()
+                    Divider().overlay(Theme.lxHairline)
 
                     // Legal Disclosures (P2P Rideshare Matchmaking)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("PEER-TO-PEER RIDESHARE")
                             .font(.caption2)
                             .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
 
                         Text("Dollor.ai connects riders with independent drivers. Drivers set their own rates and may accept, decline, or counter your offer. The connection fee is for using our matchmaking service. Transportation is provided directly by the driver, not Dollor.ai. By using this service, you agree to our Terms of Service.")
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
                         HStack(spacing: 4) {
@@ -679,7 +718,7 @@ struct RideBottomSheet: View {
                             Text("Connection fee: $\(String(format: "%.2f", viewModel.platformFee)) (tiered $1-$3) • Driver sets final price")
                                 .font(.caption2)
                         }
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextMuted)
                         .padding(.top, 2)
                     }
                     .padding(.vertical, 4)
@@ -692,12 +731,23 @@ struct RideBottomSheet: View {
             // Action Buttons
             VStack(spacing: 12) {
                 // Find Driver with Suggested Offer
-                SwipeToConfirmButton(
-                    label: "Slide to Find Driver • $\(String(format: "%.2f", viewModel.estimatedFare))",
-                    accentColor: Theme.brandGreen,
-                    isDisabled: !viewModel.canRequestRide,
-                    onConfirm: onRequestRide
-                )
+                Button(action: { if viewModel.canRequestRide { onRequestRide() } }) {
+                    Text("Find Driver • $\(String(format: "%.2f", viewModel.estimatedFare))")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(
+                            viewModel.canRequestRide
+                            ? AnyView(LinearGradient(colors: [Color(hex: "FF9A3D"), Color(hex: "FF7A1A")],
+                                                     startPoint: .top, endPoint: .bottom))
+                            : AnyView(Color.gray.opacity(0.4))
+                        )
+                        .cornerRadius(14)
+                        .shadow(color: viewModel.canRequestRide ? Color(hex: "FF7A1A").opacity(0.4) : .clear,
+                                radius: 14, y: 6)
+                }
+                .disabled(!viewModel.canRequestRide)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 8)
 
@@ -709,14 +759,14 @@ struct RideBottomSheet: View {
                     }
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(Theme.brandOrange)
+                    .foregroundColor(Theme.lxOrange)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Theme.brandOrange.opacity(0.1))
+                    .background(Theme.lxOrange.opacity(0.12))
                     .cornerRadius(12)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Theme.brandOrange.opacity(0.3), lineWidth: 1)
+                            .stroke(Theme.lxOrange.opacity(0.35), lineWidth: 1)
                     )
                 }
                 .disabled(!viewModel.canRequestRide)
@@ -727,18 +777,22 @@ struct RideBottomSheet: View {
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle.fill")
                         .font(.caption2)
-                        .foregroundColor(Theme.brandGreen)
+                        .foregroundColor(Theme.lxSuccess)
                     Text("$1-$3 tiered connection fee • Drivers are independent")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
             }
             .padding()
         }
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+                .fill(Theme.lxSurface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Theme.lxHairline, lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: -5)
         )
         .sheet(isPresented: $showNegotiateSheet) {
             PreRequestNegotiationSheet(
@@ -804,20 +858,21 @@ struct PreRequestNegotiationSheet: View {
                     VStack(spacing: 8) {
                         ZStack {
                             Circle()
-                                .fill(Theme.brandOrange.opacity(0.15))
+                                .fill(Theme.lxOrange.opacity(0.15))
                                 .frame(width: 80, height: 80)
                             Image(systemName: "dollarsign.arrow.circlepath")
                                 .font(.system(size: 36))
-                                .foregroundColor(Theme.brandOrange)
+                                .foregroundColor(Theme.lxOrange)
                         }
 
                         Text("Make Your Offer")
                             .font(.title2)
                             .fontWeight(.bold)
+                            .foregroundColor(Theme.lxText)
 
                         Text("Independent drivers can accept, decline, or counter")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                     .padding(.top)
 
@@ -826,30 +881,32 @@ struct PreRequestNegotiationSheet: View {
                         VStack(spacing: 4) {
                             Text("Suggested")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Text("$\(String(format: "%.2f", estimatedFare))")
                                 .font(.title3)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gray.opacity(0.1))
+                        .background(Theme.lxSurface)
                         .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
 
                         VStack(spacing: 4) {
                             Text("Your Offer")
                                 .font(.caption)
-                                .foregroundColor(Theme.brandOrange)
+                                .foregroundColor(Theme.lxOrange)
                             Text(currentOffer != nil ? "$\(String(format: "%.2f", currentOffer!))" : "--")
                                 .font(.title3)
                                 .fontWeight(.bold)
-                                .foregroundColor(Theme.brandOrange)
+                                .foregroundColor(Theme.lxOrange)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Theme.brandOrange.opacity(0.1))
+                        .background(Theme.lxOrange.opacity(0.12))
                         .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxOrange.opacity(0.35), lineWidth: 1))
                     }
                     .padding(.horizontal)
 
@@ -858,6 +915,7 @@ struct PreRequestNegotiationSheet: View {
                         Text("Quick Offers")
                             .font(.subheadline)
                             .fontWeight(.medium)
+                            .foregroundColor(Theme.lxText)
                             .padding(.horizontal)
 
                         LazyVGrid(columns: [
@@ -876,13 +934,13 @@ struct PreRequestNegotiationSheet: View {
                                         if savings > 0 {
                                             Text("Save $\(String(format: "%.0f", savings))")
                                                 .font(.caption2)
-                                                .foregroundColor(.green)
+                                                .foregroundColor(selectedQuickOffer == amount ? .white : Theme.lxSuccess)
                                         }
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(selectedQuickOffer == amount ? Theme.brandOrange : Color.gray.opacity(0.1))
-                                    .foregroundColor(selectedQuickOffer == amount ? .white : .primary)
+                                    .background(selectedQuickOffer == amount ? Theme.lxOrange : Theme.lxSurface2)
+                                    .foregroundColor(selectedQuickOffer == amount ? .white : Theme.lxText)
                                     .cornerRadius(12)
                                 }
                             }
@@ -895,45 +953,49 @@ struct PreRequestNegotiationSheet: View {
                         Text("Or enter custom amount")
                             .font(.subheadline)
                             .fontWeight(.medium)
+                            .foregroundColor(Theme.lxText)
 
                         HStack {
                             Text("$")
                                 .font(.title2)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             TextField("0.00", text: $customOffer)
                                 .font(.title2)
+                                .foregroundColor(Theme.lxText)
                                 .keyboardType(.decimalPad)
                                 .onChange(of: customOffer) { _, _ in
                                     selectedQuickOffer = nil
                                 }
                         }
                         .padding()
-                        .background(Color.gray.opacity(0.1))
+                        .background(Theme.lxSurface2)
                         .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
 
                         Text("Minimum fare: $\(String(format: "%.2f", AppConfig.shared.rideMinFare))")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                     .padding(.horizontal)
 
                     // Driver Payment Preview
                     if currentOffer != nil {
                         VStack(spacing: 8) {
-                            Divider()
+                            Divider().overlay(Theme.lxHairline)
 
                             HStack {
                                 Image(systemName: "person.fill.checkmark")
-                                    .foregroundColor(Theme.brandGreen)
+                                    .foregroundColor(Theme.lxSuccess)
                                 Text("Driver would receive:")
                                     .font(.subheadline)
+                                    .foregroundColor(Theme.lxText)
                                 Spacer()
                                 Text("$\(String(format: "%.2f", driverEarnings))")
                                     .font(.headline)
-                                    .foregroundColor(Theme.brandGreen)
+                                    .foregroundColor(Theme.lxSuccess)
                             }
                             .padding()
-                            .background(Theme.brandGreen.opacity(0.1))
+                            .background(Theme.lxSuccess.opacity(0.1))
                             .cornerRadius(12)
 
                             HStack(spacing: 4) {
@@ -941,7 +1003,7 @@ struct PreRequestNegotiationSheet: View {
                                 Text("Connection fee: $\(String(format: "%.0f", platformFee)) • Driver is independent")
                             }
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                         }
                         .padding(.horizontal)
                     }
@@ -949,6 +1011,7 @@ struct PreRequestNegotiationSheet: View {
                     Spacer(minLength: 20)
                 }
             }
+            .background(Theme.lxBg)
             .navigationTitle("Make an Offer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -961,23 +1024,37 @@ struct PreRequestNegotiationSheet: View {
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 12) {
-                    SwipeToConfirmButton(
-                        label: currentOffer != nil ? "Slide to Request with $\(String(format: "%.0f", currentOffer!)) Offer" : "Enter an Amount",
-                        accentColor: Theme.brandOrange,
-                        isDisabled: currentOffer == nil,
-                        onConfirm: {
-                            if let offer = currentOffer {
-                                onRequestWithOffer(offer)
-                            }
+                    Button(action: {
+                        if let offer = currentOffer {
+                            onRequestWithOffer(offer)
                         }
-                    )
+                    }) {
+                        Text(currentOffer != nil
+                             ? "Request with $\(String(format: "%.0f", currentOffer!)) Offer"
+                             : "Enter an amount")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                currentOffer != nil
+                                ? AnyView(LinearGradient(colors: [Color(hex: "FF9A3D"), Color(hex: "FF7A1A")],
+                                                         startPoint: .top, endPoint: .bottom))
+                                : AnyView(Color.gray.opacity(0.4))
+                            )
+                            .cornerRadius(14)
+                            .shadow(color: currentOffer != nil ? Color(hex: "FF7A1A").opacity(0.4) : .clear,
+                                    radius: 14, y: 6)
+                    }
+                    .disabled(currentOffer == nil)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 8)
                 }
                 .padding()
-                .background(Color(.systemBackground))
+                .background(Theme.lxSurface)
             }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -990,7 +1067,18 @@ struct RideLocationSearchView: View {
     @State private var searchText = ""
     @State private var searchResults: [SearchResult] = []
     @State private var isSearching = false
-    @State private var isGettingLocation = false
+    @State private var showResults = false
+
+    // Uber-style map pin picker state
+    @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var centerCoordinate: CLLocationCoordinate2D?
+    @State private var resolvedAddress: RideAddressInput?
+    @State private var resolvedDisplay: String = ""
+    @State private var isGeocoding = false
+    @State private var didCenterOnUser = false
+    // Debounce handle so dragging the map doesn't hammer the (rate-limited) geocoder.
+    @State private var geocodeWorkItem: DispatchWorkItem?
+
     @StateObject private var locationManager = RideLocationManager()
 
     struct SearchResult: Identifiable {
@@ -999,116 +1087,24 @@ struct RideLocationSearchView: View {
         let address: String
         let lat: Double
         let lng: Double
+        var street: String = ""
+        var city: String = ""
+        var state: String = ""
+        var zip: String = ""
     }
+
+    // Pickup vs dropoff is driven purely by the title the caller passes in.
+    private var isPickup: Bool { title.localizedCaseInsensitiveContains("pickup") }
+    private var accentColor: Color { isPickup ? .blue : .green }
+    private var confirmTitle: String { isPickup ? "Confirm pickup" : "Confirm dropoff" }
+    private var hereLabel: String { isPickup ? "Pickup here" : "Dropoff here" }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Search Bar
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
-
-                    TextField("Search address...", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .autocorrectionDisabled()
-
-                    if !searchText.isEmpty {
-                        Button(action: { searchText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
-                        }
-                        .accessibilityLabel("Clear search")
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                .padding()
-                .onChange(of: searchText) { _, newValue in
-                    searchAddress(newValue)
-                }
-
-                // Current Location Option
-                Button(action: useCurrentLocation) {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.blue.opacity(0.1))
-                                .frame(width: 44, height: 44)
-                            if isGettingLocation {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "location.fill")
-                                    .foregroundColor(.blue)
-                            }
-                        }
-
-                        VStack(alignment: .leading) {
-                            Text("Use Current Location")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            Text(isGettingLocation ? "Getting your location..." : "Based on your GPS")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.gray)
-                            .font(.caption)
-                    }
-                    .padding()
-                }
-                .disabled(isGettingLocation)
-                .accessibilityLabel("Use current location")
-                .accessibilityHint("Sets your current GPS location as the address")
-
-                Divider()
-                    .padding(.horizontal)
-
-                // Search Results
-                if isSearching {
-                    ProgressView()
-                        .padding()
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(searchResults) { result in
-                                Button(action: {
-                                    selectResult(result)
-                                }) {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "mappin.circle.fill")
-                                            .font(.title2)
-                                            .foregroundColor(.gray)
-
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(result.name)
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                                .foregroundColor(.primary)
-                                            Text(result.address)
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                                .lineLimit(1)
-                                        }
-
-                                        Spacer()
-                                    }
-                                    .padding()
-                                }
-
-                                Divider()
-                                    .padding(.leading, 56)
-                            }
-                        }
-                    }
-                }
-
-                Spacer()
+            ZStack(alignment: .top) {
+                mapLayer
+                centerPin
+                overlayControls
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -1118,6 +1114,318 @@ struct RideLocationSearchView: View {
                         .accessibilityLabel("Cancel location search")
                 }
             }
+            .onAppear {
+                locationManager.requestLocationPermission()
+                centerOnCurrentLocationIfNeeded()
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Map
+
+    private var mapLayer: some View {
+        Map(position: $cameraPosition) {
+            UserAnnotation()
+        }
+        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        .mapControls {
+            MapUserLocationButton()
+        }
+        .ignoresSafeArea()
+        // Track the center continuously (so Confirm always has a coordinate) and
+        // debounce the reverse-geocode so it only fires once the drag settles.
+        .onMapCameraChange(frequency: .continuous) { context in
+            let center = context.region.center
+            centerCoordinate = center
+            scheduleReverseGeocode(center)
+        }
+    }
+
+    /// Fixed pin overlaid at the screen center — it stays put while the map moves
+    /// underneath it (this is an overlay, not a map annotation).
+    private var centerPin: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "mappin")
+                .font(.system(size: 36, weight: .bold))
+                .foregroundColor(accentColor)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+            // Small ground shadow sitting at the exact center coordinate.
+            Ellipse()
+                .fill(Color.black.opacity(0.25))
+                .frame(width: 10, height: 4)
+        }
+        // Raise the glyph so its point rests on the ground dot (true center).
+        .offset(y: -18)
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - Overlay (search + confirm card)
+
+    private var overlayControls: some View {
+        VStack(spacing: 0) {
+            searchField
+
+            if showResults {
+                resultsList
+            }
+
+            Spacer()
+
+            confirmCard
+        }
+    }
+
+    private var searchField: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(Theme.lxTextSecondary)
+
+                TextField("Search address...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .foregroundColor(Theme.lxText)
+                    .autocorrectionDisabled()
+
+                if !searchText.isEmpty {
+                    Button(action: {
+                        searchText = ""
+                        searchResults = []
+                        showResults = false
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(Theme.lxTextSecondary)
+                    }
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            .padding()
+            .background(Theme.lxSurface)
+            .cornerRadius(12)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
+            .shadow(color: .black.opacity(0.4), radius: 6, x: 0, y: 2)
+            .onChange(of: searchText) { _, newValue in
+                showResults = !newValue.isEmpty
+                searchAddress(newValue)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
+    }
+
+    private var resultsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                if isSearching {
+                    ProgressView()
+                        .padding()
+                } else {
+                    ForEach(searchResults) { result in
+                        Button(action: { recenter(on: result) }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "mappin.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(Theme.lxOrange)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(result.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(Theme.lxText)
+                                    Text(result.address)
+                                        .font(.caption)
+                                        .foregroundColor(Theme.lxTextSecondary)
+                                        .lineLimit(1)
+                                }
+
+                                Spacer()
+                            }
+                            .padding()
+                        }
+
+                        Divider().overlay(Theme.lxHairline)
+                            .padding(.leading, 56)
+                    }
+                }
+            }
+        }
+        .frame(maxHeight: 280)
+        .background(Theme.lxSurface)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
+        .shadow(color: .black.opacity(0.4), radius: 6, x: 0, y: 2)
+        .padding(.horizontal)
+        .padding(.top, 8)
+    }
+
+    private var confirmCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(accentColor.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "mappin.and.ellipse")
+                        .foregroundColor(accentColor)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(hereLabel)
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(accentColor)
+
+                    if isGeocoding && resolvedDisplay.isEmpty {
+                        Text("Finding address…")
+                            .font(.subheadline)
+                            .foregroundColor(Theme.lxTextSecondary)
+                    } else {
+                        Text(resolvedDisplay.isEmpty ? "Move the map to choose a spot" : resolvedDisplay)
+                            .font(.subheadline)
+                            .foregroundColor(resolvedDisplay.isEmpty ? Theme.lxTextMuted : Theme.lxText)
+                            .lineLimit(2)
+                    }
+                }
+
+                Spacer()
+
+                if isGeocoding {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+            }
+
+            Button(action: commit) {
+                Text(confirmTitle)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(centerCoordinate != nil ? accentColor : Color.gray)
+                    .cornerRadius(12)
+            }
+            .disabled(centerCoordinate == nil)
+            .accessibilityLabel(confirmTitle)
+            .accessibilityHint("Uses the location under the center pin")
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Theme.lxSurface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Theme.lxHairline, lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: -4)
+        )
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Reverse geocoding (debounced)
+
+    private func scheduleReverseGeocode(_ coordinate: CLLocationCoordinate2D) {
+        geocodeWorkItem?.cancel()
+        if !isGeocoding { isGeocoding = true }
+        let work = DispatchWorkItem { reverseGeocode(coordinate) }
+        geocodeWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    private func reverseGeocode(_ coordinate: CLLocationCoordinate2D) {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
+            DispatchQueue.main.async {
+                isGeocoding = false
+
+                guard let placemark = placemarks?.first else {
+                    // Keep the coordinate usable even if the geocoder returns nothing.
+                    resolvedAddress = RideAddressInput(
+                        street: "Dropped pin",
+                        city: "",
+                        state: "",
+                        zip: "",
+                        lat: coordinate.latitude,
+                        lng: coordinate.longitude
+                    )
+                    resolvedDisplay = String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude)
+                    return
+                }
+
+                let streetNumber = placemark.subThoroughfare ?? ""
+                let streetName = placemark.thoroughfare ?? ""
+                let fullStreet = [streetNumber, streetName].filter { !$0.isEmpty }.joined(separator: " ")
+
+                let address = RideAddressInput(
+                    street: fullStreet.isEmpty ? (placemark.name ?? "Dropped pin") : fullStreet,
+                    city: placemark.locality ?? "",
+                    state: placemark.administrativeArea ?? "",
+                    zip: placemark.postalCode ?? "",
+                    lat: coordinate.latitude,
+                    lng: coordinate.longitude
+                )
+                resolvedAddress = address
+                resolvedDisplay = address.fullAddress.isEmpty ? (placemark.name ?? "") : address.fullAddress
+            }
+        }
+    }
+
+    // MARK: - Actions
+
+    /// Recenter the map on a tapped search result; the user still confirms by button.
+    private func recenter(on result: SearchResult) {
+        let coordinate = CLLocationCoordinate2D(latitude: result.lat, longitude: result.lng)
+        centerCoordinate = coordinate
+        resolvedAddress = RideAddressInput(
+            street: result.street.isEmpty ? result.name : result.street,
+            city: result.city,
+            state: result.state,
+            zip: result.zip,
+            lat: result.lat,
+            lng: result.lng
+        )
+        resolvedDisplay = result.address.isEmpty ? result.name : result.address
+        withAnimation {
+            cameraPosition = .region(MKCoordinateRegion(
+                center: coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            ))
+        }
+        searchText = ""
+        searchResults = []
+        showResults = false
+    }
+
+    /// On first appearance, recenter the map on the user's current location.
+    private func centerOnCurrentLocationIfNeeded() {
+        guard !didCenterOnUser else { return }
+        locationManager.getCurrentLocation { location in
+            guard let location = location else { return }
+            didCenterOnUser = true
+            DispatchQueue.main.async {
+                withAnimation {
+                    cameraPosition = .region(MKCoordinateRegion(
+                        center: location.coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                    ))
+                }
+            }
+        }
+    }
+
+    /// Single commit point — hand the chosen address back exactly as before.
+    private func commit() {
+        if let address = resolvedAddress {
+            onSelect(address)
+        } else if let coordinate = centerCoordinate {
+            onSelect(RideAddressInput(
+                street: "Dropped pin",
+                city: "",
+                state: "",
+                zip: "",
+                lat: coordinate.latitude,
+                lng: coordinate.longitude
+            ))
         }
     }
 
@@ -1129,10 +1437,18 @@ struct RideLocationSearchView: View {
 
         isSearching = true
 
-        // Use MKLocalSearch for address lookup
+        // Use MKLocalSearch for address lookup (addresses + specific places/landmarks)
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
-        request.resultTypes = .address
+        request.resultTypes = [.address, .pointOfInterest]
+        // Bias results to the area the user is currently viewing so matches are
+        // specific/local instead of a far-away city centroid.
+        if let center = centerCoordinate {
+            request.region = MKCoordinateRegion(
+                center: center,
+                span: MKCoordinateSpan(latitudeDelta: 0.15, longitudeDelta: 0.15)
+            )
+        }
 
         let search = MKLocalSearch(request: request)
         search.start { response, error in
@@ -1142,113 +1458,25 @@ struct RideLocationSearchView: View {
                 guard let response = response else { return }
 
                 searchResults = response.mapItems.prefix(10).map { item in
-                    SearchResult(
+                    let pm = item.placemark
+                    let streetNum = pm.subThoroughfare ?? ""
+                    let streetName = pm.thoroughfare ?? ""
+                    let street = [streetNum, streetName].filter { !$0.isEmpty }.joined(separator: " ")
+                    return SearchResult(
                         name: item.name ?? "Unknown",
                         address: item.placemark.formattedAddress,
                         lat: item.placemark.coordinate.latitude,
-                        lng: item.placemark.coordinate.longitude
+                        lng: item.placemark.coordinate.longitude,
+                        street: street.isEmpty ? (item.name ?? "") : street,
+                        city: pm.locality ?? "",
+                        state: pm.administrativeArea ?? "",
+                        zip: pm.postalCode ?? ""
                     )
                 }
             }
         }
     }
 
-    private func selectResult(_ result: SearchResult) {
-        // Use reverse geocoding to get proper address components
-        let location = CLLocation(latitude: result.lat, longitude: result.lng)
-        let geocoder = CLGeocoder()
-
-        geocoder.reverseGeocodeLocation(location) { placemarks, error in
-            let address: RideAddressInput
-
-            if let placemark = placemarks?.first {
-                // Properly extract address components from placemark
-                let streetNumber = placemark.subThoroughfare ?? ""
-                let streetName = placemark.thoroughfare ?? ""
-                let street = [streetNumber, streetName].filter { !$0.isEmpty }.joined(separator: " ")
-
-                address = RideAddressInput(
-                    street: street.isEmpty ? result.name : street,
-                    city: placemark.locality ?? "",
-                    state: placemark.administrativeArea ?? "",
-                    zip: placemark.postalCode ?? "",
-                    lat: result.lat,
-                    lng: result.lng
-                )
-            } else {
-                // Fallback: Parse from formatted string if geocoding fails
-                let components = result.address.components(separatedBy: ", ")
-                let street = components.first ?? result.address
-                let city = components.count > 1 ? components[1] : ""
-                let stateZip = components.count > 2 ? components[2] : ""
-                let stateParts = stateZip.components(separatedBy: " ")
-                let state = stateParts.first ?? ""
-                let zip = stateParts.count > 1 ? stateParts[1] : ""
-
-                address = RideAddressInput(
-                    street: street,
-                    city: city,
-                    state: state,
-                    zip: zip,
-                    lat: result.lat,
-                    lng: result.lng
-                )
-            }
-
-            onSelect(address)
-        }
-    }
-
-    private func useCurrentLocation() {
-        isGettingLocation = true
-
-        // Request location permission if needed
-        locationManager.requestLocationPermission()
-
-        // Get current location
-        locationManager.getCurrentLocation { location in
-            guard let location = location else {
-                isGettingLocation = false
-                return
-            }
-
-            // Reverse geocode to get address
-            let geocoder = CLGeocoder()
-            geocoder.reverseGeocodeLocation(location) { placemarks, error in
-                isGettingLocation = false
-
-                guard let placemark = placemarks?.first else {
-                    // Use coordinates even without address
-                    let address = RideAddressInput(
-                        street: "Current Location",
-                        city: "Unknown",
-                        state: "CA",
-                        zip: "",
-                        lat: location.coordinate.latitude,
-                        lng: location.coordinate.longitude
-                    )
-                    onSelect(address)
-                    return
-                }
-
-                // Show full address with house number (subThoroughfare + thoroughfare)
-                // Example: "123 Main St" not just "Main St"
-                let streetNumber = placemark.subThoroughfare ?? ""
-                let streetName = placemark.thoroughfare ?? ""
-                let fullStreet = [streetNumber, streetName].filter { !$0.isEmpty }.joined(separator: " ")
-
-                let address = RideAddressInput(
-                    street: fullStreet.isEmpty ? (placemark.name ?? "Current Location") : fullStreet,
-                    city: placemark.locality ?? "",
-                    state: placemark.administrativeArea ?? "",
-                    zip: placemark.postalCode ?? "",
-                    lat: location.coordinate.latitude,
-                    lng: location.coordinate.longitude
-                )
-                onSelect(address)
-            }
-        }
-    }
 }
 
 // MARK: - Location Manager for Ride Request
@@ -1320,11 +1548,11 @@ struct FareLineItem: View {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.lxTextSecondary)
             Spacer()
             Text("$\(String(format: "%.2f", amount))")
                 .font(.subheadline)
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.lxText)
         }
     }
 }
@@ -1349,6 +1577,10 @@ struct RideTrackingView: View {
     @State private var route: MKRoute?
     @State private var showSOSAlert = false
     @State private var showShareSheet = false
+    // Live fallback ETA computed from the same MKDirections route used for the polyline
+    // (see calculateRoute()). Used only when the backend hasn't supplied currentETAMinutes,
+    // so the ETA overlay never silently disappears while a driver location is known.
+    @State private var clientETAMinutes: Int?
 
     var body: some View {
         ZStack {
@@ -1410,7 +1642,7 @@ struct RideTrackingView: View {
             VStack {
                 HStack {
                     if let tracking = viewModel.rideTracking,
-                       let eta = tracking.currentETAMinutes {
+                       let eta = tracking.currentETAMinutes ?? clientETAMinutes {
                         VStack(spacing: 2) {
                             Text("\(eta)")
                                 .font(.system(size: 36, weight: .bold, design: .rounded))
@@ -1488,6 +1720,7 @@ struct RideTrackingView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareTripActivityView(shareText: tripShareText)
         }
+        .preferredColorScheme(.dark)
     }
 
     private var tripShareText: String {
@@ -1537,6 +1770,7 @@ struct RideTrackingView: View {
             if let route = response?.routes.first {
                 DispatchQueue.main.async {
                     self.route = route
+                    self.clientETAMinutes = max(1, Int((route.expectedTravelTime / 60).rounded()))
                 }
             }
         }
@@ -1603,7 +1837,7 @@ struct RideStatusCard: View {
         VStack(spacing: 16) {
             // Handle
             RoundedRectangle(cornerRadius: 3)
-                .fill(Color.gray.opacity(0.3))
+                .fill(Theme.lxHairline)
                 .frame(width: 40, height: 5)
                 .padding(.top, 10)
 
@@ -1611,26 +1845,28 @@ struct RideStatusCard: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(Color.blue.opacity(0.1))
+                        .fill(Theme.lxOrange.opacity(0.15))
                         .frame(width: 50, height: 50)
 
                     if viewModel.currentStep == .waitingForDriver {
                         ProgressView()
+                            .tint(Theme.lxOrange)
                     } else {
                         Image(systemName: statusIcon)
                             .font(.title2)
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.lxOrange)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(statusText)
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
 
                     if let ride = viewModel.activeRide {
                         Text("Ride #\(ride.rideNumber)")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                 }
 
@@ -1651,25 +1887,26 @@ struct RideStatusCard: View {
 
             // MARK: - Incoming Driver Bids Section (P2P Bidding)
             if viewModel.currentStep == .waitingForDriver && !viewModel.incomingBids.isEmpty {
-                Divider()
+                Divider().overlay(Theme.lxHairline)
 
                 VStack(spacing: 12) {
                     HStack {
                         ZStack {
                             Circle()
-                                .fill(Color.green.opacity(0.15))
+                                .fill(Theme.lxSuccess.opacity(0.15))
                                 .frame(width: 40, height: 40)
                             Image(systemName: "person.3.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(Theme.lxSuccess)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(viewModel.incomingBids.count) Driver\(viewModel.incomingBids.count == 1 ? "" : "s") Available")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
+                                .foregroundColor(Theme.lxText)
                             Text("Tap to view and select a driver")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
 
                         Spacer()
@@ -1681,7 +1918,7 @@ struct RideStatusCard: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
-                                .background(Color.green)
+                                .background(Theme.lxSuccess)
                                 .cornerRadius(8)
                         }
                         .accessibilityLabel("View driver bids")
@@ -1693,7 +1930,7 @@ struct RideStatusCard: View {
 
             // MARK: - Accepted Driver Details Section
             if let driver = viewModel.acceptedDriver {
-                Divider()
+                Divider().overlay(Theme.lxHairline)
 
                 VStack(spacing: 12) {
                     // Driver Row with Photo, Name, Rating
@@ -1718,6 +1955,7 @@ struct RideStatusCard: View {
                             HStack(spacing: 6) {
                                 Text(driver.name ?? "Driver")
                                     .font(.headline)
+                                    .foregroundColor(Theme.lxText)
                                 if let rating = driver.rating {
                                     HStack(spacing: 2) {
                                         Image(systemName: "star.fill")
@@ -1725,7 +1963,7 @@ struct RideStatusCard: View {
                                             .foregroundColor(.yellow)
                                         Text(String(format: "%.1f", rating))
                                             .font(.caption)
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(Theme.lxTextSecondary)
                                     }
                                 }
                             }
@@ -1734,11 +1972,11 @@ struct RideStatusCard: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "mappin.circle.fill")
                                         .font(.caption)
-                                        .foregroundColor(.green)
+                                        .foregroundColor(Theme.lxSuccess)
                                     Text("Driver has arrived!")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
-                                        .foregroundColor(.green)
+                                        .foregroundColor(Theme.lxSuccess)
                                 }
                             } else if let eta = viewModel.driverETA {
                                 HStack(spacing: 4) {
@@ -1774,7 +2012,7 @@ struct RideStatusCard: View {
                                     .font(.title3)
                                     .foregroundColor(.white)
                                     .frame(width: 44, height: 44)
-                                    .background(Color.green)
+                                    .background(Theme.lxSuccess)
                                     .clipShape(Circle())
                             }
                             .accessibilityLabel("Call driver")
@@ -1837,7 +2075,7 @@ struct RideStatusCard: View {
                             Spacer()
                         }
                         .padding(12)
-                        .background(Color.gray.opacity(0.1))
+                        .background(Theme.lxSurface2)
                         .cornerRadius(12)
                     }
                 }
@@ -1846,7 +2084,7 @@ struct RideStatusCard: View {
 
             // Negotiation Status Section ($1+$1 Platform Fee Model)
             if viewModel.isNegotiating {
-                Divider()
+                Divider().overlay(Theme.lxHairline)
 
                 VStack(spacing: 12) {
                     // Show driver counter-offer if available
@@ -1856,10 +2094,10 @@ struct RideStatusCard: View {
                             HStack {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.orange.opacity(0.15))
+                                        .fill(Theme.lxOrange.opacity(0.15))
                                         .frame(width: 40, height: 40)
                                     Image(systemName: "arrow.triangle.2.circlepath")
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(Theme.lxOrange)
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -1876,26 +2114,34 @@ struct RideStatusCard: View {
                                 Text("$\(String(format: "%.2f", driverOffer))")
                                     .font(.title2)
                                     .fontWeight(.bold)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(Theme.lxOrange)
                             }
 
                             // Driver earnings transparency
                             HStack {
                                 Image(systemName: "person.fill.checkmark")
                                     .font(.caption)
-                                    .foregroundColor(.green)
+                                    .foregroundColor(Theme.lxSuccess)
                                 Text("Driver earns: $\(String(format: "%.2f", driverOffer - AppConfig.shared.calculateRidesharePlatformFee(fareAmount: driverOffer)))")
                                     .font(.caption)
-                                    .foregroundColor(.green)
+                                    .foregroundColor(Theme.lxSuccess)
                                 Spacer()
                             }
 
                             VStack(spacing: 12) {
-                                SwipeToConfirmButton(
-                                    label: "Slide to Accept Offer",
-                                    accentColor: .green,
-                                    onConfirm: { viewModel.acceptDriverOffer() }
-                                )
+                                Button(action: { viewModel.acceptDriverOffer() }) {
+                                    Text("Accept Offer")
+                                        .font(.system(size: 17, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 56)
+                                        .background(
+                                            LinearGradient(colors: [Color(hex: "FF9A3D"), Color(hex: "FF7A1A")],
+                                                           startPoint: .top, endPoint: .bottom)
+                                        )
+                                        .cornerRadius(14)
+                                        .shadow(color: Color(hex: "FF7A1A").opacity(0.4), radius: 14, y: 6)
+                                }
                                 .padding(.horizontal, 24)
                                 .padding(.vertical, 8)
 
@@ -1906,10 +2152,10 @@ struct RideStatusCard: View {
                                     }
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(Theme.lxOrange)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
-                                    .background(Color.orange.opacity(0.15))
+                                    .background(Theme.lxOrange.opacity(0.15))
                                     .cornerRadius(10)
                                 }
                                 .accessibilityLabel("Counter offer")
@@ -1917,11 +2163,11 @@ struct RideStatusCard: View {
                             }
                         }
                         .padding()
-                        .background(Color.orange.opacity(0.05))
+                        .background(Theme.lxOrange.opacity(0.05))
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                                .stroke(Theme.lxOrange.opacity(0.3), lineWidth: 1)
                         )
                         .padding(.horizontal)
 
@@ -1961,7 +2207,7 @@ struct RideStatusCard: View {
             // Driver Info (when assigned)
             if let tracking = viewModel.rideTracking,
                let driverName = tracking.driverName {
-                Divider()
+                Divider().overlay(Theme.lxHairline)
 
                 VStack(spacing: 12) {
                     // Driver Row
@@ -1978,7 +2224,7 @@ struct RideStatusCard: View {
                             } placeholder: {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.gray.opacity(0.2))
+                                        .fill(Theme.lxSurface2)
                                         .frame(width: 50, height: 50)
                                     Image(systemName: "person.fill")
                                         .foregroundColor(.gray)
@@ -1987,7 +2233,7 @@ struct RideStatusCard: View {
                         } else {
                             ZStack {
                                 Circle()
-                                    .fill(Color.gray.opacity(0.2))
+                                    .fill(Theme.lxSurface2)
                                     .frame(width: 50, height: 50)
                                 Image(systemName: "person.fill")
                                     .foregroundColor(.gray)
@@ -2022,7 +2268,7 @@ struct RideStatusCard: View {
                                     .font(.title3)
                                     .foregroundColor(.white)
                                     .frame(width: 44, height: 44)
-                                    .background(Color.green)
+                                    .background(Theme.lxSuccess)
                                     .clipShape(Circle())
                             }
                         }
@@ -2042,7 +2288,7 @@ struct RideStatusCard: View {
                                         .clipShape(RoundedRectangle(cornerRadius: 8))
                                 } placeholder: {
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.gray.opacity(0.2))
+                                        .fill(Theme.lxSurface2)
                                         .frame(width: 80, height: 60)
                                         .overlay(
                                             Image(systemName: "car.fill")
@@ -2051,7 +2297,7 @@ struct RideStatusCard: View {
                                 }
                             } else {
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.gray.opacity(0.2))
+                                    .fill(Theme.lxSurface2)
                                     .frame(width: 80, height: 60)
                                     .overlay(
                                         Image(systemName: "car.fill")
@@ -2083,7 +2329,7 @@ struct RideStatusCard: View {
                             Spacer()
                         }
                         .padding(12)
-                        .background(Color.gray.opacity(0.1))
+                        .background(Theme.lxSurface2)
                         .cornerRadius(12)
                     }
                 }
@@ -2094,7 +2340,7 @@ struct RideStatusCard: View {
             if let message = viewModel.negotiationMessage {
                 Text(message)
                     .font(.caption)
-                    .foregroundColor(.green)
+                    .foregroundColor(Theme.lxSuccess)
                     .padding(.horizontal)
             }
 
@@ -2107,8 +2353,12 @@ struct RideStatusCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+                .fill(Theme.lxSurface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Theme.lxHairline, lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: -5)
         )
         // Cancel Confirmation
         .confirmationDialog("Cancel Ride?", isPresented: $showCancelConfirm, titleVisibility: .visible) {
@@ -2158,7 +2408,7 @@ struct RideStatusCard: View {
     private var driverPhotoPlaceholder: some View {
         ZStack {
             Circle()
-                .fill(Color.gray.opacity(0.2))
+                .fill(Theme.lxSurface2)
                 .frame(width: 60, height: 60)
             Image(systemName: "person.fill")
                 .font(.title2)
@@ -2168,7 +2418,7 @@ struct RideStatusCard: View {
 
     private var vehiclePhotoPlaceholder: some View {
         RoundedRectangle(cornerRadius: 8)
-            .fill(Color.gray.opacity(0.2))
+            .fill(Theme.lxSurface2)
             .frame(width: 80, height: 60)
             .overlay(
                 Image(systemName: "car.fill")
@@ -2180,17 +2430,17 @@ struct RideStatusCard: View {
     // MARK: - Ride Completed Section (Thank You Screen)
     private var rideCompletedSection: some View {
         VStack(spacing: 20) {
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             // Celebration Header
             VStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(Color.green.opacity(0.15))
+                        .fill(Theme.lxSuccess.opacity(0.15))
                         .frame(width: 80, height: 80)
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 50))
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
 
                 Text("Ride Complete!")
@@ -2225,11 +2475,11 @@ struct RideStatusCard: View {
                             .fill(Color.blue)
                             .frame(width: 12, height: 12)
                         Rectangle()
-                            .fill(Color.gray.opacity(0.3))
+                            .fill(Theme.lxHairline)
                             .frame(width: 2, height: 30)
                         Image(systemName: "mappin.circle.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                     }
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -2256,7 +2506,7 @@ struct RideStatusCard: View {
                 }
             }
             .padding()
-            .background(Color.gray.opacity(0.05))
+            .background(Theme.lxSurface)
             .cornerRadius(12)
             .padding(.horizontal)
 
@@ -2270,10 +2520,13 @@ struct RideStatusCard: View {
                     Spacer()
                 }
 
-                FareLineItem(label: "Ride Fare", amount: viewModel.estimatedFare)
+                FareLineItem(label: "Ride Fare", amount: viewModel.fareBeforeTax)
                 FareLineItem(label: "Connection Fee", amount: viewModel.platformFee)
+                if viewModel.regulatoryFee > 0 {
+                    FareLineItem(label: "Regulatory Fee (CPUC)", amount: viewModel.regulatoryFee)
+                }
 
-                Divider()
+                Divider().overlay(Theme.lxHairline)
 
                 HStack {
                     Text("Total Paid")
@@ -2282,7 +2535,7 @@ struct RideStatusCard: View {
                     Text("$\(String(format: "%.2f", viewModel.totalAmount))")
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
 
                 HStack(spacing: 4) {
@@ -2294,7 +2547,7 @@ struct RideStatusCard: View {
                 .foregroundColor(.secondary)
             }
             .padding()
-            .background(Color.gray.opacity(0.05))
+            .background(Theme.lxSurface)
             .cornerRadius(12)
             .padding(.horizontal)
 
@@ -2364,7 +2617,7 @@ struct RideStatusCard: View {
                         TextField("Add a comment (optional)", text: $ratingFeedback)
                             .textFieldStyle(.plain)
                             .padding()
-                            .background(Color.gray.opacity(0.1))
+                            .background(Theme.lxSurface2)
                             .cornerRadius(10)
 
                         // Submit Rating Button
@@ -2379,21 +2632,21 @@ struct RideStatusCard: View {
                     }
                 }
                 .padding()
-                .background(Color.gray.opacity(0.05))
+                .background(Theme.lxSurface)
                 .cornerRadius(12)
                 .padding(.horizontal)
             } else {
                 // Rating submitted confirmation
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                     Text("Thanks for rating \(selectedRating) stars!")
                         .font(.subheadline)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(Color.green.opacity(0.1))
+                .background(Theme.lxSuccess.opacity(0.1))
                 .cornerRadius(12)
                 .padding(.horizontal)
             }
@@ -2409,7 +2662,7 @@ struct RideStatusCard: View {
                         Spacer()
                         Text("100% goes to driver")
                             .font(.caption2)
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                     }
 
                     // Quick Tip Buttons
@@ -2427,7 +2680,7 @@ struct RideStatusCard: View {
                                     .foregroundColor(selectedTipAmount == amount ? .white : .primary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(selectedTipAmount == amount ? Color.orange : Color.gray.opacity(0.1))
+                                    .background(selectedTipAmount == amount ? Theme.lxOrange : Theme.lxSurface2)
                                     .cornerRadius(12)
                             }
                             .accessibilityLabel("$\(Int(amount)) tip")
@@ -2446,7 +2699,7 @@ struct RideStatusCard: View {
                                 .foregroundColor(showCustomTip ? .white : .primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(showCustomTip ? Color.orange : Color.gray.opacity(0.1))
+                                .background(showCustomTip ? Theme.lxOrange : Theme.lxSurface2)
                                 .cornerRadius(12)
                         }
                         .accessibilityLabel("Custom tip amount")
@@ -2464,7 +2717,7 @@ struct RideStatusCard: View {
                                 .fontWeight(.bold)
                         }
                         .padding()
-                        .background(Color.gray.opacity(0.1))
+                        .background(Theme.lxSurface2)
                         .cornerRadius(10)
                     }
 
@@ -2492,7 +2745,7 @@ struct RideStatusCard: View {
                     .accessibilityLabel("Skip tip")
                 }
                 .padding()
-                .background(Color.gray.opacity(0.05))
+                .background(Theme.lxSurface)
                 .cornerRadius(12)
                 .padding(.horizontal)
             } else if selectedTipAmount > 0 || (Double(customTipAmount) ?? 0) > 0 {
@@ -2500,14 +2753,14 @@ struct RideStatusCard: View {
                 let tipAmount = showCustomTip ? (Double(customTipAmount) ?? 0) : selectedTipAmount
                 HStack(spacing: 8) {
                     Image(systemName: "heart.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
                     Text("$\(String(format: "%.2f", tipAmount)) tip sent to your driver!")
                         .font(.subheadline)
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(Color.orange.opacity(0.1))
+                .background(Theme.lxOrange.opacity(0.1))
                 .cornerRadius(12)
                 .padding(.horizontal)
             }
@@ -2613,7 +2866,7 @@ struct CustomerNegotiationSheet: View {
                 VStack(spacing: 8) {
                     Image(systemName: "dollarsign.arrow.circlepath")
                         .font(.system(size: 50))
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
 
                     Text("Negotiate Fare")
                         .font(.title2)
@@ -2635,11 +2888,11 @@ struct CustomerNegotiationSheet: View {
                             Text("$\(String(format: "%.2f", driverOffer))")
                                 .font(.title2)
                                 .fontWeight(.bold)
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.lxOrange)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.orange.opacity(0.1))
+                        .background(Theme.lxOrange.opacity(0.1))
                         .cornerRadius(12)
 
                         VStack {
@@ -2675,7 +2928,7 @@ struct CustomerNegotiationSheet: View {
                             .keyboardType(.decimalPad)
                     }
                     .padding()
-                    .background(Color(.systemGray6))
+                    .background(Theme.lxSurface2)
                     .cornerRadius(12)
 
                     Text("Driver receives your offer minus $\(String(format: "%.2f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: viewModel.estimatedFare))) platform fee")
@@ -2704,16 +2957,34 @@ struct CustomerNegotiationSheet: View {
                 Spacer()
 
                 // Submit button
-                SwipeToConfirmButton(
-                    label: customerOfferAmount.isEmpty ? "Enter an Amount" : "Slide to Submit $\(customerOfferAmount) Offer",
-                    accentColor: .orange,
-                    isDisabled: customerOfferAmount.isEmpty || viewModel.isLoading,
-                    onConfirm: submitOffer
-                )
+                Button(action: submitOffer) {
+                    HStack(spacing: 8) {
+                        if viewModel.isLoading { ProgressView().tint(.white) }
+                        Text(customerOfferAmount.isEmpty
+                             ? "Enter an amount"
+                             : (viewModel.isLoading ? "Sending..." : "Send $\(customerOfferAmount) Offer"))
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        (customerOfferAmount.isEmpty || viewModel.isLoading)
+                        ? AnyView(Color.gray.opacity(0.4))
+                        : AnyView(LinearGradient(colors: [Color(hex: "FF9A3D"), Color(hex: "FF7A1A")],
+                                                 startPoint: .top, endPoint: .bottom))
+                    )
+                    .cornerRadius(14)
+                    .shadow(color: (customerOfferAmount.isEmpty || viewModel.isLoading) ? .clear : Color(hex: "FF7A1A").opacity(0.4),
+                            radius: 14, y: 6)
+                }
+                .disabled(customerOfferAmount.isEmpty || viewModel.isLoading)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 8)
                 .padding(.bottom)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -2722,6 +2993,7 @@ struct CustomerNegotiationSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .preferredColorScheme(.dark)
     }
 
     private func submitOffer() {
@@ -2742,7 +3014,7 @@ struct DriverBidsSheet: View {
                 VStack(spacing: 8) {
                     Image(systemName: "person.3.fill")
                         .font(.system(size: 40))
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
 
                     Text("Available Drivers")
                         .font(.title2)
@@ -2755,7 +3027,7 @@ struct DriverBidsSheet: View {
                 .padding(.top, 20)
                 .padding(.bottom, 16)
 
-                Divider()
+                Divider().overlay(Theme.lxHairline)
 
                 // Bids List
                 if viewModel.incomingBids.isEmpty {
@@ -2801,6 +3073,8 @@ struct DriverBidsSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.lxBg)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -2809,6 +3083,7 @@ struct DriverBidsSheet: View {
             }
         }
         .presentationDetents([.large])
+        .preferredColorScheme(.dark)
         .sheet(isPresented: $viewModel.showCounterSheet) {
             if let bid = viewModel.selectedBidForCounter {
                 BidCounterSheet(viewModel: viewModel, bid: bid)
@@ -2849,11 +3124,11 @@ struct BidCounterSheet: View {
                         Text("$\(String(format: "%.2f", bid.proposed_price))")
                             .font(.title)
                             .fontWeight(.bold)
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Color.green.opacity(0.1))
+                    .background(Theme.lxSuccess.opacity(0.1))
                     .cornerRadius(12)
 
                     // Counter price input
@@ -2871,13 +3146,13 @@ struct BidCounterSheet: View {
                                 .keyboardType(.decimalPad)
                         }
                         .padding()
-                        .background(Color(.systemGray6))
+                        .background(Theme.lxSurface2)
                         .cornerRadius(12)
 
                         // Show remaining counters
                         Text("\(viewModel.customerCountersRemaining) counter offers remaining")
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(Theme.lxOrange)
                     }
 
                     // Optional message
@@ -2888,7 +3163,7 @@ struct BidCounterSheet: View {
 
                         TextField("Add a message for the driver...", text: $counterMessage)
                             .padding()
-                            .background(Color(.systemGray6))
+                            .background(Theme.lxSurface2)
                             .cornerRadius(12)
                     }
 
@@ -2896,14 +3171,14 @@ struct BidCounterSheet: View {
                     if let warning = viewModel.counterOfferWarning {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.lxOrange)
                             Text(warning)
                                 .font(.caption)
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.lxOrange)
                         }
                         .padding()
                         .frame(maxWidth: .infinity)
-                        .background(Color.orange.opacity(0.1))
+                        .background(Theme.lxOrange.opacity(0.1))
                         .cornerRadius(8)
                     }
 
@@ -2911,6 +3186,7 @@ struct BidCounterSheet: View {
                 }
                 .padding()
             }
+            .background(Theme.lxBg)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -2932,10 +3208,11 @@ struct BidCounterSheet: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
                 }
-                .background(Color(.systemBackground))
+                .background(Theme.lxSurface)
             }
         }
         .presentationDetents([.large])
+        .preferredColorScheme(.dark)
         .onAppear {
             // Pre-fill with a reasonable counter (e.g., 90% of driver's price)
             let suggestedCounter = bid.proposed_price * 0.9
@@ -3024,7 +3301,7 @@ struct DriverBidCard: View {
                                 .foregroundColor(.secondary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.gray.opacity(0.15))
+                                .background(Theme.lxSurface2)
                                 .cornerRadius(4)
                         }
                     } else if let vehicle = bid.driver_vehicle {
@@ -3053,13 +3330,13 @@ struct DriverBidCard: View {
                     Text("$\(String(format: "%.2f", bid.proposed_price))")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
 
                     // Show negotiation status
                     if bid.status == "countered" {
                         Text("Countered")
                             .font(.caption2)
-                            .foregroundColor(.orange)
+                            .foregroundColor(Theme.lxOrange)
                     } else if let round = bid.negotiation_round, round > 1 {
                         Text("Round \(round)/2")
                             .font(.caption2)
@@ -3075,7 +3352,7 @@ struct DriverBidCard: View {
                         Text("Final Offer")
                             .font(.caption2)
                             .fontWeight(.semibold)
-                            .foregroundColor(.orange)
+                            .foregroundColor(Theme.lxOrange)
                     }
                 }
             }
@@ -3094,7 +3371,7 @@ struct DriverBidCard: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 8)
-                .background(Color.gray.opacity(0.1))
+                .background(Theme.lxSurface2)
                 .cornerRadius(8)
             }
 
@@ -3112,7 +3389,7 @@ struct DriverBidCard: View {
                     if bid.status == "countered" {
                         Text("Waiting for driver...")
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(Theme.lxOrange)
                     }
                 }
                 .padding(.horizontal, 8)
@@ -3126,14 +3403,14 @@ struct DriverBidCard: View {
                 // Waiting for driver response - no actions available
                 HStack {
                     Image(systemName: "clock.arrow.circlepath")
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
                     Text("Waiting for driver's response...")
                         .font(.subheadline)
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Color.orange.opacity(0.1))
+                .background(Theme.lxOrange.opacity(0.1))
                 .cornerRadius(10)
             } else {
                 // Normal action buttons
@@ -3161,10 +3438,10 @@ struct DriverBidCard: View {
                         }
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.lxOrange)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.orange.opacity(0.1))
+                        .background(Theme.lxOrange.opacity(0.1))
                         .cornerRadius(10)
                     }
                     .disabled(isLoading)
@@ -3186,7 +3463,7 @@ struct DriverBidCard: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(isLoading ? Color.gray : Color.green)
+                        .background(isLoading ? Color.gray : Theme.lxSuccess)
                         .cornerRadius(10)
                     }
                     .disabled(isLoading)
@@ -3194,7 +3471,7 @@ struct DriverBidCard: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
     }
@@ -3202,7 +3479,7 @@ struct DriverBidCard: View {
     private var driverPhotoPlaceholder: some View {
         ZStack {
             Circle()
-                .fill(Color.gray.opacity(0.2))
+                .fill(Theme.lxSurface2)
                 .frame(width: 56, height: 56)
             Image(systemName: "person.fill")
                 .font(.title3)

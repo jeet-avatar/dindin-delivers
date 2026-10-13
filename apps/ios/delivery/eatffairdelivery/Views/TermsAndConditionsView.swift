@@ -34,7 +34,7 @@ struct TermsAndConditionsView: View {
                     // Driver Rights
                     DriverRightsSection()
 
-                    // Customer Direct Order
+                    // Direct Rider Requests
                     DirectOrderSection()
 
                     // Privacy & Data
@@ -48,10 +48,11 @@ struct TermsAndConditionsView: View {
                             Spacer()
                             Image(systemName: "chevron.right")
                         }
-                        .foregroundColor(Theme.brandRed)
+                        .foregroundColor(Theme.lxOrange)
                         .padding()
-                        .background(Theme.brandRed.opacity(0.1))
+                        .background(Theme.lxOrange.opacity(0.12))
                         .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxOrange.opacity(0.4), lineWidth: 1))
                     }
                     .padding(.horizontal)
 
@@ -60,16 +61,18 @@ struct TermsAndConditionsView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("I accept the Terms & Conditions")
                                 .fontWeight(.semibold)
+                                .foregroundColor(Theme.lxText)
                             Text("By accepting, you agree to our platform policies, $1 fee structure, and driver guidelines.")
                                 .font(.caption)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                         }
                     }
-                    .toggleStyle(SwitchToggleStyle(tint: Theme.brandRed))
+                    .toggleStyle(SwitchToggleStyle(tint: Theme.lxOrange))
                     .padding()
-                    .background(Theme.cardBackground)
+                    .background(Theme.lxSurface)
                     .cornerRadius(12)
-                    .shadow(color: .black.opacity(0.05), radius: 4)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
+                    .shadow(color: .black.opacity(0.4), radius: 4)
                     .padding(.horizontal)
 
                     // Accept Button
@@ -79,39 +82,41 @@ struct TermsAndConditionsView: View {
                                 .tint(.white)
                         } else {
                             Text("Accept & Continue")
-                                .fontWeight(.semibold)
+                                .fontWeight(.bold)
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(hasAccepted ? Theme.brandRed : Theme.textGrey)
+                    .background(hasAccepted ? AnyShapeStyle(Theme.lxButtonGradient) : AnyShapeStyle(Theme.lxSurface2))
                     .foregroundColor(.white)
-                    .cornerRadius(12)
+                    .cornerRadius(14)
+                    .shadow(color: hasAccepted ? Theme.lxOrange.opacity(0.4) : .clear, radius: 10, x: 0, y: 4)
                     .padding(.horizontal)
                     .disabled(!hasAccepted || isLoading)
 
                     // Version
                     Text("Terms Version \(AppConstants.termsVersion) • Last Updated: December 2024")
                         .font(.caption)
-                        .foregroundColor(Theme.textGrey)
+                        .foregroundColor(Theme.lxTextMuted)
                         .frame(maxWidth: .infinity)
                         .padding(.bottom, 24)
                 }
             }
-            .background(Theme.backgroundGrey.ignoresSafeArea())
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(Theme.textGrey)
+                    .foregroundColor(Theme.lxTextSecondary)
                 }
             }
             .sheet(isPresented: $showFullTerms) {
                 FullTermsView()
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     private func acceptTerms() {
@@ -139,44 +144,47 @@ struct TermsHeader: View {
             // Smiling dollar sign logo
             ZStack {
                 Circle()
-                    .fill(Theme.brandRed.opacity(0.15))
+                    .fill(Theme.lxOrange.opacity(0.15))
                     .frame(width: 100, height: 100)
 
                 Text("$")
                     .font(.system(size: 50, weight: .bold))
-                    .foregroundColor(Theme.brandRed)
+                    .foregroundColor(Theme.lxOrange)
             }
 
             Text("Dollor AI Service")
                 .font(.largeTitle)
                 .fontWeight(.bold)
+                .foregroundColor(Theme.lxText)
 
             Text("$ online store")
                 .font(.headline)
-                .foregroundColor(Theme.brandRed)
+                .foregroundColor(Theme.lxOrange)
 
             Text("Driver Terms & Conditions")
                 .font(.title3)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
 
-            Text("A peer-to-peer matchmaking platform connecting independent drivers with riders and delivery requests.")
+            Text("A peer-to-peer matchmaking platform connecting independent drivers with riders.")
                 .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 
             // Independent Contractor Badge
             HStack(spacing: 6) {
                 Image(systemName: "person.badge.shield.checkmark")
-                    .foregroundColor(Theme.brandRed)
+                    .foregroundColor(Theme.lxOrange)
                 Text("You are an Independent Contractor")
                     .font(.caption)
                     .fontWeight(.semibold)
+                    .foregroundColor(Theme.lxText)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Theme.brandRed.opacity(0.1))
+            .background(Theme.lxOrange.opacity(0.12))
             .cornerRadius(20)
+            .overlay(Capsule().stroke(Theme.lxOrange.opacity(0.4), lineWidth: 1))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
@@ -192,39 +200,40 @@ struct PlatformFeeCard: View {
             HStack {
                 Image(systemName: "link.circle.fill")
                     .font(.title)
-                    .foregroundColor(Theme.statusActive)
+                    .foregroundColor(Theme.lxOrange)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Connection Fee Structure")
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
                     Text("Matchmaking service fees only")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
 
                 Spacer()
             }
 
-            Divider()
+            Divider().overlay(Theme.lxHairline)
 
             // Fee Structure - P2P matchmaking model
             VStack(spacing: 12) {
                 FeeRow(
-                    title: "Customer Connection Fee",
+                    title: "Rider Connection Fee",
                     amount: String(format: "$%.2f", config.serviceFee),
                     description: "For using our matchmaking service"
                 )
 
                 FeeRow(
-                    title: "Restaurant Connection Fee",
+                    title: "Platform Fee",
                     amount: String(format: "$%.2f", config.restaurantPlatformFee),
-                    description: "For receiving order connections"
+                    description: "$1 up to $25 fare, $2 for $25–$50, $3 over $50 — per ride"
                 )
 
                 FeeRow(
-                    title: "Driver Connection Fee",
-                    amount: "$0.00",
-                    description: "No fees on your earnings!"
+                    title: "Your Tips",
+                    amount: "100%",
+                    description: "Tips are 100% yours"
                 )
             }
 
@@ -232,27 +241,29 @@ struct PlatformFeeCard: View {
             VStack(spacing: 8) {
                 HStack(spacing: 12) {
                     Image(systemName: "star.fill")
-                        .foregroundColor(.yellow)
+                        .foregroundColor(Theme.lxOrange)
 
                     Text("Keep 100% of what you earn")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                 }
 
                 Text("You're an independent contractor - set your own prices for rideshare")
                     .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
             .padding()
             .frame(maxWidth: .infinity)
-            .background(Theme.statusActive.opacity(0.1))
+            .background(Theme.lxSuccess.opacity(0.12))
             .cornerRadius(12)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxSuccess.opacity(0.35), lineWidth: 1))
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.lxHairline, lineWidth: 1))
+        .shadow(color: .black.opacity(0.4), radius: 8)
         .padding(.horizontal)
     }
 }
@@ -268,9 +279,10 @@ struct FeeRow: View {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.medium)
+                    .foregroundColor(Theme.lxText)
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
 
             Spacer()
@@ -278,7 +290,7 @@ struct FeeRow: View {
             Text(amount)
                 .font(.title3)
                 .fontWeight(.bold)
-                .foregroundColor(amount == "$0.00" ? Theme.statusActive : Theme.textPrimary)
+                .foregroundColor(amount == "$0.00" ? Theme.lxSuccess : Theme.lxText)
         }
     }
 }
@@ -292,14 +304,14 @@ struct KeyBenefitsSection: View {
             VStack(spacing: 12) {
                 BenefitRow(
                     icon: "message.fill",
-                    title: "Direct Customer Chat",
-                    description: "Communicate directly with customers for better coordination and tips"
+                    title: "Direct Rider Chat",
+                    description: "Communicate directly with riders for better coordination and tips"
                 )
 
                 BenefitRow(
-                    icon: "cart.fill.badge.plus",
-                    title: "Multi-Stop Deliveries",
-                    description: "Pick up from multiple restaurants on one trip - negotiate better tips"
+                    icon: "mappin.and.ellipse",
+                    title: "Direct Rider Pickups",
+                    description: "Pick up your rider and drive straight to their destination"
                 )
 
                 BenefitRow(
@@ -334,23 +346,25 @@ struct BenefitRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundColor(Theme.brandRed)
+                .foregroundColor(Theme.lxOrange)
                 .frame(width: 30)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
+                    .foregroundColor(Theme.lxText)
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
 
             Spacer()
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
     }
 }
 
@@ -363,35 +377,36 @@ struct HowItWorksSection: View {
             VStack(spacing: 0) {
                 StepRow(
                     number: 1,
-                    title: "Customer Places Order",
-                    description: "Customer pays $1 platform fee + food cost + delivery fee + tip",
+                    title: "Rider Requests a Ride",
+                    description: "Rider pays ride fare + platform fee + tip",
                     isLast: false
                 )
 
                 StepRow(
                     number: 2,
-                    title: "Restaurant Prepares Food",
-                    description: "Restaurant pays $1 platform fee per order",
+                    title: "You Accept the Trip",
+                    description: "Review the fare and pickup, then accept, decline, or counter the offer",
                     isLast: false
                 )
 
                 StepRow(
                     number: 3,
-                    title: "You Deliver",
-                    description: "You receive full delivery fee + full tip (zero platform cut!)",
+                    title: "You Drive the Rider",
+                    description: "You receive the full fare + full tip (zero platform cut on your earnings!)",
                     isLast: false
                 )
 
                 StepRow(
                     number: 4,
-                    title: "Bonus: Direct Orders",
-                    description: "Customers can order directly through you - earn points & higher tips",
+                    title: "Bonus: Repeat Riders",
+                    description: "Riders can request you directly - earn points & higher tips",
                     isLast: true
                 )
             }
             .padding()
-            .background(Theme.cardBackground)
+            .background(Theme.lxSurface)
             .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.lxHairline, lineWidth: 1))
         }
         .padding(.horizontal)
     }
@@ -409,7 +424,7 @@ struct StepRow: View {
             VStack(spacing: 0) {
                 ZStack {
                     Circle()
-                        .fill(Theme.brandRed)
+                        .fill(Theme.lxOrange)
                         .frame(width: 32, height: 32)
 
                     Text("\(number)")
@@ -419,7 +434,7 @@ struct StepRow: View {
 
                 if !isLast {
                     Rectangle()
-                        .fill(Theme.brandRed.opacity(0.3))
+                        .fill(Theme.lxOrange.opacity(0.3))
                         .frame(width: 2)
                         .frame(maxHeight: .infinity)
                 }
@@ -431,10 +446,11 @@ struct StepRow: View {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
+                    .foregroundColor(Theme.lxText)
 
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
             .padding(.bottom, isLast ? 0 : 24)
 
@@ -453,15 +469,16 @@ struct DriverRightsSection: View {
                 RightItem(text: "Accept or decline any request without penalty")
                 RightItem(text: "Set your own schedule - work when you want")
                 RightItem(text: "Set your own prices for rideshare trips")
-                RightItem(text: "Negotiate directly with riders and customers")
+                RightItem(text: "Negotiate directly with your riders")
                 RightItem(text: "Use multiple platforms - no exclusivity required")
                 RightItem(text: "Keep 100% of your earnings (no percentage cuts)")
                 RightItem(text: "Operate your own independent business")
                 RightItem(text: "24/7 platform support")
             }
             .padding()
-            .background(Theme.cardBackground)
+            .background(Theme.lxSurface)
             .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.lxHairline, lineWidth: 1))
         }
         .padding(.horizontal)
     }
@@ -473,38 +490,38 @@ struct RightItem: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(Theme.statusActive)
+                .foregroundColor(Theme.lxSuccess)
 
             Text(text)
                 .font(.subheadline)
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(Theme.lxText)
 
             Spacer()
         }
     }
 }
 
-// MARK: - Direct Order Section
+// MARK: - Direct Rider Section
 struct DirectOrderSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(icon: "person.2.fill", title: "Direct Customer Orders")
+            SectionHeader(icon: "person.2.fill", title: "Direct Rider Requests")
 
             VStack(alignment: .leading, spacing: 16) {
                 Text("The Game Changer")
                     .font(.headline)
-                    .foregroundColor(Theme.brandRed)
+                    .foregroundColor(Theme.lxOrange)
 
-                Text("Customers can contact you directly through chat to place orders. This gives you:")
+                Text("Riders can contact you directly through chat to request rides. This gives you:")
                     .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
 
                 VStack(spacing: 8) {
-                    DirectBenefitRow(icon: "plus.circle.fill", text: "Higher tips from satisfied customers")
-                    DirectBenefitRow(icon: "plus.circle.fill", text: "Multiple restaurant pickups on one trip")
+                    DirectBenefitRow(icon: "plus.circle.fill", text: "Higher tips from satisfied riders")
+                    DirectBenefitRow(icon: "plus.circle.fill", text: "Repeat rides from regular riders")
                     DirectBenefitRow(icon: "plus.circle.fill", text: "Points toward driver rewards")
-                    DirectBenefitRow(icon: "plus.circle.fill", text: "Build your own customer base")
-                    DirectBenefitRow(icon: "plus.circle.fill", text: "Flexibility to negotiate delivery terms")
+                    DirectBenefitRow(icon: "plus.circle.fill", text: "Build your own rider base")
+                    DirectBenefitRow(icon: "plus.circle.fill", text: "Flexibility to negotiate ride terms")
                 }
 
                 // Example Scenario
@@ -512,24 +529,26 @@ struct DirectOrderSection: View {
                     Text("Example Scenario:")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(Theme.textGrey)
+                        .foregroundColor(Theme.lxTextMuted)
 
-                    Text("\"Hey driver, can you stop at Chipotle on the way? I'll add $5 extra tip\"")
+                    Text("\"Hey driver, can you pick me up 5 minutes early? I'll add $5 extra tip\"")
                         .font(.subheadline)
                         .italic()
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .padding()
-                        .background(Theme.backgroundGrey)
+                        .background(Theme.lxSurface2)
                         .cornerRadius(8)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.lxHairline, lineWidth: 1))
 
-                    Text("You have the freedom to accept multi-stop requests and earn more!")
+                    Text("You have the freedom to accept direct ride requests and earn more!")
                         .font(.caption)
-                        .foregroundColor(Theme.statusActive)
+                        .foregroundColor(Theme.lxSuccess)
                 }
             }
             .padding()
-            .background(Theme.cardBackground)
+            .background(Theme.lxSurface)
             .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.lxHairline, lineWidth: 1))
         }
         .padding(.horizontal)
     }
@@ -542,11 +561,12 @@ struct DirectBenefitRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .foregroundColor(Theme.statusActive)
+                .foregroundColor(Theme.lxSuccess)
                 .font(.caption)
 
             Text(text)
                 .font(.subheadline)
+                .foregroundColor(Theme.lxText)
         }
     }
 }
@@ -560,12 +580,12 @@ struct PrivacySection: View {
             VStack(alignment: .leading, spacing: 12) {
                 PrivacyItem(
                     title: "Location Data",
-                    description: "Used only during active deliveries for customer tracking. Never sold."
+                    description: "Used only during active trips for rider tracking. Never sold."
                 )
 
                 PrivacyItem(
                     title: "Personal Information",
-                    description: "Stored securely. Only shared with customers for delivery purposes."
+                    description: "Stored securely. Only shared with riders for trip purposes."
                 )
 
                 PrivacyItem(
@@ -579,8 +599,9 @@ struct PrivacySection: View {
                 )
             }
             .padding()
-            .background(Theme.cardBackground)
+            .background(Theme.lxSurface)
             .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.lxHairline, lineWidth: 1))
         }
         .padding(.horizontal)
     }
@@ -594,17 +615,18 @@ struct PrivacyItem: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: "checkmark.shield.fill")
-                    .foregroundColor(Theme.statusInfo)
+                    .foregroundColor(Theme.lxOrange)
                     .font(.caption)
 
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
+                    .foregroundColor(Theme.lxText)
             }
 
             Text(description)
                 .font(.caption)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
                 .padding(.leading, 24)
         }
     }
@@ -618,11 +640,12 @@ struct SectionHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .foregroundColor(Theme.brandRed)
+                .foregroundColor(Theme.lxOrange)
 
             Text(title)
                 .font(.title3)
                 .fontWeight(.bold)
+                .foregroundColor(Theme.lxText)
         }
     }
 }
@@ -650,17 +673,19 @@ struct FullTermsView: View {
                             Text("""
                             Dollor AI Service operates on a transparent, flat-fee model for our MATCHMAKING service:
 
-                            CONNECTION FEES (for use of our matching platform):
-                            • Customer Connection Fee: $1.00 per connection
-                            • Restaurant Connection Fee: $1.00 per connection
-                            • Driver Connection Fee: $0.00 (zero)
+                            PLATFORM FEES (for use of our matching platform):
+                            • Rider Connection Fee: $1.00 per connection
+                            • Driver Platform Fee (per ride):
+                               - $1.00 for fares up to $25
+                               - $2.00 for fares $25–$50
+                               - $3.00 for fares over $50
 
                             As an INDEPENDENT DRIVER, you retain 100% of:
-                            - Payments negotiated directly with riders
-                            - All tips provided by customers
+                            - Fares negotiated directly with riders (less the per-ride platform fee above)
+                            - All tips provided by riders (tips are always 100% yours)
                             - Any additional compensation agreed upon with riders
 
-                            IMPORTANT: Dollor AI Service charges a connection fee for matching you with riders. We do NOT take a percentage of your earnings. You set your own prices and negotiate directly with riders.
+                            IMPORTANT: Dollor AI Service charges a flat platform fee for matching you with riders. We do NOT take a percentage of your earnings. You set your own prices and negotiate directly with riders.
                             """)
                         }
 
@@ -690,9 +715,9 @@ struct FullTermsView: View {
                             Text("""
                             As a Dollor AI Service driver, you agree to:
 
-                            • Deliver orders in a timely and professional manner
-                            • Maintain the quality and safety of food during transport
-                            • Communicate professionally with customers and restaurants
+                            • Complete trips in a timely and professional manner
+                            • Drive safely and maintain a valid driver's license and current auto insurance
+                            • Communicate professionally with riders
                             • Follow all applicable traffic laws and regulations
                             • Keep your vehicle clean and in good working condition
                             • Update your availability status accurately
@@ -700,36 +725,37 @@ struct FullTermsView: View {
                             """)
                         }
 
-                        TermsSection(title: "5. Direct Customer Communication") {
+                        TermsSection(title: "5. Direct Rider Communication") {
                             Text("""
-                            Dollor AI Service encourages direct communication between drivers and customers through our in-app chat feature. This includes:
+                            Dollor AI Service encourages direct communication between drivers and riders through our in-app chat feature. This includes:
 
-                            • Coordinating delivery details
-                            • Providing delivery updates
-                            • Negotiating additional services (multi-stop pickups)
+                            • Coordinating pickup details
+                            • Providing trip updates
+                            • Confirming pickup and dropoff locations
                             • Discussing tip arrangements
 
                             Guidelines for direct communication:
                             • Maintain professional conduct at all times
                             • Do not share personal contact information outside the platform
                             • Report any inappropriate behavior immediately
-                            • Respect customer privacy and preferences
+                            • Respect rider privacy and preferences
                             """)
                         }
 
-                        TermsSection(title: "6. Multi-Stop Deliveries") {
+                        TermsSection(title: "6. Ride Conduct & Vehicle Standards") {
                             Text("""
-                            Drivers may accept multi-stop delivery requests from customers, including:
+                            Drivers are responsible for providing safe, professional rides. Each trip is a single rider pickup to dropoff. You agree to:
 
-                            • Picking up from multiple restaurants on a single trip
-                            • Making additional stops as negotiated with the customer
-                            • Setting appropriate compensation for additional services
+                            • Drive safely and obey all traffic laws
+                            • Maintain a valid driver's license and current auto insurance at all times
+                            • Keep your vehicle clean, well-maintained, and in safe working condition
+                            • Treat every rider with respect and professionalism
 
                             Conditions:
-                            • All parties must agree to multi-stop arrangements
-                            • Food quality and safety must be maintained
+                            • Your vehicle must meet applicable safety and registration requirements
+                            • Follow the agreed pickup and dropoff locations
                             • Reasonable time expectations must be communicated
-                            • Additional compensation should be agreed upon in advance
+                            • Any additional compensation should be agreed upon in advance
                             """)
                         }
 
@@ -740,14 +766,9 @@ struct FullTermsView: View {
                             RIDESHARE (P2P Matchmaking):
                             • YOU set your own prices for rides
                             • Riders make offers which you can accept, decline, or counter
-                            • All negotiated payments go directly to you
-                            • Dollor AI Service only charges a $1 connection fee
+                            • All negotiated fares go directly to you
+                            • Dollor AI Service only charges a per-ride platform fee ($1 for fares up to $25, $2 for fares $25–$50, $3 for fares over $50)
                             • Tips are 100% yours
-
-                            FOOD DELIVERY:
-                            • Base delivery fee (100% to you)
-                            • Distance-based compensation (100% to you)
-                            • Customer tips (100% to you)
 
                             Payment Schedule:
                             • Earnings are calculated in real-time
@@ -761,11 +782,11 @@ struct FullTermsView: View {
                             Text("""
                             Dollor AI Service provides a hands-free voice assistant for driver safety:
 
-                            • Accept or decline orders by voice
+                            • Accept or decline rides by voice
                             • Get navigation directions
-                            • Send quick messages to customers
+                            • Send quick messages to riders
                             • Check earnings
-                            • Mark deliveries as complete
+                            • Mark trips as complete
 
                             Important: Always prioritize safe driving. Use voice features responsibly.
                             """)
@@ -809,7 +830,7 @@ struct FullTermsView: View {
                             • Violation of these Terms
                             • Fraudulent activity
                             • Unsafe driving practices
-                            • Poor customer ratings
+                            • Poor rider ratings
                             • Illegal activity
                             • Harassment or inappropriate conduct
 
@@ -839,6 +860,7 @@ struct FullTermsView: View {
                 }
                 .padding()
             }
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Full Terms & Conditions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -846,10 +868,11 @@ struct FullTermsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .foregroundColor(Theme.brandRed)
+                    .foregroundColor(Theme.lxOrange)
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -861,11 +884,11 @@ struct TermsSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.headline)
-                .foregroundColor(Theme.brandRed)
+                .foregroundColor(Theme.lxOrange)
 
             content
                 .font(.subheadline)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
         }
     }
 }

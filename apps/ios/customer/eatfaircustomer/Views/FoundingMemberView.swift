@@ -1,0 +1,292 @@
+import SwiftUI
+import Combine
+import Stripe
+import EatFairShared
+
+/// Founding Member ($100 lifetime fee-lock) screen for the customer app.
+/// Reuses the app's existing Stripe SDK to collect a card and pass `payment_method_id`
+/// to POST /api/founding/join. Demo accounts bypass the charge server-side.
+struct FoundingMemberView: View {
+    @StateObject private var model = FoundingMemberModel(isDriver: false)
+    @State private var cardParams: STPPaymentMethodParams?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                header
+
+                if model.isLoading {
+                    ProgressView("Loading…").frame(maxWidth: .infinity).padding(.top, 40)
+                        .tint(Theme.lxOrange)
+                } else {
+                    benefitsCard
+                    slotsCard
+
+                    if model.isMember {
+                        memberBadge
+                    } else if model.eligible {
+                        joinSection
+                    } else {
+                        Text("Founding membership isn't available for your account right now.")
+                            .font(.subheadline)
+                            .foregroundColor(Theme.lxTextSecondary)
+                    }
+
+                    if let error = model.errorMessage {
+                        Text(error).font(.caption).foregroundColor(Theme.lxError)
+                    }
+                    if let success = model.successMessage {
+                        Text(success).font(.subheadline).foregroundColor(Theme.lxSuccess)
+                    }
+                }
+            }
+            .padding()
+        }
+        .scrollContentBackground(.hidden)
+        .background(Theme.lxBg.ignoresSafeArea())
+        .preferredColorScheme(.dark)
+        .navigationTitle("Founding Member")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { model.load() }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: "star.circle.fill")
+                .font(.system(size: 44))
+                .foregroundColor(Theme.lxOrange)
+            Text("Become a Founding Member")
+                .font(.title2).fontWeight(.bold)
+                .foregroundColor(Theme.lxText)
+            Text("A one-time $\(Int(model.feeAmount)) joins you as a Dollor.ai founding member and locks your fees for life.")
+                .font(.subheadline)
+                .foregroundColor(Theme.lxTextSecondary)
+        }
+    }
+
+    private var benefitsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Lifetime fee lock", systemImage: "lock.fill")
+                .font(.headline)
+                .foregroundColor(Theme.lxText)
+            Text(model.benefitDescription ?? "Your platform fees are locked at today's rate for as long as you ride with Dollor.ai.")
+                .font(.subheadline)
+                .foregroundColor(Theme.lxTextSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Theme.lxSurface)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
+    }
+
+    private var slotsCard: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Slots remaining\(model.state.map { " in \($0)" } ?? "")")
+                    .font(.caption).foregroundColor(Theme.lxTextSecondary)
+                Text(model.slotsRemaining.map { "\($0)" } ?? "—")
+                    .font(.title3).fontWeight(.bold)
+                    .foregroundColor(Theme.lxOrange)
+            }
+            Spacer()
+            if let total = model.slotsTotal {
+                Text("of \(total)").font(.caption).foregroundColor(Theme.lxTextSecondary)
+            }
+        }
+        .padding()
+        .background(Theme.lxSurface)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
+    }
+
+    private var memberBadge: some View {
+        Label("You're a Founding Member", systemImage: "checkmark.seal.fill")
+            .font(.headline)
+            .foregroundColor(Theme.lxOrange)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Theme.lxOrange.opacity(0.1))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Theme.lxOrange.opacity(0.4), lineWidth: 1)
+            )
+    }
+
+    @ViewBuilder
+    private var joinSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !model.isDemo {
+                Text("Payment")
+                    .font(.headline)
+                    .foregroundColor(Theme.lxText)
+                FoundingCardField(params: $cardParams)
+                    .frame(height: 44)
+                    .padding(.horizontal, 8)
+                    .background(Theme.lxSurface)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.lxHairline))
+                    .cornerRadius(8)
+            } else {
+                Text("Demo account — no charge will be made.")
+                    .font(.caption).foregroundColor(Theme.lxTextSecondary)
+            }
+
+            Button(action: { model.join(params: cardParams) }) {
+                HStack {
+                    if model.isJoining {
+                        ProgressView().tint(.white)
+                    } else {
+                        Text("Join for $\(Int(model.feeAmount))")
+                            .fontWeight(.bold)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(
+                    Group {
+                        if canJoin {
+                            Theme.lxButtonGradient
+                        } else {
+                            Theme.lxSurface2
+                        }
+                    }
+                )
+                .foregroundColor(.white)
+                .cornerRadius(14)
+                .shadow(color: canJoin ? Theme.lxOrange.opacity(0.4) : .clear, radius: 14, x: 0, y: 6)
+            }
+            .disabled(!canJoin)
+        }
+    }
+
+    private var canJoin: Bool {
+        if model.isJoining { return false }
+        if model.isDemo { return true }
+        return cardParams != nil
+    }
+}
+
+/// SwiftUI wrapper around Stripe's card entry field (reuses the app's linked Stripe SDK).
+struct FoundingCardField: UIViewRepresentable {
+    @Binding var params: STPPaymentMethodParams?
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> STPPaymentCardTextField {
+        let field = STPPaymentCardTextField()
+        field.delegate = context.coordinator
+        return field
+    }
+
+    func updateUIView(_ uiView: STPPaymentCardTextField, context: Context) {}
+
+    final class Coordinator: NSObject, STPPaymentCardTextFieldDelegate {
+        let parent: FoundingCardField
+        init(_ parent: FoundingCardField) { self.parent = parent }
+        func paymentCardTextFieldDidChange(_ textField: STPPaymentCardTextField) {
+            parent.params = textField.isValid ? textField.paymentMethodParams : nil
+        }
+    }
+}
+
+// MARK: - Model
+
+final class FoundingMemberModel: ObservableObject {
+    @Published var isLoading = true
+    @Published var isJoining = false
+    @Published var eligible = false
+    @Published var isMember = false
+    @Published var isDemo = false
+    @Published var slotsRemaining: Int?
+    @Published var slotsTotal: Int?
+    @Published var state: String?
+    @Published var feeAmount: Double = 100
+    @Published var benefitDescription: String?
+    @Published var errorMessage: String?
+    @Published var successMessage: String?
+
+    let isDriver: Bool
+
+    init(isDriver: Bool) { self.isDriver = isDriver }
+
+    func load() {
+        isLoading = true
+        errorMessage = nil
+        P2PAPIService.shared.getFoundingStatus(isDriver: isDriver) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isLoading = false
+                switch result {
+                case .success(let status):
+                    self.eligible = status.eligible
+                    self.isMember = status.isMember
+                    self.isDemo = status.demo
+                    self.slotsRemaining = status.slotsRemaining
+                    self.slotsTotal = status.slotsTotal
+                    self.state = status.state
+                    self.feeAmount = status.feeAmount
+                    self.benefitDescription = status.benefitDescription
+                    if let key = status.publishableKey, !key.isEmpty {
+                        STPAPIClient.shared.publishableKey = key
+                    }
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    func join(params: STPPaymentMethodParams?) {
+        guard !isJoining else { return }
+        isJoining = true
+        errorMessage = nil
+        successMessage = nil
+
+        // Demo accounts bypass the charge server-side — no card tokenization needed.
+        if isDemo || params == nil {
+            callJoin(paymentMethodId: nil)
+            return
+        }
+
+        STPAPIClient.shared.createPaymentMethod(with: params!) { [weak self] paymentMethod, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let error = error {
+                    self.isJoining = false
+                    self.errorMessage = error.localizedDescription
+                    return
+                }
+                guard let paymentMethod = paymentMethod else {
+                    self.isJoining = false
+                    self.errorMessage = "Could not process your card. Please try again."
+                    return
+                }
+                self.callJoin(paymentMethodId: paymentMethod.stripeId)
+            }
+        }
+    }
+
+    private func callJoin(paymentMethodId: String?) {
+        P2PAPIService.shared.joinFounding(isDriver: isDriver, paymentMethodId: paymentMethodId) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isJoining = false
+                switch result {
+                case .success(let joinResult):
+                    self.isMember = joinResult.isMember
+                    self.successMessage = joinResult.message ?? "Welcome, Founding Member!"
+                    self.load()
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+}

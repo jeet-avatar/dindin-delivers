@@ -15,24 +15,26 @@ struct PaymentMethodsView: View {
 
     var body: some View {
         ZStack {
-            Theme.brandGrey.edgesIgnoringSafeArea(.all)
+            Theme.lxBg.edgesIgnoringSafeArea(.all)
 
             VStack(spacing: 20) {
                 if viewModel.isLoading {
                     ProgressView("Loading cards...")
+                        .tint(Theme.lxOrange)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .padding()
                 } else if viewModel.savedCards.isEmpty {
                     // Empty state
                     VStack(spacing: 16) {
                         Image(systemName: "creditcard")
                             .font(.system(size: 50))
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxTextMuted)
                         Text("No saved cards")
                             .font(.headline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Theme.lxText)
                         Text("Add a card to make checkout faster")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                     .padding(.top, 60)
                 } else {
@@ -58,8 +60,8 @@ struct PaymentMethodsView: View {
                             // Cash option
                             PaymentCardRow(
                                 icon: "banknote.fill",
-                                title: "Cash on Delivery",
-                                subtitle: "Pay when you receive your order",
+                                title: "Cash",
+                                subtitle: "Pay your driver directly after the ride",
                                 isDefault: false,
                                 onDelete: nil,
                                 onSetDefault: nil
@@ -79,13 +81,15 @@ struct PaymentMethodsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Theme.brandBlack)
-                        .cornerRadius(12)
+                        .background(Theme.lxButtonGradient)
+                        .cornerRadius(14)
+                        .shadow(color: Theme.lxOrange.opacity(0.4), radius: 14, y: 6)
                         .padding(.horizontal)
                 }
                 .padding(.bottom, 30)
             }
         }
+        .preferredColorScheme(.dark)
         .navigationTitle("Payment Methods")
         .sheet(isPresented: $showAddCard) {
             StripeAddCardView(onCardAdded: { card in
@@ -224,26 +228,27 @@ struct PaymentCardRow: View {
         HStack(spacing: 15) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(Theme.brandBlack)
+                .foregroundColor(Theme.lxOrange)
                 .frame(width: 40)
 
             VStack(alignment: .leading) {
                 HStack {
                     Text(title)
                         .font(.headline)
+                        .foregroundColor(Theme.lxText)
                     if isDefault {
                         Text("Default")
                             .font(.caption2)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.green.opacity(0.2))
-                            .foregroundColor(.green)
+                            .background(Theme.lxOrange.opacity(0.2))
+                            .foregroundColor(Theme.lxOrange)
                             .cornerRadius(4)
                     }
                 }
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
 
             Spacer()
@@ -262,35 +267,45 @@ struct PaymentCardRow: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .foregroundColor(.gray)
+                        .foregroundColor(Theme.lxTextSecondary)
                         .padding(8)
                 }
             } else {
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
+                    .foregroundColor(Theme.lxTextMuted)
                     .font(.caption)
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Theme.lxSurface)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.25), radius: 5, x: 0, y: 2)
     }
 }
 
-// MARK: - Stripe Add Card View (Uses SetupIntent)
+// MARK: - Stripe Add Card View
+// SECURITY: Card details never touch our backend — STPPaymentCardTextField hands raw
+// digits directly to Stripe's SDK, which returns only a payment_method_id token. Apple
+// Pay goes through a Stripe SetupIntent the same way. Only that token ever reaches
+// apiService.attachPaymentMethod(). (The previous version of this view sent raw
+// card_number/cvc to our own backend — a PCI-DSS violation — and the backend endpoint
+// it called required a payment_method_id it never sent, so it never actually worked.)
 struct StripeAddCardView: View {
     @Environment(\.dismiss) private var dismiss
     let onCardAdded: (StripeCard) -> Void
 
-    @State private var cardNumber = ""
-    @State private var expiryDate = ""
-    @State private var cvv = ""
-    @State private var cardholderName = ""
-    @State private var isProcessing = false
+    @State private var cardParams: STPPaymentMethodParams?
+    @State private var isProcessingCard = false
+    @State private var isProcessingApplePay = false
     @State private var errorMessage: String?
 
     private let apiService = P2PAPIService.shared
+
+    private var isProcessing: Bool { isProcessingCard || isProcessingApplePay }
 
     private var customerId: Int? {
         let id = UserDefaults.standard.integer(forKey: "p2p_customer_id")

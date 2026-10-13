@@ -3,23 +3,16 @@ import EatFairShared
 
 struct DriverDashboardView: View {
     @EnvironmentObject var authManager: AuthManager
-    @StateObject private var deliveryViewModel = DeliveryViewModel()
     @StateObject private var chatManager = ChatManager.shared
     @StateObject private var rideBiddingViewModel = RideBiddingViewModel()
-    @State private var selectedTab = 0
+    // Rideshare-only build lands on the Rideshare tab.
+    @State private var selectedTab = 1
     @State private var showTerms = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Driver App - Food Delivery and Rideshare
+            // Driver App - Rideshare
             TabView(selection: $selectedTab) {
-                // Available Orders Tab (Food Delivery)
-                AvailableOrdersView(viewModel: deliveryViewModel, selectedTab: $selectedTab)
-                    .tabItem {
-                        Label("Delivery", systemImage: "bag.fill")
-                    }
-                    .tag(0)
-
                 // Rideshare Tab - P2P Ride Bidding
                 RideshareDashboardView()
                     .tabItem {
@@ -27,15 +20,6 @@ struct DriverDashboardView: View {
                     }
                     .tag(1)
                     .badge(rideBiddingViewModel.counteredBids.isEmpty ? 0 : rideBiddingViewModel.counteredBids.count)
-
-                // Active Delivery Tab
-                NavigationView {
-                    PickupDropoffView(viewModel: deliveryViewModel)
-                }
-                .tabItem {
-                    Label("Active", systemImage: "location.fill")
-                }
-                .tag(2)
 
                 // Messages Tab
                 ConversationsListView()
@@ -53,22 +37,18 @@ struct DriverDashboardView: View {
                     }
                     .tag(4)
             }
-            .accentColor(Theme.brandGreen)
+            .accentColor(Theme.lxOrange)
+            .preferredColorScheme(.dark)
         }
+        .background(Theme.lxBg.ignoresSafeArea())
+        .preferredColorScheme(.dark)
         .onAppear {
-            deliveryViewModel.fetchAvailableOrders()
-            deliveryViewModel.fetchMyDeliveries()
             checkTermsAcceptance()
         }
         .sheet(isPresented: $showTerms) {
             TermsAndConditionsView {
                 showTerms = false
             }
-        }
-        .alert("Error", isPresented: $deliveryViewModel.showError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(deliveryViewModel.errorMessage ?? "")
         }
     }
 

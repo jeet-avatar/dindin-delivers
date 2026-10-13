@@ -59,6 +59,10 @@ struct SubmitBidSheet: View {
                     mapPreview
                         .frame(height: 180)
                         .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Theme.lxHairline, lineWidth: 1)
+                        )
                         .padding(.horizontal)
 
                     // Route Summary
@@ -83,7 +87,7 @@ struct SubmitBidSheet: View {
                 }
                 .padding(.vertical)
             }
-            .background(Theme.backgroundGrey.ignoresSafeArea())
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Submit Your Bid")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -92,6 +96,7 @@ struct SubmitBidSheet: View {
                         dismiss()
                         onDismiss()
                     }
+                    .foregroundColor(Theme.lxOrange)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -112,6 +117,7 @@ struct SubmitBidSheet: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Map Preview
@@ -126,7 +132,7 @@ struct SubmitBidSheet: View {
                 Image(systemName: "person.fill")
                     .foregroundColor(.white)
                     .padding(8)
-                    .background(Color.green)
+                    .background(Theme.lxSuccess)
                     .clipShape(Circle())
             }
 
@@ -138,7 +144,7 @@ struct SubmitBidSheet: View {
                 Image(systemName: "mappin.circle.fill")
                     .foregroundColor(.white)
                     .padding(8)
-                    .background(Color.red)
+                    .background(Theme.lxError)
                     .clipShape(Circle())
             }
         }
@@ -152,16 +158,16 @@ struct SubmitBidSheet: View {
             // Pickup
             HStack(spacing: 12) {
                 Circle()
-                    .fill(Color.green)
+                    .fill(Theme.lxSuccess)
                     .frame(width: 12, height: 12)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Pickup")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text(request.pickup.address)
                         .font(.subheadline)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                         .lineLimit(1)
                 }
 
@@ -171,7 +177,7 @@ struct SubmitBidSheet: View {
             // Connector
             HStack {
                 Rectangle()
-                    .fill(Color.blue.opacity(0.3))
+                    .fill(Theme.lxOrange.opacity(0.4))
                     .frame(width: 2, height: 20)
                     .padding(.leading, 5)
                 Spacer()
@@ -180,16 +186,16 @@ struct SubmitBidSheet: View {
             // Dropoff
             HStack(spacing: 12) {
                 Circle()
-                    .fill(Color.red)
+                    .fill(Theme.lxError)
                     .frame(width: 12, height: 12)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Drop-off")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Text(request.dropoff.address)
                         .font(.subheadline)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                         .lineLimit(1)
                 }
 
@@ -200,14 +206,14 @@ struct SubmitBidSheet: View {
             if request.accessibility_requested == true {
                 HStack(spacing: 8) {
                     Image(systemName: "figure.roll")
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                     Text("Passenger needs accessible vehicle")
                         .font(.subheadline.weight(.medium))
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.lxOrange)
                     Spacer()
                 }
                 .padding(10)
-                .background(Color.blue.opacity(0.08))
+                .background(Theme.lxOrange.opacity(0.12))
                 .cornerRadius(8)
             }
 
@@ -221,7 +227,7 @@ struct SubmitBidSheet: View {
                             .font(.caption)
                             .fontWeight(.semibold)
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(Theme.lxOrange)
                 }
 
                 if let duration = request.estimated_duration_minutes {
@@ -232,14 +238,18 @@ struct SubmitBidSheet: View {
                             .font(.caption)
                             .fontWeight(.semibold)
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(Theme.lxOrange)
                 }
             }
             .padding(.top, 8)
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Price Section
@@ -250,13 +260,13 @@ struct SubmitBidSheet: View {
             HStack {
                 Text("Your Bid Price")
                     .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(Theme.lxText)
 
                 Spacer()
 
                 Text("Suggested: $\(String(format: "%.0f", suggestedPrice))")
                     .font(.subheadline)
-                    .foregroundColor(.blue)
+                    .foregroundColor(Theme.lxOrange)
             }
 
             // Suggested Bid Options - Quick Accept 92%, Fair Price 100%, Premium 108%
@@ -264,7 +274,7 @@ struct SubmitBidSheet: View {
                 Text("Suggested Bids")
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(spacing: 8) {
@@ -274,7 +284,7 @@ struct SubmitBidSheet: View {
                         subtitle: "92%",
                         amount: suggestedBids.quickAccept,
                         earnings: viewModel.calculateEarnings(proposedPrice: suggestedBids.quickAccept),
-                        color: .orange,
+                        color: Theme.lxOrange,
                         isSelected: proposedAmount == suggestedBids.quickAccept,
                         action: {
                             proposedPrice = String(format: "%.0f", suggestedBids.quickAccept)
@@ -287,7 +297,7 @@ struct SubmitBidSheet: View {
                         subtitle: "100%",
                         amount: suggestedBids.fairPrice,
                         earnings: viewModel.calculateEarnings(proposedPrice: suggestedBids.fairPrice),
-                        color: .blue,
+                        color: Theme.lxOrangeBright,
                         isSelected: proposedAmount == suggestedBids.fairPrice,
                         action: {
                             proposedPrice = String(format: "%.0f", suggestedBids.fairPrice)
@@ -300,7 +310,7 @@ struct SubmitBidSheet: View {
                         subtitle: "108%",
                         amount: suggestedBids.premium,
                         earnings: viewModel.calculateEarnings(proposedPrice: suggestedBids.premium),
-                        color: .green,
+                        color: Theme.lxSuccess,
                         isSelected: proposedAmount == suggestedBids.premium,
                         action: {
                             proposedPrice = String(format: "%.0f", suggestedBids.premium)
@@ -314,25 +324,25 @@ struct SubmitBidSheet: View {
                 Text("Custom Bid")
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
 
                 HStack {
                     Text("$")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
 
                     TextField("0", text: $proposedPrice)
                         .font(.system(size: 28, weight: .bold))
                         .keyboardType(.decimalPad)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                         .focused($isPriceFocused)
                 }
                 .padding()
-                .background(Color.white)
+                .background(Theme.lxSurface2)
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.blue, lineWidth: 2)
+                        .stroke(Theme.lxOrange, lineWidth: 2)
                 )
             }
 
@@ -342,26 +352,27 @@ struct SubmitBidSheet: View {
                     // Keep percentage messaging
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                         Text("Keep \(String(format: "%.0f", keepPercentage))%+ of every fare")
                             .font(.subheadline)
                             .fontWeight(.bold)
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                         Spacer()
                     }
 
                     Divider()
+                        .overlay(Theme.lxHairline)
 
                     // Driver earnings
                     HStack {
                         Text("You earn:")
                             .font(.subheadline)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                         Spacer()
                         Text("$\(String(format: "%.2f", driverEarnings))")
                             .font(.headline)
                             .fontWeight(.bold)
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.lxSuccess)
                     }
 
                     // Earnings per mile
@@ -369,15 +380,15 @@ struct SubmitBidSheet: View {
                         HStack {
                             Image(systemName: "arrow.left.and.right")
                                 .font(.caption)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Text("Per mile:")
                                 .font(.subheadline)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Spacer()
                             Text("$\(String(format: "%.2f", perMile))")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundColor(Theme.textPrimary)
+                                .foregroundColor(Theme.lxText)
                         }
                     }
 
@@ -386,39 +397,44 @@ struct SubmitBidSheet: View {
                         HStack {
                             Image(systemName: "clock.fill")
                                 .font(.caption)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Text("Per hour:")
                                 .font(.subheadline)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(Theme.lxTextSecondary)
                             Spacer()
                             Text("$\(String(format: "%.2f", perHour))")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundColor(Theme.textPrimary)
+                                .foregroundColor(Theme.lxText)
                         }
                     }
 
                     Divider()
+                        .overlay(Theme.lxHairline)
 
                     // Platform fee transparency
                     HStack {
                         Text("Platform fee:")
                             .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                         Spacer()
                         Text("$\(String(format: "%.0f", platformFee))")
                             .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                 }
                 .padding()
-                .background(Color.green.opacity(0.05))
+                .background(Theme.lxSuccess.opacity(0.1))
                 .cornerRadius(12)
             }
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Arrival Section
@@ -427,7 +443,7 @@ struct SubmitBidSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Estimated Arrival")
                 .font(.headline)
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(Theme.lxText)
 
             HStack(spacing: 8) {
                 ForEach([3, 5, 10, 15], id: \.self) { minutes in
@@ -435,18 +451,22 @@ struct SubmitBidSheet: View {
                         Text("\(minutes) min")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundColor(estimatedArrival == minutes ? .white : .blue)
+                            .foregroundColor(estimatedArrival == minutes ? .white : Theme.lxOrange)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(estimatedArrival == minutes ? Color.blue : Color.blue.opacity(0.1))
+                            .background(estimatedArrival == minutes ? Theme.lxOrange : Theme.lxOrange.opacity(0.12))
                             .cornerRadius(10)
                     }
                 }
             }
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Message Section
@@ -456,25 +476,30 @@ struct SubmitBidSheet: View {
             HStack {
                 Text("Message to Rider")
                     .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(Theme.lxText)
                 Text("(Optional)")
                     .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
 
             TextField("e.g., I'm nearby and can pick you up quickly!", text: $message, axis: .vertical)
                 .lineLimit(2...4)
+                .foregroundColor(Theme.lxText)
                 .padding()
-                .background(Color.white)
+                .background(Theme.lxSurface2)
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Theme.lightGrey, lineWidth: 1)
+                        .stroke(Theme.lxHairline, lineWidth: 1)
                 )
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Theme.lxHairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Platform Fee Info
@@ -483,85 +508,86 @@ struct SubmitBidSheet: View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: "info.circle.fill")
-                    .foregroundColor(.green)
+                    .foregroundColor(Theme.lxSuccess)
                     .font(.title3)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Keep 96%+ of every fare")
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
 
                     Text("$1-3 flat fee, NOT a percentage")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
 
                 Spacer()
             }
 
             Divider()
+                .overlay(Theme.lxHairline)
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Platform Fee Structure:")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(Theme.lxText)
                     Spacer()
                 }
 
                 HStack {
                     Circle()
-                        .fill(Color.green)
+                        .fill(Theme.lxSuccess)
                         .frame(width: 6, height: 6)
                     Text("Fares up to $35:")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Spacer()
                     Text("$1 flat")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
 
                 HStack {
                     Circle()
-                        .fill(Color.green)
+                        .fill(Theme.lxSuccess)
                         .frame(width: 6, height: 6)
                     Text("Fares $35.01-$70:")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Spacer()
                     Text("$2 flat")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
 
                 HStack {
                     Circle()
-                        .fill(Color.green)
+                        .fill(Theme.lxSuccess)
                         .frame(width: 6, height: 6)
                     Text("Fares over $70:")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                     Spacer()
                     Text("$3 flat")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.lxSuccess)
                 }
             }
 
             Text("You control your earnings. No percentage commissions!")
                 .font(.caption)
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(Theme.lxTextSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding()
-        .background(Color.green.opacity(0.1))
+        .background(Theme.lxSuccess.opacity(0.1))
         .cornerRadius(12)
     }
 
@@ -571,7 +597,7 @@ struct SubmitBidSheet: View {
         VStack(spacing: 12) {
             SwipeToConfirmButton(
                 label: "Slide to Submit Bid $\(String(format: "%.0f", proposedAmount))",
-                accentColor: .blue,
+                accentColor: Theme.lxOrange,
                 isDisabled: !isValidBid || viewModel.isSubmittingBid,
                 onConfirm: submitBid
             )
@@ -581,11 +607,17 @@ struct SubmitBidSheet: View {
             if !isValidBid && proposedAmount > 0 {
                 Text("Price must be greater than $\(String(format: "%.0f", platformFee)) platform fee")
                     .font(.caption)
-                    .foregroundColor(.red)
+                    .foregroundColor(Theme.lxError)
             }
         }
         .padding()
-        .background(Theme.cardBackground)
+        .background(Theme.lxSurface)
+        .overlay(
+            Rectangle()
+                .fill(Theme.lxHairline)
+                .frame(height: 1),
+            alignment: .top
+        )
     }
 
     // MARK: - Submit Bid Action
@@ -632,7 +664,7 @@ struct BidOptionButton: View {
 
                 Text("Earn $\(String(format: "%.0f", earnings))")
                     .font(.caption2)
-                    .foregroundColor(isSelected ? .white.opacity(0.9) : Theme.textSecondary)
+                    .foregroundColor(isSelected ? .white.opacity(0.9) : Theme.lxTextSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)

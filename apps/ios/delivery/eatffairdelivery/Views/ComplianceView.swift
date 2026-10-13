@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 import EatFairShared
 
 // MARK: - Compliance & Safety Screen (TNC)
@@ -16,6 +17,8 @@ struct ComplianceView: View {
         ScrollView {
             if viewModel.isLoading {
                 ProgressView("Loading compliance status...")
+                    .tint(Theme.lxOrange)
+                    .foregroundColor(Theme.lxTextSecondary)
                     .padding(.top, 40)
             } else {
                 VStack(spacing: 16) {
@@ -26,8 +29,11 @@ struct ComplianceView: View {
                 .padding()
             }
         }
+        .background(Theme.lxBg.ignoresSafeArea())
+        .preferredColorScheme(.dark)
         .navigationTitle("Compliance & Safety")
         .onAppear { viewModel.loadAll() }
+        .onDisappear { viewModel.stopPolling() }
         .alert("Inspection Submitted", isPresented: $viewModel.showInspectionSuccess) {
             Button("OK") { viewModel.showInspectionForm = false }
         } message: {
@@ -41,22 +47,49 @@ struct ComplianceView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Background Check", systemImage: "person.badge.shield.checkmark")
                 .font(.headline)
+                .foregroundColor(Theme.lxText)
             HStack {
                 statusBadge(viewModel.bgCheckStatus)
                 Spacer()
                 if let date = viewModel.bgCheckDate {
                     Text("Checked: \(String(date.prefix(10)))")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.lxTextSecondary)
                 }
             }
-            Text("Background checks are initiated by Dollor.ai administration.")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            // In-app Checkr initiation. Hidden once the check is pending/clear.
+            if viewModel.canStartBackgroundCheck {
+                Text("Complete your Checkr background check to start accepting rides. You'll be taken to Checkr's secure page to finish.")
+                    .font(.caption)
+                    .foregroundColor(Theme.lxTextSecondary)
+
+                Button(action: { viewModel.startBackgroundCheck() }) {
+                    HStack {
+                        if viewModel.isInitiatingCheck {
+                            ProgressView()
+                        } else {
+                            Label("Start background check", systemImage: "shield.lefthalf.filled")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.lxOrange)
+                .disabled(viewModel.isInitiatingCheck)
+            } else {
+                Text("Your background check is in progress. This screen updates automatically when Checkr reports a result.")
+                    .font(.caption)
+                    .foregroundColor(Theme.lxTextSecondary)
+            }
+
+            if let error = viewModel.bgCheckError {
+                Text(error).font(.caption).foregroundColor(Theme.lxError)
+            }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
     }
 
     // MARK: - Vehicle Inspection
@@ -65,32 +98,35 @@ struct ComplianceView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Vehicle Inspection", systemImage: "car.badge.gearshape")
                 .font(.headline)
+                .foregroundColor(Theme.lxText)
             HStack {
                 statusBadge(viewModel.inspectionStatus)
                 Spacer()
                 if let days = viewModel.inspectionDaysRemaining {
                     Text(days >= 0 ? "\(days) days remaining" : "Overdue by \(abs(days)) days")
                         .font(.caption)
-                        .foregroundColor(days <= 30 ? .orange : .secondary)
+                        .foregroundColor(days <= 30 ? Theme.lxOrange : Theme.lxTextSecondary)
                 }
             }
             if let nextDue = viewModel.inspectionNextDue {
                 Text("Next due: \(nextDue)")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.lxTextSecondary)
             }
             Button(action: { viewModel.showInspectionForm = true }) {
                 Label("Submit Inspection", systemImage: "doc.badge.plus")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .tint(Theme.lxOrange)
             .sheet(isPresented: $viewModel.showInspectionForm) {
                 inspectionFormSheet
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
     }
 
     @ViewBuilder
@@ -108,7 +144,7 @@ struct ComplianceView: View {
                     .textInputAutocapitalization(.never)
 
                 if let error = viewModel.errorMessage {
-                    Text(error).foregroundColor(.red).font(.caption)
+                    Text(error).foregroundColor(Theme.lxError).font(.caption)
                 }
 
                 Button(action: { viewModel.submitInspection() }) {
@@ -118,16 +154,21 @@ struct ComplianceView: View {
                         Text("Submit")
                     }
                 }
+                .tint(Theme.lxOrange)
                 .disabled(viewModel.facilityName.isEmpty || viewModel.documentUrl.isEmpty || viewModel.isSubmittingInspection)
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.lxBg.ignoresSafeArea())
             .navigationTitle("Submit Inspection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { viewModel.showInspectionForm = false }
+                        .foregroundColor(Theme.lxOrange)
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Accessibility Capability
@@ -136,9 +177,11 @@ struct ComplianceView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Accessibility Capability", systemImage: "figure.roll")
                 .font(.headline)
+                .foregroundColor(Theme.lxText)
 
             Toggle("My vehicle is wheelchair accessible", isOn: $viewModel.accessibilityCapable)
-                .tint(.blue)
+                .tint(Theme.lxOrange)
+                .foregroundColor(Theme.lxText)
                 .onChange(of: viewModel.accessibilityCapable) { _ in
                     viewModel.saveAccessibility()
                 }
@@ -146,13 +189,13 @@ struct ComplianceView: View {
             if viewModel.accessibilityCapable {
                 VStack(alignment: .leading, spacing: 8) {
                     Toggle("Wheelchair ramp/lift", isOn: $viewModel.wheelchairAccessible)
-                        .font(.subheadline).tint(.blue)
+                        .font(.subheadline).tint(Theme.lxOrange).foregroundColor(Theme.lxTextSecondary)
                         .onChange(of: viewModel.wheelchairAccessible) { _ in viewModel.saveAccessibility() }
                     Toggle("Service animal friendly", isOn: $viewModel.serviceAnimalFriendly)
-                        .font(.subheadline).tint(.blue)
+                        .font(.subheadline).tint(Theme.lxOrange).foregroundColor(Theme.lxTextSecondary)
                         .onChange(of: viewModel.serviceAnimalFriendly) { _ in viewModel.saveAccessibility() }
                     Toggle("Extra trunk space for mobility aids", isOn: $viewModel.mobilityStorage)
-                        .font(.subheadline).tint(.blue)
+                        .font(.subheadline).tint(Theme.lxOrange).foregroundColor(Theme.lxTextSecondary)
                         .onChange(of: viewModel.mobilityStorage) { _ in viewModel.saveAccessibility() }
                 }
                 .padding(.leading, 4)
@@ -160,14 +203,15 @@ struct ComplianceView: View {
 
             if viewModel.isSaving {
                 HStack {
-                    ProgressView().scaleEffect(0.7)
-                    Text("Saving...").font(.caption).foregroundColor(.secondary)
+                    ProgressView().scaleEffect(0.7).tint(Theme.lxOrange)
+                    Text("Saving...").font(.caption).foregroundColor(Theme.lxTextSecondary)
                 }
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Theme.lxSurface)
         .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
     }
 
     // MARK: - Helpers
@@ -175,11 +219,11 @@ struct ComplianceView: View {
     private func statusBadge(_ status: String) -> some View {
         let (color, icon, text): (Color, String, String) = {
             switch status {
-            case "passed", "valid": return (.green, "checkmark.circle.fill", status.capitalized)
-            case "pending": return (.yellow, "clock.fill", "Pending")
-            case "expired": return (.red, "xmark.circle.fill", "Expired")
-            case "failed": return (.red, "xmark.circle.fill", "Failed")
-            default: return (.gray, "questionmark.circle", "Not Started")
+            case "passed", "valid": return (Theme.lxSuccess, "checkmark.circle.fill", status.capitalized)
+            case "pending": return (Theme.lxOrange, "clock.fill", "Pending")
+            case "expired": return (Theme.lxError, "xmark.circle.fill", "Expired")
+            case "failed": return (Theme.lxError, "xmark.circle.fill", "Failed")
+            default: return (Theme.lxTextMuted, "questionmark.circle", "Not Started")
             }
         }()
         Label(text, systemImage: icon)
@@ -211,10 +255,82 @@ class ComplianceViewModel: ObservableObject {
     @Published var mileage = ""
     @Published var documentUrl = ""
 
+    // Checkr background-check initiation state
+    @Published var isInitiatingCheck = false
+    @Published var bgCheckError: String?
+
     private let driverId: Int
+    private var bgPollTimer: Timer?
+
+    /// The driver can kick off a new Checkr check only when one is not already
+    /// in progress or completed. `pending`/`clear`/`consider`/`passed` hide the button.
+    var canStartBackgroundCheck: Bool {
+        switch bgCheckStatus.lowercased() {
+        case "pending", "clear", "consider", "passed", "valid", "complete", "completed":
+            return false
+        default:
+            return true
+        }
+    }
 
     init(driverId: Int) {
         self.driverId = driverId
+    }
+
+    deinit {
+        bgPollTimer?.invalidate()
+    }
+
+    /// Initiate an in-app Checkr background check, then open the Checkr-hosted invitation URL.
+    func startBackgroundCheck() {
+        guard !isInitiatingCheck else { return }
+        isInitiatingCheck = true
+        bgCheckError = nil
+
+        P2PAPIService.shared.initiateBackgroundCheck { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isInitiatingCheck = false
+                switch result {
+                case .success(let invitation):
+                    if let urlString = invitation.invitationUrl,
+                       let url = URL(string: urlString) {
+                        UIApplication.shared.open(url)
+                    }
+                    // Reflect the new state and begin polling for the result.
+                    self.bgCheckStatus = invitation.status ?? "pending"
+                    self.startPolling()
+                case .failure(let error):
+                    self.bgCheckError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// Poll the Checkr status so the compliance screen reflects pending → clear/consider.
+    func startPolling() {
+        bgPollTimer?.invalidate()
+        bgPollTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            P2PAPIService.shared.getBackgroundCheckStatus(driverId: self.driverId) { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    if let status = result?["status"] as? String {
+                        self.bgCheckStatus = status
+                        self.bgCheckDate = result?["checked_at"] as? String
+                        // Stop polling once we reach a terminal state.
+                        if !self.canStartBackgroundCheck && status.lowercased() != "pending" {
+                            self.stopPolling()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func stopPolling() {
+        bgPollTimer?.invalidate()
+        bgPollTimer = nil
     }
 
     func loadAll() {
@@ -248,7 +364,12 @@ class ComplianceViewModel: ObservableObject {
         }
 
         group.notify(queue: .main) { [weak self] in
-            self?.isLoading = false
+            guard let self = self else { return }
+            self.isLoading = false
+            // Keep the screen live while a check is pending.
+            if self.bgCheckStatus.lowercased() == "pending" {
+                self.startPolling()
+            }
         }
     }
 
