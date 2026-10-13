@@ -82,6 +82,7 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/beatmind-browser" playwright@1.58.0
           "$RUNNER_TEMP/beatmind-browser/node_modules/.bin/playwright" install --with-deps chromium
+          PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" node tests/blog-discovery.browser.cjs
           PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" \
             BEATMIND_TEST_PYTHON="$(command -v python)" node tests/automatic-remix.browser.cjs
           PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" \

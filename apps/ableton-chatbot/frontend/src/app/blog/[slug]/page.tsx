@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { type BlogPost, extractFaqs, formatPostDate, getAllPosts, getPost, getRelatedPosts } from "@/lib/blog";
-import { MIXMIND_TRIAL_NOTE } from "@/lib/pricing";
+import { LOWEST_MONTHLY_USD, MIXMIND_PRICE, MIXMIND_TRIAL_NOTE, formatUsd } from "@/lib/pricing";
 import { BASE_URL, OG_IMAGE_BLOG, OG_IMAGE_SIZE, SITE_NAME, TRIAL_TERMS, absoluteUrl } from "@/lib/site";
 import { ORGANIZATION_REF, breadcrumbSchema, faqPageSchema, organizationSchema } from "@/lib/structured-data";
 import { BlogFooter, BlogNav } from "../blog-chrome";
@@ -79,8 +79,8 @@ function PostCta({ product }: { product: BlogPost["product"] }) {
       </h2>
       <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: "var(--text-secondary)" }}>
         {isMixMind
-          ? "MixMind browses, de-duplicates and builds AI playlists and full sets from the Rekordbox collection you already own. Mac (Apple Silicon); Windows coming soon. $12/month, or save with BeatMind + MixMind from $25/month."
-          : "BeatMind builds drums, bass and melodies part by part in your own Live Set, with captured auditions to review. Ableton Live 11 or 12. Plans from $19/month."}
+          ? `MixMind browses, de-duplicates and builds AI playlists and sets from the music you already own. Mac (Apple Silicon); Windows coming soon. Standalone from ${formatUsd(MIXMIND_PRICE.monthly)}/month.`
+          : `BeatMind builds drums, bass and melodies part by part in your own Live Set, with captured auditions to review. Ableton Live 11 or 12. Plans from ${formatUsd(LOWEST_MONTHLY_USD)}/month.`}
       </p>
       <Link href={isMixMind ? "/mixmind#pricing" : "/signup"} className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
         {isMixMind ? "See MixMind pricing →" : "Start free trial →"}

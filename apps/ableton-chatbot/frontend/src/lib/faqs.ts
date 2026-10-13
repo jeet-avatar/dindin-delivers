@@ -7,6 +7,14 @@ export interface Faq {
 
 export const BEATMIND_FAQS: Faq[] = [
   {
+    q: "What does Automatic Remix do?",
+    a: "Automatic Remix rearranges existing reference stems using your chosen sections, repeats, levels and tempo. Listen to the preview, approve it and download aligned stems. It does not generate replacement instruments. Automatic import of these remix previews into Ableton is disabled in this release; approval does not change your Live Set.",
+  },
+  {
+    q: "Is BeatMind a ChatGPT plugin?",
+    a: "No. BeatMind is a separate browser application with a Mac Bridge for Ableton Live. It is not an official Ableton or OpenAI product. Its optional reference-listening workflow is separate from the production chat.",
+  },
+  {
     q: "Do I need Ableton Live?",
     a: "Yes — BeatMind directly controls Ableton Live 11 or 12 (Standard or Suite).",
   },
@@ -64,7 +72,7 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "Is there an annual discount?",
-    a: "Yes. Annual billing gives you 2 months free: $190/year for Starter, $390/year for Pro and $790/year for Studio. The first 100 annual subscribers who use code FOUNDING100 also get 40% off for as long as their subscription stays active. Annual plans only.",
+    a: "Annual pricing and any available offers are listed in the pricing section and confirmed at checkout. You can compare monthly and annual billing before choosing a plan.",
   },
   {
     q: "Can I cancel anytime?",
