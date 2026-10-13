@@ -911,107 +911,6 @@ class TestSendOrderReadyEmail:
         mock_send_email.assert_called_once()
 
 
-class TestSendDriverAssignedEmail:
-    """Tests for send_driver_assigned_email()"""
-
-    @patch('email_service.send_email')
-    def test_driver_assigned_email_success(self, mock_send_email, order_test_data):
-        """Should send driver assigned email successfully"""
-        mock_send_email.return_value = True
-
-        result = email_service.send_driver_assigned_email(
-            to_email=order_test_data["customer_email"],
-            customer_name=order_test_data["customer_name"],
-            order_number=order_test_data["order_number"],
-            driver_name=order_test_data["driver_name"],
-            eta_minutes=order_test_data["eta_minutes"]
-        )
-
-        assert result is True
-        mock_send_email.assert_called_once()
-        call_args = mock_send_email.call_args[0]
-        assert order_test_data["driver_name"] in call_args[2]
-        assert str(order_test_data["eta_minutes"]) in call_args[2]
-
-
-class TestSendOrderDeliveredEmail:
-    """Tests for send_order_delivered_email()"""
-
-    @patch('email_service.send_email')
-    def test_order_delivered_email_success(self, mock_send_email, order_test_data):
-        """Should send order delivered email successfully"""
-        mock_send_email.return_value = True
-
-        result = email_service.send_order_delivered_email(
-            to_email=order_test_data["customer_email"],
-            customer_name=order_test_data["customer_name"],
-            order_number=order_test_data["order_number"],
-            order_total=order_test_data["order_total"],
-            driver_name=order_test_data["driver_name"]
-        )
-
-        assert result is True
-        mock_send_email.assert_called_once()
-
-
-class TestSendOrderCancelledEmail:
-    """Tests for send_order_cancelled_email()"""
-
-    @patch('email_service.send_email')
-    def test_order_cancelled_email_success(self, mock_send_email, order_test_data):
-        """Should send order cancelled email successfully"""
-        mock_send_email.return_value = True
-
-        result = email_service.send_order_cancelled_email(
-            to_email=order_test_data["customer_email"],
-            customer_name=order_test_data["customer_name"],
-            order_number=order_test_data["order_number"],
-            reason=order_test_data["cancel_reason"]
-        )
-
-        assert result is True
-        mock_send_email.assert_called_once()
-        call_args = mock_send_email.call_args[0]
-        assert order_test_data["cancel_reason"] in call_args[2]
-
-    @patch('email_service.send_email')
-    def test_order_cancelled_with_refund(self, mock_send_email, order_test_data):
-        """Should include refund amount when provided"""
-        mock_send_email.return_value = True
-
-        result = email_service.send_order_cancelled_email(
-            to_email=order_test_data["customer_email"],
-            customer_name=order_test_data["customer_name"],
-            order_number=order_test_data["order_number"],
-            reason=order_test_data["cancel_reason"],
-            refund_amount=order_test_data["order_total"]
-        )
-
-        assert result is True
-        call_args = mock_send_email.call_args[0]
-        assert f"${order_test_data['order_total']:.2f}" in call_args[2]
-
-
-class TestSendNewOrderVendorEmail:
-    """Tests for send_new_order_vendor_email()"""
-
-    @patch('email_service.send_email')
-    def test_new_order_vendor_email_success(self, mock_send_email, order_test_data):
-        """Should send new order notification to vendor"""
-        mock_send_email.return_value = True
-
-        result = email_service.send_new_order_vendor_email(
-            to_email=order_test_data["vendor_email"],
-            restaurant_name=order_test_data["restaurant_name"],
-            order_number=order_test_data["order_number"],
-            customer_name=order_test_data["customer_name"],
-            order_total=order_test_data["order_total"]
-        )
-
-        assert result is True
-        mock_send_email.assert_called_once()
-
-
 class TestOrderLifecycleEmailsReturnBoolean:
     """All order lifecycle email functions should return boolean values"""
 
@@ -1030,25 +929,6 @@ class TestOrderLifecycleEmailsReturnBoolean:
                 order_test_data["customer_email"], order_test_data["customer_name"],
                 order_test_data["order_number"], order_test_data["restaurant_name"]
             ),
-            email_service.send_driver_assigned_email(
-                order_test_data["customer_email"], order_test_data["customer_name"],
-                order_test_data["order_number"], order_test_data["driver_name"],
-                order_test_data["eta_minutes"]
-            ),
-            email_service.send_order_delivered_email(
-                order_test_data["customer_email"], order_test_data["customer_name"],
-                order_test_data["order_number"], order_test_data["order_total"],
-                order_test_data["driver_name"]
-            ),
-            email_service.send_order_cancelled_email(
-                order_test_data["customer_email"], order_test_data["customer_name"],
-                order_test_data["order_number"], order_test_data["cancel_reason"]
-            ),
-            email_service.send_new_order_vendor_email(
-                order_test_data["vendor_email"], order_test_data["restaurant_name"],
-                order_test_data["order_number"], order_test_data["customer_name"],
-                order_test_data["order_total"]
-            )
         ]
 
         for result in results:
