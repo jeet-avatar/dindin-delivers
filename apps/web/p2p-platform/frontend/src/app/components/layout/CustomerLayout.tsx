@@ -3,7 +3,6 @@ import { Layout, Menu, Avatar, Dropdown, Button, Tag, Badge } from 'antd';
 import {
   HomeOutlined,
   CarOutlined,
-  HistoryOutlined,
   DollarOutlined,
   SettingOutlined,
   LogoutOutlined,
@@ -13,8 +12,7 @@ import {
   BellOutlined,
   GiftOutlined,
   CustomerServiceOutlined,
-  ShopOutlined,
-  EnvironmentOutlined
+  ShopOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -72,16 +70,6 @@ const CustomerLayout: React.FC = () => {
       key: '/customer/ride',
       icon: <CarOutlined />,
       label: 'Book a Ride',
-    },
-    {
-      key: '/customer/order-tracking',
-      icon: <EnvironmentOutlined />,
-      label: 'Track Order',
-    },
-    {
-      key: '/customer/history',
-      icon: <HistoryOutlined />,
-      label: 'Order History',
     },
     {
       key: '/customer/wallet',

@@ -1,21 +1,23 @@
 """
 Document Verification Service
 
-Integrates with third-party verification providers for document validation.
-Supports multiple providers: Persona, Onfido, Veriff, or custom OCR validation.
+Driver background checks are handled by Checkr (see checkr_service.py), which is the
+provider named in Zietra's CPUC TNC permit and the live enforced gate.
+
+This module now provides only the generic, provider-agnostic pieces that survive
+on top of that: the manual-review workflow for document uploads, and document
+expiry validation. Persona, Onfido, and Veriff integrations were removed — they
+were superseded by Checkr and had zero live callers.
 
 Usage:
     from document_verification_service import DocumentVerificationService
 
-    verifier = DocumentVerificationService(provider="persona")
-    result = verifier.verify_document(document_url, document_type, metadata)
+    verifier = DocumentVerificationService()
+    task = verifier.create_manual_review_task(...)
 """
 
 import os
-import httpx
-import hashlib
-import hmac
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 from enum import Enum
 from pydantic import BaseModel
@@ -23,24 +25,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Environment detection for API URL defaults
-_ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
-_IS_PRODUCTION = _ENVIRONMENT in ("production", "prod")
-
-# Verification API URLs - Use sandbox in non-production
-PERSONA_SANDBOX_URL = "https://withpersona.com/api/v1"  # Persona sandbox uses same URL with test API key
-PERSONA_PRODUCTION_URL = "https://withpersona.com/api/v1"
-ONFIDO_SANDBOX_URL = "https://api.eu.onfido.com/v3.6"  # Onfido sandbox
-ONFIDO_PRODUCTION_URL = "https://api.onfido.com/v3.6"
-VERIFF_SANDBOX_URL = "https://stationapi.veriff.com/v1"  # Veriff uses same URL with test keys
-VERIFF_PRODUCTION_URL = "https://stationapi.veriff.com/v1"
-
 
 class VerificationProvider(str, Enum):
-    PERSONA = "persona"
-    ONFIDO = "onfido"
-    VERIFF = "veriff"
-    MANUAL = "manual"  # For manual review workflow
+    MANUAL = "manual"  # Manual review workflow (Persona/Onfido/Veriff removed — see Checkr)
 
 
 class VerificationStatus(str, Enum):
@@ -82,478 +69,14 @@ class VerificationResult(BaseModel):
 
 class DocumentVerificationService:
     """
-    Multi-provider document verification service.
+    Document verification helper: manual-review workflow + document validation.
 
-    Supports:
-    - Persona (recommended for identity + business docs)
-    - Onfido (identity verification)
-    - Veriff (identity verification)
-    - Manual review workflow
+    Third-party identity/document providers (Persona, Onfido, Veriff) were removed;
+    driver background checks go through Checkr (checkr_service.py) instead.
     """
 
-    def __init__(self, provider: str = "persona"):
+    def __init__(self, provider: str = "manual"):
         self.provider = VerificationProvider(provider)
-        self._load_credentials()
-
-    def _load_credentials(self):
-        """Load API credentials from environment variables.
-
-        Uses environment-aware defaults:
-        - Production: Uses production API URLs
-        - Staging/Dev: Uses sandbox API URLs (same URLs but expects test API keys)
-        """
-        if self.provider == VerificationProvider.PERSONA:
-            self.api_key = os.getenv("PERSONA_API_KEY")
-            default_url = PERSONA_PRODUCTION_URL if _IS_PRODUCTION else PERSONA_SANDBOX_URL
-            self.api_url = os.getenv("PERSONA_API_URL", default_url)
-            self.template_id = os.getenv("PERSONA_TEMPLATE_ID")
-            self.webhook_secret = os.getenv("PERSONA_WEBHOOK_SECRET")
-
-        elif self.provider == VerificationProvider.ONFIDO:
-            self.api_key = os.getenv("ONFIDO_API_KEY")
-            default_url = ONFIDO_PRODUCTION_URL if _IS_PRODUCTION else ONFIDO_SANDBOX_URL
-            self.api_url = os.getenv("ONFIDO_API_URL", default_url)
-            self.webhook_secret = os.getenv("ONFIDO_WEBHOOK_SECRET")
-
-        elif self.provider == VerificationProvider.VERIFF:
-            self.api_key = os.getenv("VERIFF_API_KEY")
-            default_url = VERIFF_PRODUCTION_URL if _IS_PRODUCTION else VERIFF_SANDBOX_URL
-            self.api_url = os.getenv("VERIFF_API_URL", default_url)
-            self.webhook_secret = os.getenv("VERIFF_WEBHOOK_SECRET")
-
-    # =========================================================================
-    # PERSONA INTEGRATION
-    # =========================================================================
-
-    async def create_persona_inquiry(
-        self,
-        reference_id: str,
-        entity_type: str,  # "vendor" or "driver"
-        email: str,
-        document_types: List[DocumentType]
-    ) -> Dict[str, Any]:
-        """
-        Create a Persona inquiry for document verification.
-        Returns an inquiry URL that the user can use to upload documents.
-        """
-        if not self.api_key:
-            raise ValueError("PERSONA_API_KEY not configured")
-
-        # Map document types to Persona verification types
-        verification_types = self._map_to_persona_types(document_types)
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.api_url}/inquiries",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "Persona-Version": "2023-01-05"
-                },
-                json={
-                    "data": {
-                        "type": "inquiry",
-                        "attributes": {
-                            "inquiry-template-id": self.template_id,
-                            "reference-id": f"{entity_type}_{reference_id}",
-                            "fields": {
-                                "email-address": email,
-                                "entity-type": entity_type
-                            }
-                        }
-                    }
-                }
-            )
-
-            if response.status_code == 201:
-                data = response.json()
-                return {
-                    "success": True,
-                    "inquiry_id": data["data"]["id"],
-                    "inquiry_url": data["data"]["attributes"].get("inquiry-url"),
-                    "status": data["data"]["attributes"]["status"]
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text
-                }
-
-    async def get_persona_inquiry_status(self, inquiry_id: str) -> VerificationResult:
-        """Get the status of a Persona inquiry"""
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.api_url}/inquiries/{inquiry_id}",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Persona-Version": "2023-01-05"
-                }
-            )
-
-            if response.status_code == 200:
-                data = response.json()["data"]
-                attrs = data["attributes"]
-
-                status = self._map_persona_status(attrs["status"])
-
-                return VerificationResult(
-                    status=status,
-                    provider=VerificationProvider.PERSONA,
-                    verification_id=inquiry_id,
-                    document_type=DocumentType.BUSINESS_LICENSE,  # Will be updated based on actual docs
-                    confidence_score=attrs.get("score"),
-                    extracted_data=attrs.get("fields", {}),
-                    issues=self._extract_persona_issues(data),
-                    verified_at=datetime.now() if status == VerificationStatus.VERIFIED else None,
-                    raw_response=data
-                )
-            else:
-                return VerificationResult(
-                    status=VerificationStatus.PENDING,
-                    provider=VerificationProvider.PERSONA,
-                    document_type=DocumentType.BUSINESS_LICENSE,
-                    issues=[f"Failed to get inquiry status: {response.text}"]
-                )
-
-    def verify_persona_webhook(self, payload: bytes, signature: str) -> bool:
-        """Verify Persona webhook signature"""
-        if not self.webhook_secret:
-            return False
-
-        expected_sig = hmac.new(
-            self.webhook_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
-
-        return hmac.compare_digest(f"sha256={expected_sig}", signature)
-
-    def _map_persona_status(self, status: str) -> VerificationStatus:
-        """Map Persona status to our status"""
-        mapping = {
-            "created": VerificationStatus.PENDING,
-            "pending": VerificationStatus.IN_REVIEW,
-            "completed": VerificationStatus.VERIFIED,
-            "approved": VerificationStatus.VERIFIED,
-            "declined": VerificationStatus.REJECTED,
-            "failed": VerificationStatus.REJECTED,
-            "needs_review": VerificationStatus.NEEDS_REVIEW,
-            "expired": VerificationStatus.EXPIRED
-        }
-        return mapping.get(status, VerificationStatus.PENDING)
-
-    def _map_to_persona_types(self, doc_types: List[DocumentType]) -> List[str]:
-        """Map our document types to Persona verification types"""
-        mapping = {
-            DocumentType.DRIVERS_LICENSE: "government_id",
-            DocumentType.BUSINESS_LICENSE: "document",
-            DocumentType.FOOD_LICENSE: "document",
-            DocumentType.HEALTH_PERMIT: "document",
-            DocumentType.LIABILITY_INSURANCE: "document",
-            DocumentType.W9_FORM: "document",
-            DocumentType.VEHICLE_INSURANCE: "document",
-            DocumentType.PROFILE_PHOTO: "selfie"
-        }
-        return [mapping.get(dt, "document") for dt in doc_types]
-
-    def _extract_persona_issues(self, data: Dict) -> List[str]:
-        """Extract issues/warnings from Persona response"""
-        issues = []
-        if "included" in data:
-            for item in data["included"]:
-                if item["type"] == "verification" and item["attributes"].get("checks"):
-                    for check in item["attributes"]["checks"]:
-                        if check.get("status") != "passed":
-                            issues.append(f"{check.get('name')}: {check.get('reasons', [])}")
-        return issues
-
-    # =========================================================================
-    # ONFIDO INTEGRATION
-    # =========================================================================
-
-    async def create_onfido_applicant(
-        self,
-        first_name: str,
-        last_name: str,
-        email: str,
-        entity_id: str,
-        entity_type: str
-    ) -> Dict[str, Any]:
-        """Create an Onfido applicant for verification"""
-        if not self.api_key:
-            raise ValueError("ONFIDO_API_KEY not configured")
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.api_url}/applicants",
-                headers={
-                    "Authorization": f"Token token={self.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "email": email,
-                    "location": {
-                        "country_of_residence": "USA"
-                    }
-                }
-            )
-
-            if response.status_code == 201:
-                data = response.json()
-                return {
-                    "success": True,
-                    "applicant_id": data["id"]
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text
-                }
-
-    async def create_onfido_check(
-        self,
-        applicant_id: str,
-        document_ids: List[str]
-    ) -> Dict[str, Any]:
-        """Create an Onfido check for document verification"""
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.api_url}/checks",
-                headers={
-                    "Authorization": f"Token token={self.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "applicant_id": applicant_id,
-                    "report_names": ["document", "identity_enhanced"],
-                    "document_ids": document_ids
-                }
-            )
-
-            if response.status_code == 201:
-                data = response.json()
-                return {
-                    "success": True,
-                    "check_id": data["id"],
-                    "status": data["status"]
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text
-                }
-
-    async def generate_onfido_sdk_token(self, applicant_id: str) -> Dict[str, Any]:
-        """Generate SDK token for Onfido web/mobile SDK"""
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.api_url}/sdk_token",
-                headers={
-                    "Authorization": f"Token token={self.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "applicant_id": applicant_id,
-                    "referrer": "*://*/*"  # Configure based on your domains
-                }
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    "success": True,
-                    "sdk_token": data["token"]
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text
-                }
-
-    # =========================================================================
-    # VERIFF INTEGRATION
-    # =========================================================================
-
-    async def create_veriff_session(
-        self,
-        reference_id: str,
-        entity_type: str,
-        first_name: str,
-        last_name: str,
-        document_type: DocumentType = DocumentType.DRIVERS_LICENSE
-    ) -> Dict[str, Any]:
-        """
-        Create a Veriff verification session.
-        Returns a session URL for the user to complete verification.
-        """
-        if not self.api_key:
-            raise ValueError("VERIFF_API_KEY not configured")
-
-        # Map document types to Veriff document categories
-        veriff_doc_type = self._map_to_veriff_type(document_type)
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.api_url}/sessions",
-                headers={
-                    "X-AUTH-CLIENT": self.api_key,
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "verification": {
-                        "callback": f"https://api.dollor.ai/api/verification/webhook/veriff",
-                        "person": {
-                            "firstName": first_name,
-                            "lastName": last_name
-                        },
-                        "document": {
-                            "type": veriff_doc_type
-                        },
-                        "vendorData": f"{entity_type}_{reference_id}"
-                    }
-                }
-            )
-
-            if response.status_code == 201:
-                data = response.json()
-                return {
-                    "success": True,
-                    "session_id": data["verification"]["id"],
-                    "session_url": data["verification"]["url"],
-                    "status": data["verification"]["status"]
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text
-                }
-
-    async def get_veriff_session_status(self, session_id: str) -> VerificationResult:
-        """Get the status of a Veriff verification session"""
-        if not self.api_key:
-            raise ValueError("VERIFF_API_KEY not configured")
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.api_url}/sessions/{session_id}",
-                headers={
-                    "X-AUTH-CLIENT": self.api_key
-                }
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                verification = data.get("verification", {})
-                status = self._map_veriff_status(verification.get("status"))
-
-                return VerificationResult(
-                    status=status,
-                    provider=VerificationProvider.VERIFF,
-                    verification_id=session_id,
-                    document_type=DocumentType.DRIVERS_LICENSE,
-                    confidence_score=verification.get("riskScore"),
-                    extracted_data=verification.get("person", {}),
-                    issues=self._extract_veriff_issues(data),
-                    verified_at=datetime.now() if status == VerificationStatus.VERIFIED else None,
-                    raw_response=data
-                )
-            else:
-                return VerificationResult(
-                    status=VerificationStatus.PENDING,
-                    provider=VerificationProvider.VERIFF,
-                    document_type=DocumentType.DRIVERS_LICENSE,
-                    issues=[f"Failed to get session status: {response.text}"]
-                )
-
-    async def get_veriff_decision(self, session_id: str) -> Dict[str, Any]:
-        """Get the verification decision for a completed Veriff session"""
-        if not self.api_key:
-            raise ValueError("VERIFF_API_KEY not configured")
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.api_url}/sessions/{session_id}/decision",
-                headers={
-                    "X-AUTH-CLIENT": self.api_key
-                }
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    "success": True,
-                    "decision": data.get("verification", {}).get("decision"),
-                    "reason": data.get("verification", {}).get("reason"),
-                    "risk_labels": data.get("verification", {}).get("riskLabels", []),
-                    "person": data.get("verification", {}).get("person", {}),
-                    "document": data.get("verification", {}).get("document", {})
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text
-                }
-
-    def verify_veriff_webhook(self, payload: bytes, signature: str) -> bool:
-        """Verify Veriff webhook signature using X-HMAC-SIGNATURE header"""
-        if not self.webhook_secret:
-            return False
-
-        expected_sig = hmac.new(
-            self.webhook_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
-
-        return hmac.compare_digest(expected_sig.lower(), signature.lower())
-
-    def _map_veriff_status(self, status: str) -> VerificationStatus:
-        """Map Veriff status to our status"""
-        mapping = {
-            "created": VerificationStatus.PENDING,
-            "started": VerificationStatus.IN_REVIEW,
-            "submitted": VerificationStatus.IN_REVIEW,
-            "approved": VerificationStatus.VERIFIED,
-            "resubmission_requested": VerificationStatus.NEEDS_REVIEW,
-            "declined": VerificationStatus.REJECTED,
-            "expired": VerificationStatus.EXPIRED,
-            "abandoned": VerificationStatus.EXPIRED
-        }
-        return mapping.get(status, VerificationStatus.PENDING)
-
-    def _map_to_veriff_type(self, doc_type: DocumentType) -> str:
-        """Map our document types to Veriff document types"""
-        mapping = {
-            DocumentType.DRIVERS_LICENSE: "DRIVERS_LICENSE",
-            DocumentType.BUSINESS_LICENSE: "OTHER",
-            DocumentType.FOOD_LICENSE: "OTHER",
-            DocumentType.HEALTH_PERMIT: "OTHER",
-            DocumentType.LIABILITY_INSURANCE: "OTHER",
-            DocumentType.W9_FORM: "OTHER",
-            DocumentType.VEHICLE_INSURANCE: "OTHER",
-            DocumentType.VEHICLE_REGISTRATION: "OTHER",
-            DocumentType.PROFILE_PHOTO: "SELFIE"
-        }
-        return mapping.get(doc_type, "OTHER")
-
-    def _extract_veriff_issues(self, data: Dict) -> List[str]:
-        """Extract issues/warnings from Veriff response"""
-        issues = []
-        verification = data.get("verification", {})
-
-        # Check for risk labels
-        risk_labels = verification.get("riskLabels", [])
-        for label in risk_labels:
-            issues.append(f"Risk: {label}")
-
-        # Check for decline reasons
-        reason = verification.get("reason")
-        if reason:
-            issues.append(f"Reason: {reason}")
-
-        return issues
 
     # =========================================================================
     # MANUAL REVIEW WORKFLOW
@@ -709,5 +232,5 @@ class DocumentVerificationRecord(BaseModel):
 
 def get_verification_service(provider: str = None) -> DocumentVerificationService:
     """Factory function to get verification service instance"""
-    provider = provider or os.getenv("DOCUMENT_VERIFICATION_PROVIDER", "persona")
+    provider = provider or os.getenv("DOCUMENT_VERIFICATION_PROVIDER", "manual")
     return DocumentVerificationService(provider=provider)

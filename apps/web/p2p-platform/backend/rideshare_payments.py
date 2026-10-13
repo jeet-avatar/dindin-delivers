@@ -33,7 +33,6 @@ payment_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 per minu
 DEMO_CUSTOMER_EMAILS = [
     "demo.customer@dollor.ai",
     "demo.driver@dollor.ai",
-    "demo.restaurant@dollor.ai"
 ]
 
 

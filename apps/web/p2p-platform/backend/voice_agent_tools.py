@@ -2,10 +2,12 @@
 Tool implementations for the Dollor.ai voice support agent.
 
 Provides backend lookups for the OpenAI Realtime API function/tool calling:
-- lookup_order: Find food delivery orders by ID or phone
 - lookup_ride: Find rideshare rides by ID or phone
 - lookup_account: Find account info across all user types by phone
 - log_escalation: Log an escalation request and email support@dollor.ai
+
+(lookup_order, for food delivery orders, was removed along with the rest of
+the food order flow — the platform is rideshare only.)
 """
 
 import json
@@ -14,7 +16,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from models import Customer, Driver, Vendor, Order, RideRequest
+from models import Customer, Driver, RideRequest
 from email_service import send_email
 
 logger = logging.getLogger(__name__)
@@ -23,24 +25,6 @@ logger = logging.getLogger(__name__)
 # ===================== TOOL DEFINITIONS (for OpenAI session.update) =====================
 
 TOOL_DEFINITIONS = [
-    {
-        "type": "function",
-        "name": "lookup_order",
-        "description": "Look up a food delivery order by order ID or customer phone number. Returns order details including status, restaurant, total, and driver info.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "order_id": {
-                    "type": "integer",
-                    "description": "The order ID number",
-                },
-                "phone": {
-                    "type": "string",
-                    "description": "Customer phone number to find their recent orders",
-                },
-            },
-        },
-    },
     {
         "type": "function",
         "name": "lookup_ride",
@@ -62,7 +46,7 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "name": "lookup_account",
-        "description": "Look up account information by phone number. Searches across customer, driver, and restaurant accounts.",
+        "description": "Look up account information by phone number. Searches across customer and driver accounts.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -106,7 +90,6 @@ TOOL_DEFINITIONS = [
 def execute_tool(tool_name: str, arguments: dict, db: Session) -> str:
     """Dispatch a tool call to the correct implementation. Returns JSON string."""
     handlers = {
-        "lookup_order": lookup_order,
         "lookup_ride": lookup_ride,
         "lookup_account": lookup_account,
         "log_escalation": log_escalation,
@@ -125,41 +108,6 @@ def execute_tool(tool_name: str, arguments: dict, db: Session) -> str:
 
 
 # ===================== TOOL IMPLEMENTATIONS =====================
-
-def lookup_order(arguments: dict, db: Session) -> str:
-    """Look up food delivery orders by order ID or customer phone number."""
-    order_id = arguments.get("order_id")
-    phone = arguments.get("phone")
-
-    if order_id:
-        order = db.query(Order).filter(Order.id == order_id).first()
-        if not order:
-            return json.dumps({"error": f"No order found with ID {order_id}"})
-        return json.dumps(_format_order(order))
-
-    if phone:
-        # Find customer by phone, then their recent orders
-        customer = db.query(Customer).filter(Customer.phone == phone).first()
-        if not customer:
-            return json.dumps({"error": f"No customer account found with phone {phone}"})
-
-        orders = (
-            db.query(Order)
-            .filter(Order.customer_id == customer.id)
-            .order_by(Order.created_at.desc())
-            .limit(5)
-            .all()
-        )
-        if not orders:
-            return json.dumps({"error": f"No orders found for customer {customer.first_name}"})
-
-        return json.dumps({
-            "customer": f"{customer.first_name or ''} {customer.last_name or ''}".strip(),
-            "orders": [_format_order(o) for o in orders],
-        })
-
-    return json.dumps({"error": "Please provide either an order_id or phone number"})
-
 
 def lookup_ride(arguments: dict, db: Session) -> str:
     """Look up rideshare rides by ride ID or customer phone number."""
@@ -230,17 +178,6 @@ def lookup_account(arguments: dict, db: Session) -> str:
             "is_online": driver.is_online or False,
         })
 
-    # Check vendors (by contact_phone)
-    vendor = db.query(Vendor).filter(Vendor.contact_phone == phone).first()
-    if vendor:
-        accounts.append({
-            "role": "restaurant",
-            "restaurant_name": vendor.restaurant_name or vendor.company_name,
-            "contact_name": vendor.contact_name,
-            "email": vendor.contact_email,
-            "status": vendor.onboarding_status.value if vendor.onboarding_status else "unknown",
-        })
-
     if not accounts:
         return json.dumps({"error": f"No accounts found for phone number {phone}"})
 
@@ -296,27 +233,6 @@ def log_escalation(arguments: dict, db: Session) -> str:
 
 
 # ===================== HELPERS =====================
-
-def _format_order(order: Order) -> dict:
-    """Format an Order object for the AI agent."""
-    # Get vendor name from relationship
-    vendor_name = "Unknown Restaurant"
-    if order.vendor:
-        vendor_name = order.vendor.restaurant_name or order.vendor.company_name or "Unknown"
-
-    return {
-        "order_id": order.id,
-        "order_number": order.order_number,
-        "status": order.status.value if order.status else "unknown",
-        "restaurant": vendor_name,
-        "total": order.total_amount,
-        "delivery_fee": order.delivery_fee or 0,
-        "tip": order.tip or 0,
-        "driver_name": order.driver_name,
-        "created_at": order.created_at.isoformat() if order.created_at else None,
-        "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
-    }
-
 
 def _format_ride(ride: RideRequest, db: Session) -> dict:
     """Format a RideRequest object for the AI agent."""

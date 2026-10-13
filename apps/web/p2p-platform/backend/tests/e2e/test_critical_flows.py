@@ -190,57 +190,6 @@ class TestDriverOnboardingFlow:
 
 
 # ============================================
-# CRITICAL FLOW 3: VENDOR/RESTAURANT ONBOARDING
-# ============================================
-
-class TestVendorOnboardingFlow:
-    """
-    Complete vendor onboarding flow:
-    1. Restaurant applies
-    2. Documents submitted
-    3. Application reviewed
-    4. Restaurant approved
-    5. Menu setup
-    6. Can receive orders
-    """
-
-    def test_restaurant_application_flow(self, client, db_session):
-        """Test restaurant application submission"""
-        application_data = {
-            "business_name": f"E2E Test Restaurant {datetime.now().timestamp()}",
-            "owner_name": "E2E Owner",
-            "email": f"e2e_restaurant_{datetime.now().timestamp()}@test.com",
-            "phone": "+14155557777",
-            "address": "456 Restaurant Ave, San Francisco, CA 94103",
-            "cuisine_type": "Italian",
-            "tax_id": "12-3456789"
-        }
-        response = client.post("/api/restaurant/apply", json=application_data)
-
-        # Application endpoint should exist (401 = auth middleware blocks unauthenticated)
-        assert response.status_code in [200, 201, 400, 401, 404, 422]
-
-    def test_vendor_menu_management_flow(self, client, db_session):
-        """Test vendor can manage their menu"""
-        # First need to login as vendor (OAuth2 form data with username field)
-        login_response = client.post("/api/auth/vendor/login", data={
-            "username": "test@vendor.com",
-            "password": "testpassword"
-        })
-
-        # Vendor login should respond appropriately
-        assert login_response.status_code in [200, 400, 401]
-
-        if login_response.status_code == 200:
-            token = login_response.json().get("access_token")
-            headers = auth_headers(token)
-
-            # Get current menu
-            menu_response = client.get("/api/vendor/menu-items", headers=headers)
-            assert menu_response.status_code in [200, 401, 403, 404]
-
-
-# ============================================
 # CRITICAL FLOW 4: ORDER LIFECYCLE
 # ============================================
 

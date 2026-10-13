@@ -1,8 +1,0 @@
-// Debug wrapper – chains Pods + Staging environment URLs
-#include "../Pods/Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant.debug.xcconfig"
-
-// Staging environment
-ENVIRONMENT = Staging
-API_BASE_URL = https:/$()/d34u5ixl0bulv4.cloudfront.net
-WEBSOCKET_URL = wss:/$()/d34u5ixl0bulv4.cloudfront.net
-CDN_URL = https:/$()/d34u5ixl0bulv4.cloudfront.net

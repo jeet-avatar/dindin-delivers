@@ -818,7 +818,7 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
             if customer_obj and stripe.api_key:
                 # Demo accounts (App Store review): skip real Stripe, set demo marker so
                 # /create-intent idempotency path returns the demo secret correctly
-                _demo_emails = ["demo.customer@dollor.ai", "demo.driver@dollor.ai", "demo.restaurant@dollor.ai"]
+                _demo_emails = ["demo.customer@dollor.ai", "demo.driver@dollor.ai"]
                 if customer_obj.email and customer_obj.email.lower() in _demo_emails:
                     ride_request.stripe_payment_intent_id = "demo_pi_appstore_review"
                     db.commit()

@@ -364,24 +364,6 @@ async def broadcast_ride_status(ride_id: str, status: str, details: dict = None)
         await manager.broadcast_to_topic(message, f"driver:{details['driver_id']}")
 
 
-async def broadcast_new_order_to_restaurant(vendor_id: int, order_data: dict):
-    """Notify restaurant of a new order."""
-    message = {
-        "type": "new_order",
-        "order": order_data
-    }
-    await manager.broadcast_to_topic(message, f"restaurant:{vendor_id}")
-
-
-async def broadcast_new_delivery_available(driver_id: int, delivery_data: dict):
-    """Notify driver of a new delivery opportunity."""
-    message = {
-        "type": "new_delivery_available",
-        "delivery": delivery_data
-    }
-    await manager.broadcast_to_topic(message, f"driver:{driver_id}")
-
-
 async def broadcast_chat_message(conversation_id: str, sender_id: str,
                                   sender_type: str, message_text: str):
     """Broadcast a chat message."""

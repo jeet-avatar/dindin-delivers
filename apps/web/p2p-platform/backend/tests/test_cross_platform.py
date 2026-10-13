@@ -36,27 +36,6 @@ class TestCrossPlatformAuth:
 
 
 # Test Case 2: Vendor Authentication - Cross-Platform
-class TestVendorAuth:
-    """Test vendor auth works consistently"""
-
-    def test_vendor_login_web(self, client):
-        """TC-002: Vendor login via Web"""
-        response = client.post(
-            "/api/auth/vendor/login",
-            data={"username": "vendor@restaurant.com", "password": "vendorpass"}
-        )
-        assert response.status_code in [200, 401]
-
-    def test_vendor_login_ios(self, client):
-        """TC-002: Vendor login via iOS (OAuth2 form data - same as web)"""
-        # All platforms use OAuth2PasswordRequestForm for login endpoints
-        response = client.post(
-            "/api/auth/vendor/login",
-            data={"username": "vendor@restaurant.com", "password": "vendorpass"}
-        )
-        assert response.status_code in [200, 401]
-
-
 # Test Case 3: Driver Authentication - Cross-Platform
 class TestDriverAuth:
     """Test driver auth works consistently"""
@@ -77,56 +56,6 @@ class TestDriverAuth:
             data={"username": "driver@dollor.ai", "password": "driverpass"}
         )
         assert response.status_code in [200, 401]
-
-
-# Test Case 4: Menu Retrieval - Cross-Platform
-class TestMenuRetrieval:
-    """Test menu data is consistent across platforms"""
-
-    def test_get_menu_items_web(self, client):
-        """TC-004: Get vendor menu items - Web"""
-        response = client.get("/api/vendors/1/menu")
-        assert response.status_code in [200, 404]
-        if response.status_code == 200:
-            data = response.json()
-            assert isinstance(data, list) or "items" in data
-
-    def test_get_menu_items_mobile(self, client):
-        """TC-004: Get vendor menu items - iOS/Android compatible endpoint"""
-        response = client.get("/api/menu/1")
-        assert response.status_code in [200, 401, 404]
-
-
-# Test Case 5: Cart Operations - Cross-Platform
-class TestCartOperations:
-    """Test cart operations work consistently"""
-
-    def test_add_to_cart_web(self, client, customer_auth_headers):
-        """TC-005: Add item to cart - Web"""
-        response = client.post(
-            "/api/cart/items",
-            json={
-                "menu_item_id": 1,
-                "vendor_id": 1,
-                "quantity": 2,
-                "special_instructions": "No onions"
-            },
-            headers=customer_auth_headers
-        )
-        assert response.status_code in [200, 201, 401, 404]
-
-    def test_add_to_cart_mobile(self, client, customer_auth_headers):
-        """TC-005: Add item to cart - iOS/Android"""
-        response = client.post(
-            "/api/v1/cart/add",
-            json={
-                "menu_item_id": 1,
-                "vendor_id": 1,
-                "quantity": 2
-            },
-            headers=customer_auth_headers
-        )
-        assert response.status_code in [200, 201, 401, 404]
 
 
 # Test Case 6: Order Placement - Cross-Platform
@@ -232,27 +161,6 @@ class TestPaymentProcessing:
             headers=customer_auth_headers
         )
         assert response.status_code in [200, 400, 401, 404]
-
-
-# Test Case 10: Vendor Status Updates - Cross-Platform
-class TestVendorStatus:
-    """Test vendor online/offline status works consistently"""
-
-    def test_update_vendor_status_web_put(self, client, vendor_auth_headers):
-        """TC-010: Update vendor status - Web (PUT)"""
-        response = client.put(
-            "/api/vendors/1/status?is_online=true",
-            headers=vendor_auth_headers
-        )
-        assert response.status_code in [200, 400, 401, 404, 405, 422]
-
-    def test_update_vendor_status_ios_post(self, client, vendor_auth_headers):
-        """TC-010: Update vendor status - iOS (POST)"""
-        response = client.post(
-            "/api/vendors/1/status?is_online=true",
-            headers=vendor_auth_headers
-        )
-        assert response.status_code in [200, 400, 401, 404, 405, 422]
 
 
 # Summary of Cross-Platform Test Cases

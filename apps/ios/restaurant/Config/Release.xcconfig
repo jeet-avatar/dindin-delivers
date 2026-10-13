@@ -1,8 +1,0 @@
-// Release wrapper – chains Pods + Production environment URLs
-#include "../Pods/Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant.release.xcconfig"
-
-// Production environment
-ENVIRONMENT = Production
-API_BASE_URL = https:/$()/api.dollor.ai
-WEBSOCKET_URL = wss:/$()/ws.dollor.ai
-CDN_URL = https:/$()/cdn.dollor.ai

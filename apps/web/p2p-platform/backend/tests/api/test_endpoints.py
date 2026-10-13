@@ -195,66 +195,6 @@ class TestDriverEndpoints:
 
 
 # ============================================
-# VENDOR ENDPOINTS
-# ============================================
-
-class TestVendorEndpoints:
-    """Test vendor/restaurant endpoints"""
-
-    def test_vendor_login_endpoint_exists(self, client):
-        """Vendor login endpoint should exist"""
-        # Vendor login uses OAuth2PasswordRequestForm (form data with username field)
-        response = client.post("/api/auth/vendor/login", data={
-            "username": "test@test.com",
-            "password": "test"
-        })
-        # Should not be 404
-        assert response.status_code in [200, 400, 401]
-
-    def test_vendor_menu_requires_auth(self, client):
-        """Menu endpoint should require vendor auth"""
-        # Menu endpoint is public per restaurant, use vendor-specific endpoint
-        response = client.get("/api/vendors/1/menu")
-        # This is a public endpoint, so it returns 200 or 404
-        assert response.status_code in [200, 404]
-
-    def test_vendor_orders_requires_auth(self, client):
-        """Orders endpoint should require vendor auth"""
-        # Orders endpoint with vendor_id param
-        response = client.get("/api/orders", params={"vendor_id": 1})
-        # May return 200 (empty list) or require auth
-        assert response.status_code in [200, 401, 403]
-
-
-# ============================================
-# RESTAURANT/MENU PUBLIC ENDPOINTS
-# ============================================
-
-class TestRestaurantPublicEndpoints:
-    """Test public restaurant endpoints"""
-
-    def test_list_restaurants(self, client):
-        """Should list restaurants"""
-        response = client.get("/api/restaurants")
-        assert response.status_code in [200, 404]
-
-        if response.status_code == 200:
-            data = response.json()
-            assert isinstance(data, list) or isinstance(data, dict)
-
-    def test_get_restaurant_menu(self, client):
-        """Should get restaurant menu"""
-        response = client.get("/api/restaurants/1/menu")
-        # May return 404 if no restaurant exists
-        assert response.status_code in [200, 404]
-
-    def test_search_restaurants(self, client):
-        """Restaurant search should work"""
-        response = client.get("/api/restaurants/search", params={"q": "pizza"})
-        assert response.status_code in [200, 404]
-
-
-# ============================================
 # ORDER ENDPOINTS
 # ============================================
 
