@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import unittest
 import uuid
@@ -29,7 +30,8 @@ class RemixJobTests(unittest.TestCase):
         target = self.root / self.id
         self.source.rename(target)
         self.source = target
-        for patcher in [patch.object(references, 'ROOT', self.root), patch.object(billing, 'require_reference_access')]:
+        for patcher in [patch.object(references, 'ROOT', self.root), patch.object(billing, 'require_reference_access'),
+                        patch.dict(os.environ, {'BEATMIND_AUTOMATIC_REMIX_IMPORT_ENABLED': '1'})]:
             patcher.start()
             self.addCleanup(patcher.stop)
         references.write_json(target / 'meta.json', {'id': self.id, 'user_id': 1, 'status': 'ready',
@@ -151,6 +153,18 @@ class RemixJobTests(unittest.TestCase):
                 self.assertEqual(client.post(endpoint + '/import', json=intent).status_code, 409)
         bridge.local_operation.assert_not_awaited()
         self.assertEqual(reference_imports.status(target)['status'], 'idle')
+
+    def test_release_gate_rejects_import_even_with_approved_audio_and_connected_bridge(self):
+        _, endpoint, intent = self.ready_preview()
+        client, bridge = self.import_client({'status': 'verified', 'set_id': intent['set_id']})
+        with client, patch.dict(os.environ, {'BEATMIND_AUTOMATIC_REMIX_IMPORT_ENABLED': '0'}), \
+                patch.object(remix_jobs.arrangement_plan, 'exchange', AsyncMock()) as inspect:
+            self.assertFalse(client.get(self.base).json()['ableton_import_available'])
+            self.assertFalse(client.get(endpoint + '/import-target').json()['ready'])
+            self.assertEqual(client.post(endpoint + '/import', json=intent).status_code, 409)
+            self.assertEqual(client.get(endpoint + '/files/mix.wav').status_code, 200)
+        bridge.local_operation.assert_not_awaited()
+        inspect.assert_not_awaited()
 
     def test_verified_import_is_durable_and_not_replayed(self):
         target, endpoint, intent = self.ready_preview()

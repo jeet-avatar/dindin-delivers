@@ -27,6 +27,11 @@ import remix_render
 import stems
 
 TASKS = set()
+IMPORT_UNAVAILABLE = 'Ableton import is not enabled in this release. Your approved preview and aligned stems remain available.'
+
+
+def import_enabled():
+    return os.getenv('BEATMIND_AUTOMATIC_REMIX_IMPORT_ENABLED') == '1'
 
 
 class RenderRequest(BaseModel):
@@ -183,6 +188,7 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
         jobs = [{**public(read(path.parent)), 'placement': reference_imports.status(path.parent)}
                 for path in (directory / 'automatic-remixes').glob('*/job.json')]
         return {'available': reason is None, 'reason': reason, 'timing': timing, 'stems': names,
+                'ableton_import_available': import_enabled(),
                 'jobs': sorted(jobs, key=lambda job: job['created_at'], reverse=True)}
 
     @router.post('', status_code=202)
@@ -278,6 +284,8 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
     @router.get('/{job_id}/import-target')
     async def import_target(reference_id: str, job_id: str, user=Depends(get_user)):
         approved(reference_id, job_id, user['id'])
+        if not import_enabled():
+            return {'ready': False, 'reason': IMPORT_UNAVAILABLE}
         bridge = bridge_for(user['id'], 'remix_preview_import_v1')
         if not bridge:
             return {'ready': False, 'reason': 'Connect a Bridge with approved-remix import support. Your preview is saved; no music was changed.'}
@@ -290,6 +298,8 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
     async def import_approved(reference_id: str, job_id: str, req: PlacementRequest, user=Depends(get_user)):
         billing.require_reference_access(user)
         directory, target, data = approved(reference_id, job_id, user['id'])
+        if not import_enabled():
+            raise HTTPException(409, IMPORT_UNAVAILABLE)
         if req.mix_sha256 != data['result']['files']['mix']['sha256']:
             raise HTTPException(409, 'The approved preview changed. No import was sent.')
         intent = req.model_dump(exclude={'retry'})

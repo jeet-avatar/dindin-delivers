@@ -1,6 +1,7 @@
 """Disposable local browser fixture: real renderer, synthetic audio, no Ableton or accounts."""
 
 import json
+import os
 from pathlib import Path
 import socket
 import sys
@@ -31,6 +32,7 @@ async def project(req, owner, session_id=None):
 
 
 if __name__ == '__main__':
+    os.environ.setdefault('BEATMIND_AUTOMATIC_REMIX_IMPORT_ENABLED', '1')
     with tempfile.TemporaryDirectory(prefix='beatmind-remix-browser-') as temporary:
         references.ROOT = Path(temporary)
         directory = references.ROOT / ('e' * 32)

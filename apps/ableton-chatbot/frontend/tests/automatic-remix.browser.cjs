@@ -13,7 +13,9 @@ const server = http.createServer((req, res) => {
 });
 
 (async () => {
-  const backend = spawn(process.env.BEATMIND_TEST_PYTHON || 'python3', [path.resolve(__dirname, '../../backend/tests/remix_browser_server.py')], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const importEnabled = process.env.BEATMIND_TEST_IMPORT_ENABLED !== '0';
+  const backend = spawn(process.env.BEATMIND_TEST_PYTHON || 'python3', [path.resolve(__dirname, '../../backend/tests/remix_browser_server.py')], {
+    stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, BEATMIND_AUTOMATIC_REMIX_IMPORT_ENABLED: importEnabled ? '1' : '0' } });
   let browser, closing = false;
   const backendExit = new Promise(resolve => backend.once('exit', resolve));
   try {
@@ -68,7 +70,7 @@ const server = http.createServer((req, res) => {
       });
       const page = await context.newPage();
       page.on('pageerror', e => errors.push(e.message));
-      await page.goto(`http://127.0.0.1:${server.address().port}/dashboard`);
+      await page.goto(`${process.env.BEATMIND_TEST_SITE_URL || `http://127.0.0.1:${server.address().port}`}/dashboard`);
       const references = () => page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'References', exact: true });
       await references().click();
       await page.getByRole('button', { name: 'Automatic Remix', exact: true }).click();
@@ -108,8 +110,13 @@ const server = http.createServer((req, res) => {
       const download = await downloadEvent;
       assert.equal(await download.failure(), null);
       assert.ok(fs.readFileSync(await download.path()).subarray(0, 2).equals(Buffer.from('PK')));
-      await dialog.getByRole('button', { name: 'Check Ableton destination', exact: true }).click();
-      await dialog.getByText('Connect a Bridge with approved-remix import support.', { exact: false }).waitFor();
+      if (importEnabled) {
+        await dialog.getByRole('button', { name: 'Check Ableton destination', exact: true }).click();
+        await dialog.getByText('Connect a Bridge with approved-remix import support.', { exact: false }).waitFor();
+      } else {
+        await dialog.getByText('Ableton import is not enabled in this release.', { exact: false }).waitFor();
+        assert.equal(await dialog.getByRole('button', { name: 'Check Ableton destination', exact: true }).count(), 0);
+      }
       assert.equal(await dialog.getByRole('button', { name: 'Send approved remix to Ableton', exact: true }).count(), 0);
       await page.screenshot({ path: `/tmp/beatmind-automatic-preview-${width}.png` });
       if (width === 390) {

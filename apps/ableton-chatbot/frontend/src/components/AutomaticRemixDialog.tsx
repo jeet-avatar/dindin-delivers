@@ -13,7 +13,7 @@ type Recipe = { analysis_id: string; timing_revision: number; target_bpm: number
 type Job = { id: string; title: string; status: string; stage: string; review?: string; recipe: Recipe; project: RemixCreated;
   placement?: { status: string; summary?: string };
   result?: { duration_seconds: number; lufs: number; true_peak_dbtp: number; files: { mix: { sha256: string } }; limitations: string[] } };
-type Setup = { available: boolean; reason: string | null; stems: string[]; jobs: Job[];
+type Setup = { available: boolean; ableton_import_available: boolean; reason: string | null; stems: string[]; jobs: Job[];
   timing: { analysis_id: string; revision: number; bpm: number; sections: { name: string; start_seconds: number; end_seconds: number }[] } | null };
 const field = "w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 px-2 py-2 text-sm text-white";
 const icon = "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-neutral-600 disabled:opacity-30";
@@ -196,7 +196,8 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
             {job.review === "accepted" && <div className="space-y-3">
               <button type="button" disabled={busy} onClick={() => void load(true)} className="inline-flex items-center gap-2 rounded border border-neutral-600 px-3 py-2 text-sm"><Download size={16} />Download aligned stems</button>
               {job.placement?.status && job.placement.status !== "idle" && <p role="status" className="text-sm text-amber-200">{job.placement.summary || (job.placement.status === "importing" ? "Sending approved stems to Ableton. Wait for verification." : "Placement could not be confirmed. Inspect Ableton before continuing; do not repeat the import.")}</p>}
-              {(!job.placement || ["idle", "failed"].includes(job.placement.status)) && <div className="space-y-3">
+              {!setup?.ableton_import_available && <p role="status" className="text-sm text-amber-200">Ableton import is not enabled in this release. Your approved preview and aligned stems remain available.</p>}
+              {setup?.ableton_import_available && (!job.placement || ["idle", "failed"].includes(job.placement.status)) && <div className="space-y-3">
                 <button type="button" disabled={busy} onClick={() => void place(true)} className="rounded border border-neutral-600 px-3 py-2 text-sm">Check Ableton destination</button>
                 {destination?.reason && <p role="status" className="text-sm text-amber-200">{destination.reason}</p>}
                 {destination?.ready && <>
