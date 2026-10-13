@@ -25,8 +25,9 @@ async function json(path: string, init?: RequestInit) {
   return result;
 }
 
-export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }: {
+export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, initialJobId }: {
   reference: { id: string; name: string }; onCancel: () => void; onOpenChat: (result: RemixCreated) => void;
+  initialJobId?: string;
 }) {
   const base = `/api/references/${reference.id}/automatic-remixes`;
   const dialog = useRef<HTMLDialogElement>(null), player = useRef<HTMLAudioElement>(null);
@@ -56,13 +57,15 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
         setSegments(result.timing.sections.map((_, section) => ({ section, repeats: 1,
           levels: Object.fromEntries(result.stems.map(name => [name, 0])) })));
       }
-      if (result.jobs.length) {
-        const latest = result.jobs[0]; setJob(latest); setTitle(latest.title);
+      if (initialJobId || result.jobs.length) {
+        const latest = initialJobId ? result.jobs.find(item => item.id === initialJobId) : result.jobs[0];
+        if (!latest) { setError("This song's saved preview was not found. No other preview was selected."); return; }
+        setJob(latest); setTitle(latest.title);
         setBpm(latest.recipe.target_bpm); setSegments(latest.recipe.segments);
       }
     }).catch(e => { if (active) setError(e.message); });
     return () => { active = false; };
-  }, [base]);
+  }, [base, initialJobId]);
   useEffect(() => {
     if (!job || (job.status !== "rendering" && job.placement?.status !== "importing")) return;
     let active = true, pending = false;

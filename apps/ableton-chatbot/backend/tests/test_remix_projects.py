@@ -1,3 +1,4 @@
+import asyncio
 import json
 import unittest
 import uuid
@@ -131,3 +132,56 @@ class RemixProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(session.planning_only)
         self.assertEqual(response['tool_calls'][0]['result']['status'], 'failed')
         self.assertNotIn('create_midi_track', {t['name'] for t in client.messages.create.call_args.kwargs['tools']})
+
+    async def test_remix_discussion_answers_even_when_connected_bridge_does_not_respond(self):
+        result = await self.create()
+        bridge = SimpleNamespace(user_id=42, lock=asyncio.Lock(), capabilities=set(),
+            local_operation=AsyncMock(side_effect=TimeoutError), send_command=AsyncMock(side_effect=TimeoutError))
+        main.bridges['test'] = bridge
+        client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(return_value=
+            SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text='Which source layer should we keep?')]))))
+        with patch.object(main, 'claude_client', client):
+            stream = await main.chat_stream(main.ChatRequest(message='Help me remix this song', session_id=result['sessionId']), self.user)
+            events = [json.loads(chunk) async for chunk in stream.body_iterator]
+        self.assertEqual(events[-1]['type'], 'complete')
+        self.assertIn('source layer', events[-1]['response'])
+        self.assertTrue(any(event['type'] == 'status' for event in events))
+        bridge.send_command.assert_not_awaited()
+        bridge.local_operation.assert_not_awaited()
+
+    async def test_stalled_provider_emits_error_and_preserves_request_without_retry(self):
+        result = await self.create()
+        cancelled = asyncio.Event()
+
+        async def stalled(**kwargs):
+            try:
+                await asyncio.sleep(30)
+            finally:
+                cancelled.set()
+
+        client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(side_effect=stalled)))
+        with patch.object(main, 'claude_client', client), patch.object(main, 'MODEL_STEP_TIMEOUT_SECONDS', .02):
+            stream = await main.chat_stream(main.ChatRequest(message='Review my remix', session_id=result['sessionId']), self.user)
+            events = [json.loads(chunk) async for chunk in stream.body_iterator]
+        self.assertEqual(events[-1]['type'], 'error')
+        self.assertIn('did not finish', events[-1]['message'])
+        self.assertIn('No Ableton actions were started', events[-1]['message'])
+        self.assertTrue(cancelled.is_set())
+        self.assertEqual(client.messages.create.await_count, 1)
+        saved = main.chat_store.load(42, result['sessionId'])
+        self.assertEqual(saved['status'], 'interrupted')
+        self.assertEqual(saved['messages'][-1]['content'], 'Review my remix')
+
+    async def test_current_preview_review_is_read_instead_of_repeating_old_approval(self):
+        import remix_jobs
+        result = await main.save_automatic_remix_project(remix_projects.RemixRequest(**self.payload), self.user)
+        directory = remix_jobs.job_directory(self.directory, self.payload['request_id'])
+        directory.mkdir(parents=True)
+        for review in ('accepted', 'changes_requested', 'pending'):
+            remix_jobs.save(directory / 'job.json', {'id': self.payload['request_id'], 'status': 'ready', 'review': review})
+            note = remix_projects.planning_note(result['project'], 42)
+            self.assertIn(f'"review": "{review}"', note)
+            self.assertIn('do not ask for the same approval again', note)
+        foreign = remix_projects.planning_note(result['project'], 43)
+        self.assertIn('"status": "unavailable"', foreign)
+        self.assertNotIn('"review": "pending"', foreign)

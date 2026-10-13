@@ -38,6 +38,11 @@ class ProviderTests(unittest.TestCase):
         self.assertIn("Some actions may already have run", failure_message(RuntimeError("private data"), True))
         self.assertNotIn("private data", failure_message(RuntimeError("private data"), True))
 
+    def test_timeout_is_explicit_and_does_not_promise_no_changes_after_actions(self):
+        self.assertIn('90 seconds', failure_message(TimeoutError(), False))
+        self.assertIn('will not be retried automatically', failure_message(TimeoutError(), False))
+        self.assertIn('Some actions may already have run', failure_message(TimeoutError(), True))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,7 @@
 import { streamHealth } from "@/lib/stream-health";
 import { appendInstruction, nextInstructions, outboxKey, readQueue, settleInstructions } from "@/lib/chat-outbox";
 import { useChatOutbox } from "@/lib/use-chat-outbox";
-import { Trash2 } from "lucide-react";
+import { Trash2, SlidersHorizontal, Plus, Paperclip, WandSparkles, History } from "lucide-react";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ import SpeakButton from "@/components/SpeakButton";
 import MicButton from "@/components/MicButton";
 import References from "@/components/References";
 import type { RemixCreated, RemixProject } from "@/components/RemixDialog";
+import AutomaticRemixDialog from "@/components/AutomaticRemixDialog";
 import ChatComparisons from "@/components/ChatComparisons";
 import ReferenceUpgrade from "@/components/ReferenceUpgrade";
 import PlanPicker from "@/components/PlanPicker";
@@ -252,6 +253,7 @@ export default function DashboardPage() {
   const [micError, setMicError] = useState("");
   const [referenceId, setReferenceId] = useState<string | null>(null);
   const [projectBusy, setProjectBusy] = useState(false);
+  const [remixOpen, setRemixOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chatId, setChatId] = useState("");
   const [chats, setChats] = useState<ChatEntry[]>([]);
@@ -295,7 +297,7 @@ export default function DashboardPage() {
     const textarea = inputRef.current;
     if (!textarea) return;
     textarea.style.height = "auto";
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+    textarea.style.height = Math.max(72, Math.min(textarea.scrollHeight, 144)) + "px";
   }, [input, nav]);
 
   useEffect(() => {
@@ -572,6 +574,8 @@ export default function DashboardPage() {
         } else if (event.type === "narration") {
           narration += `${narration ? "\n\n" : ""}${event.text}`;
           setMessages(p => p.map(m => m.id === runId ? { ...m, content: narration } : m));
+        } else if (event.type === "status") {
+          if (!narration) setMessages(p => p.map(m => m.id === runId ? { ...m, content: event.message } : m));
         } else if (event.type === "action_started" || event.type === "action_completed") {
           actionsSent = true;
           const action = event.action as ProductionAction;
@@ -651,15 +655,16 @@ export default function DashboardPage() {
     } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save this instruction. Your draft is unchanged."); }
   }
 
+  const canDiscussWithoutBridge = project?.mode === "remix";
   useEffect(() => {
-    if (!historyReady || !outbox.ready || loading || projectBusy || requestRef.current || !bridgeConnected || outbox.queue.paused) return;
+    if (!historyReady || !outbox.ready || loading || projectBusy || requestRef.current || (!bridgeConnected && !canDiscussWithoutBridge) || outbox.queue.paused) return;
     const next = nextInstructions(outbox.queue);
     if (!next) return;
     const attempt = `${queueKey}:${next.ids.join(",")}`;
     if (queueAttempt.current === attempt) return;
     queueAttempt.current = attempt;
     void sendMessage(next.text, undefined, undefined, false, next.ids);
-  }, [historyReady, outbox.ready, outbox.queue, loading, projectBusy, bridgeConnected, queueKey, sendMessage]);
+  }, [historyReady, outbox.ready, outbox.queue, loading, projectBusy, bridgeConnected, canDiscussWithoutBridge, queueKey, sendMessage]);
 
   // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
   const openBilling = async () => {
@@ -981,10 +986,15 @@ export default function DashboardPage() {
     busy={loading || projectBusy || !historyReady} onUse={() => void linkOpenSet()} onChoose={() => setSongSetup("")} />;
 
   const renderBeatMind = () => (
-    <div className="flex flex-col flex-1 h-full overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* Bridge offline banner */}
 
       <ChatTimeline followKey={conversationFollowKey}>
+        {project?.remix && <details className="border-b pb-3 text-sm" style={{ borderColor: "var(--border)" }}>
+          <summary className="cursor-pointer font-medium">{project.remix.automatic_preview_id ? "Saved automatic remix" : "Saved remix plan"}</summary>
+          <p className="mt-2 break-words">{project.remix.source_name} / {project.remix.style} / {project.remix.target_bpm} BPM</p>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>Chat discusses your remix. Open Automatic Remix to render, listen or revise; it does not place audio in Ableton from chat.</p>
+        </details>}
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
         {loading && streamNotice && <p role="status" className="text-xs text-amber-300">{streamNotice}</p>}
         {project?.mode !== "remix" && !referenceInAbleton && (messages.length === 0 || (project && !project.starting_point)) && (
@@ -1024,7 +1034,11 @@ export default function DashboardPage() {
         {recordings.error && <p role="alert" className="text-xs text-red-300">{recordings.error}</p>}
       </ChatTimeline>
 
-      <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+      <div className="px-3 sm:px-6 py-3 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+        {project && <details className="relative mb-2">
+          <summary className="inline-flex cursor-pointer items-center gap-2 text-xs" title="Reference tools and suggested commands"><Paperclip size={16} />Reference tools</summary>
+          <div className="absolute bottom-full left-0 z-30 mb-2 max-h-[40dvh] w-full overflow-y-auto rounded-lg border p-3 shadow-lg"
+            style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
         {referenceInAbleton && !input && (
           <div className="mb-3">
             <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
@@ -1046,11 +1060,10 @@ export default function DashboardPage() {
         {project && (
           <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
             <button type="button" disabled={loading || projectBusy || !historyReady || !hasReferenceAccess(usage?.plan)}
-              onClick={() => { void chooseStart("reference"); }}
+              onClick={() => { if (project.mode === "remix") setNav("references"); else void chooseStart("reference"); }}
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border disabled:opacity-40"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-              Upload reference
+              <Paperclip size={14} />{project.mode === "remix" ? "Review source reference" : "Upload reference"}
             </button>
             {usage && !hasReferenceAccess(usage.plan) && <button type="button" onClick={() => setNav("references")} className="underline">Upgrade for references</button>}
             {referenceId && project.starting_point === "reference" && (
@@ -1058,7 +1071,7 @@ export default function DashboardPage() {
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border disabled:opacity-40"
                 style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                Stems &amp; Send to Ableton
+                Review stems
               </button>
             )}
             {referenceId && nav !== "references" && (
@@ -1071,8 +1084,10 @@ export default function DashboardPage() {
             )}
           </div>
         )}
-        {!!outbox.queue.items.length && <section aria-label="Saved instructions" className="mb-3 border-t pt-3 text-sm" style={{ borderColor: "var(--border)" }}>
-          <p role="status">{outbox.queue.paused ? "Saved instructions paused" : "Saved instructions"} ({outbox.queue.items.length})</p>
+          </div>
+        </details>}
+        {!!outbox.queue.items.length && <details aria-label="Saved instructions" className="mb-2 text-sm" open={outbox.queue.paused || undefined}>
+          <summary className="cursor-pointer">{outbox.queue.paused ? "Saved instructions paused" : "Saved instructions"} ({outbox.queue.items.length})</summary>
           <ol className="max-h-40 overflow-y-auto">
             {outbox.queue.items.map(item => <li key={item.id} className="flex items-start gap-2 py-2">
               <div className="min-w-0 flex-1">
@@ -1084,11 +1099,11 @@ export default function DashboardPage() {
                   catch { setHistoryError("Could not update saved instructions."); } }} className="p-2 disabled:opacity-40"><Trash2 size={16} /></button>
             </li>)}
           </ol>
-          {outbox.queue.paused && <button type="button" disabled={loading || !bridgeConnected || outbox.queue.items.some(item => item.state !== "queued")}
+          {outbox.queue.paused && <button type="button" disabled={loading || (!bridgeConnected && !canDiscussWithoutBridge) || outbox.queue.items.some(item => item.state !== "queued")}
             onClick={() => { try { queueAttempt.current = null; outbox.update(queue => ({ ...queue, paused: false })); }
               catch { setHistoryError("Could not resume saved instructions."); } }} className="mt-2 underline disabled:opacity-40">Send unsent instructions</button>}
           <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>Saved in this browser for this song. Uncertain requests are never sent again automatically.</p>
-        </section>}
+        </details>}
         <div className="flex gap-3 items-end">
           <label htmlFor="chat-input" className="sr-only">Message BeatMind</label>
           <textarea
@@ -1096,7 +1111,7 @@ export default function DashboardPage() {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); saveInstruction(); } }}
             placeholder={referenceInAbleton ? "Tell BeatMind what to build, e.g. a drum groove like the reference" : "Message BeatMind..."}
-            rows={1}
+            rows={2}
             className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-sm outline-none"
             style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
           />
@@ -1120,7 +1135,7 @@ export default function DashboardPage() {
         {micError && <p role="alert" className="text-xs mt-2 text-center" style={{ color: "var(--warning)" }}>{micError}</p>}
         <p className="text-xs mt-2 text-center" style={{ color: "var(--text-secondary)" }}>
           {outbox.queue.items.length ? outbox.queue.paused ? "Review the saved instructions before continuing."
-            : !bridgeConnected ? "Waiting for the Bridge to reconnect. Instructions are saved."
+            : !bridgeConnected && !canDiscussWithoutBridge ? "Waiting for the Bridge to reconnect. Instructions are saved."
             : "Saved instructions will be read together after the current response." : bridgeStatusLabel[bridgeStatus]}
         </p>
       </div>
@@ -1362,6 +1377,9 @@ export default function DashboardPage() {
     <div className="flex h-dvh overflow-hidden" style={{ background: "var(--bg-primary)" }}>
       {songSetup !== null && sessionId && <NewSongDialog sessionId={sessionId} onCancel={() => setSongSetup(null)}
         onReady={updated => { setProject(updated); setSongSetup(null); }} />}
+      {remixOpen && project?.remix && referenceId && <AutomaticRemixDialog
+        reference={{ id: referenceId, name: project.remix.source_name }} initialJobId={project.remix.automatic_preview_id}
+        onCancel={() => setRemixOpen(false)} onOpenChat={result => { setRemixOpen(false); openRemix(result); }} />}
       {planReason !== null && <PlanPicker reason={planReason || undefined} inTrial={trialActive} intent={planIntent}
         onClose={() => { setPlanReason(null); setPlanIntent(null); }} />}
 
@@ -1447,7 +1465,7 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Top bar */}
-        <header className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-6 py-3 border-b flex-shrink-0"
+        <header className="flex items-center justify-between gap-3 px-3 sm:px-6 py-3 border-b flex-shrink-0"
           style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
           <h1 className="text-sm font-semibold">
             {NAV.find(n => n.id === nav)?.label}
@@ -1457,17 +1475,17 @@ export default function DashboardPage() {
             className="flex items-center gap-2 min-w-0 max-w-full text-left">
             <span className="shrink-0"><UserIcon size={20} /></span>
             <span className="min-w-0 text-xs">
-              <span className="block font-medium break-all">{user?.email}</span>
+              <span className="block max-w-[12rem] sm:max-w-none truncate font-medium">{user?.email}</span>
               <span className="block" style={{ color: authStatus === "Signed in" ? "var(--success-text)" : "var(--text-secondary)" }}>{authStatus}{user?.name ? ` / ${user.name}` : ""}</span>
             </span>
           </button>
         </header>
         <UpdateBanner />
-        <div className="shrink-0 border-b px-3 sm:px-6" style={{ borderColor: "var(--border)" }}>
+        {nav !== "beatmind" && <div className="shrink-0 border-b px-3 sm:px-6" style={{ borderColor: "var(--border)" }}>
           <BridgeLaunch status={bridgeStatus} version={bridgeVersion} onRetry={refreshBridge} ableton={ableton} />
-        </div>
-        {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
-          <button type="button" className="sm:hidden h-10 px-2 text-sm" onClick={() => setHistoryOpen(true)}>Saved songs</button>
+        </div>}
+        {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-2 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
+          <button type="button" className="sm:hidden h-10 w-10 flex items-center justify-center" aria-label="Saved songs" title="Saved songs" onClick={() => setHistoryOpen(true)}><History size={18} /></button>
           {project ? <input key={`${chatId}-${project.title}`} aria-label="Song name" defaultValue={project.title} maxLength={70}
             disabled={!historyReady || loading || projectBusy} onBlur={async event => {
               const title = event.target.value.trim();
@@ -1475,17 +1493,22 @@ export default function DashboardPage() {
               setProjectBusy(true);
               try { await updateProject({ title }); } catch (error) { setHistoryError(error instanceof Error ? error.message : "Name could not be saved."); }
               finally { setProjectBusy(false); }
-            }} className="order-first basis-full sm:order-none sm:basis-auto min-w-0 flex-1 w-32 h-10 bg-transparent border-b px-1 text-sm" style={{ borderColor: "var(--border)" }} /> :
+            }} className="min-w-0 flex-1 w-20 h-10 bg-transparent border-b px-1 text-sm" style={{ borderColor: "var(--border)" }} /> :
             <p className="min-w-0 flex-1 text-sm break-words">{chats.find(chat => chat.id === chatId)?.title || "New song"}</p>}
           <button type="button" onClick={() => void newSong()} disabled={!historyReady || loading || projectBusy}
-            className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
-            style={{ background: "var(--accent)", color: "var(--on-accent)" }}>New song</button>
-          <div className="w-full flex flex-wrap items-center gap-3 text-xs" aria-label="Ableton set">
-            {abletonSet}
-          </div>
-          {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
+            aria-label="New song" title="New song" className="h-10 w-10 shrink-0 rounded flex items-center justify-center disabled:opacity-40"
+            style={{ background: "var(--accent)", color: "var(--on-accent)" }}><Plus size={18} /></button>
+          <details className="relative">
+            <summary aria-label="Song settings" title="Song settings, Bridge and Ableton" className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded border" style={{ borderColor: "var(--border)" }}>
+              <SlidersHorizontal size={18} />
+            </summary>
+            <div className="absolute right-0 top-full z-40 mt-2 w-[min(22rem,calc(100vw-5.5rem))] max-h-[60dvh] overflow-y-auto rounded-lg border p-4 shadow-lg space-y-4"
+              style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
+              <BridgeLaunch status={bridgeStatus} version={bridgeVersion} onRetry={refreshBridge} ableton={ableton} />
+              <div className="flex flex-wrap gap-2 text-xs" aria-label="Ableton set">{abletonSet}</div>
+          {project && <div className="flex flex-wrap items-center gap-3 text-xs">
             {usage?.model_access && usage.model_access.length > 1 ? (
-              <select value={selectedModel} onChange={e => setSelectedModel(e.target.value as ModelTier)}
+              <select aria-label="AI model" value={selectedModel} onChange={e => setSelectedModel(e.target.value as ModelTier)}
                 className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium appearance-none cursor-pointer"
                 style={{ ...MODEL_BADGE[selectedModel], border: "none", outline: "none" }}>
                 {usage.model_access.map(m => <option key={m} value={m}>{MODEL_TIER_LABELS[m]}</option>)}
@@ -1498,17 +1521,17 @@ export default function DashboardPage() {
 
             {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
           </div>}
+            </div>
+          </details>
+          <div className="basis-full flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span role="status" style={{ color: bridgeConnected ? "var(--success-text)" : "var(--text-secondary)" }}>{bridgeStatusLabel[bridgeStatus]}</span>
+            {project?.remix && <button type="button" disabled={loading || projectBusy} onClick={() => setRemixOpen(true)}
+              className="inline-flex items-center gap-1.5 disabled:opacity-50"><WandSparkles size={14} />Open Automatic Remix</button>}
+          </div>
         </div>}
 
         {/* Content area */}
-        <div className="flex-1 overflow-y-auto flex flex-col">
-          {nav === "beatmind" && project?.remix && <section aria-label="Saved remix plan" className="space-y-1 border-b border-neutral-700 px-4 py-3 text-sm">
-            <p className="font-medium">{project.remix.automatic_preview_id ? "Automatic remix saved" : "Remix plan saved"}</p>
-            <p className="break-words">{project.remix.source_name} / {project.remix.style} / {project.remix.target_bpm} BPM</p>
-            <p className="text-amber-200">{project.remix.automatic_preview_id
-              ? "Review the rendered preview and approve its Ableton destination in References. This chat does not place audio."
-              : "Planning only in this chat. Automatic Remix in References creates a stem-arrangement preview for your approval."}</p>
-          </section>}
+        <div className={`flex-1 min-h-0 flex flex-col ${nav === "beatmind" ? "overflow-hidden" : "overflow-y-auto"}`}>
           {nav === "dashboard" && renderDashboard()}
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}

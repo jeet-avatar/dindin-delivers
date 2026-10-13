@@ -73,7 +73,7 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(actions), 2)
         self.assertIn("Skipped", actions[1]["result"]["summary"])
         self.assertTrue(session.messages[-1]["content"][0]["is_error"])
-        self.assertEqual([call.args[0]["type"] for call in emit.await_args_list], ["action_started", "action_completed", "action_started", "action_completed"])
+        self.assertEqual([call.args[0]["type"] for call in emit.await_args_list], ["status", "action_started", "action_completed", "action_started", "action_completed", "status"])
 
     async def test_empty_model_reply_does_not_deny_completed_changes(self):
         session = main.ChatSession("empty-reply", 1)
@@ -123,7 +123,7 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(main, "_execute_tool", AsyncMock(return_value={"status": "observed", "steps": []})):
             stream = await main.chat_stream(main.ChatRequest(message="Inspect"), {"id": 1})
             events = [json.loads(chunk) async for chunk in stream.body_iterator]
-        self.assertEqual([e["type"] for e in events], ["session", "action_started", "action_completed", "complete"])
+        self.assertEqual([e["type"] for e in events], ["session", "status", "action_started", "action_completed", "status", "complete"])
         self.assertEqual(events[-1]["response"], "Inspected.")
 
     async def test_stream_error_does_not_emit_completion(self):
@@ -131,7 +131,7 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(main.log, "exception"):
             stream = await main.chat_stream(main.ChatRequest(message="Inspect"), {"id": 1})
             events = [json.loads(chunk) async for chunk in stream.body_iterator]
-        self.assertEqual([e["type"] for e in events], ["session", "error"])
+        self.assertEqual([e["type"] for e in events], ["session", "status", "error"])
         self.assertFalse(next(iter(main.sessions.values())).lock.locked())
 
     async def test_bridge_pending_request_cleaned_on_disconnect(self):

@@ -20,7 +20,7 @@ def reference_note(reference_id, user_id, project=None):
     if item['status'] != 'ready':
         return '\nThe selected reference is still processing or failed. Do not claim to have heard it. Ask the user to check Reference review.'
     if (project or {}).get('remix'):
-        return remix_projects.planning_note(project)
+        return remix_projects.planning_note(project, user_id)
     return references.reference_context(reference_id, user_id)
 
 
@@ -29,7 +29,7 @@ def planning_reason(project, reference_id, user_id):
         return ''
     if project.get('remix'):
         remix_projects.ensure_reference(project, reference_id)
-        return remix_projects.planning_note(project)
+        return remix_projects.planning_note(project, user_id)
     if not project.get('starting_point'):
         return 'Ask whether the user wants to upload a reference track for listening or start from their own idea.'
     if project['starting_point'] == 'reference':

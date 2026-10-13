@@ -771,7 +771,7 @@ async def produce_chat(req, session, bridge, emit=None):
         session.pending_review = False
         session.current_track_names = []
         session.current_recordings = []
-        if bridge:
+        if bridge and not (session.planning_only and (session.project or {}).get('remix')):
             await stack.enter_async_context(bridge.lock)
             if session.project and not session.planning_only:
                 live = await bridge.local_operation('live_set', {'operation': 'inspect'})
@@ -810,6 +810,8 @@ async def produce_chat(req, session, bridge, emit=None):
         chat_store.journal(session, {'type': 'request', 'message': req.message})
 
         async def progress(event):
+            if event['type'] == 'status':
+                session.ui_messages[-1]['content'] = event['message']
             if event['type'] in {'action_started', 'action_completed'}:
                 action = event['action']
                 session.actions = [a for a in session.actions if a['id'] != action['id']] + [action]
@@ -910,6 +912,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(require_subscriptio
 
 MODEL = model_name()
 MAX_OUTPUT_TOKENS = int(os.getenv("BEATMIND_MAX_OUTPUT_TOKENS", "4096"))
+MODEL_STEP_TIMEOUT_SECONDS = 90
 
 DISCUSSION_TOOLS = {
     tool['name'] for tool in ABLETON_TOOLS
@@ -952,6 +955,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
         bridge_note += "\nThis turn is discussion only. Recommend the best next step and explain why, with up to two concrete alternatives grounded in discovered sources and the current project. Ask one focused question only when necessary. Do not play, audition, change music or create a production plan; only read-only discovery is available."
+        if (session.project or {}).get('remix'):
+            bridge_note += "\nAbleton was not automatically inspected for this remix discussion. Use the saved source and remix state; do not claim current Ableton state is verified."
     if bridge and session.project and not session.project.get('live_set'):
         bridge_note += "\nUNLINKED SONG: Confirm which Live Set belongs to this song before music changes. Existing clips may be the user's current work: never ignore, replace or delete them, and never start a new set to continue an existing song. Use the Choose Live Set workflow."
     if bridge and (not session.project or session.project.get('live_set')):
@@ -969,13 +974,16 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     session_max_rounds = _billing.max_rounds(session.user_id, session.session_id)
     continued_text = []
     for _ in range(session_max_rounds):
-        response = await claude_client.messages.create(
+        if emit:
+            await emit({'type': 'status', 'message': 'Reviewing your remix request...' if (session.project or {}).get('remix')
+                        else 'Preparing a response...'})
+        response = await asyncio.wait_for(claude_client.messages.create(
             model=chat_model,
             max_tokens=MAX_OUTPUT_TOKENS,
             system=_build_system(bridge_note),
             tools=[tool for tool in _build_tools(bridge) if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
-        )
+        ), timeout=MODEL_STEP_TIMEOUT_SECONDS)
         ai_usage.record(session.user_id, 'chat', provider_name(), chat_model, ai_usage.anthropic_tokens(response), usage_request)
 
         text_parts = []

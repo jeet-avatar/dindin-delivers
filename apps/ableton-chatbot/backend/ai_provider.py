@@ -40,6 +40,8 @@ def failure_message(error, actions_started):
         reason = "The AI provider rejected its credentials or permissions. Check the backend's provider configuration."
     elif getattr(error, "status_code", None) == 429:
         reason = "The AI provider is rate limited. Wait briefly before trying again."
+    elif isinstance(error, TimeoutError):
+        reason = "The AI provider did not finish this step within 90 seconds. The request was stopped; it will not be retried automatically."
     elif isinstance(error, anthropic.APIConnectionError):
         reason = "The backend could not reach the AI provider."
     elif isinstance(error, anthropic.APIStatusError):
