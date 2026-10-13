@@ -16727,12 +16727,20 @@ from checkr_service import router as checkr_router
 app.include_router(checkr_router)
 
 # Founding Member program ("Founding 10,000 per state") — $100 lifetime platform-fee lock
-# TEMPORARILY DISABLED: founding_members.py is uncommitted/unverified — its own header
-# comment says it must be verified end-to-end in Stripe TEST mode before it's allowed to
-# take a real $100 from anyone. Re-enable once that verification happens and the file
-# (and its tests) are committed.
-# from founding_members import router as founding_router
-# app.include_router(founding_router)
+# Re-enabled 2026-10-12 after review: non-refundable $100 join charge uses a stable Stripe
+# idempotency key per (member_type, member_id) so retries can't double-charge; a DB unique
+# constraint + IntegrityError handler backstops the same race on the FoundingMember insert;
+# and the post-charge slot-cap recheck now auto-refunds via Stripe if the cap filled between
+# the charge and the commit (previously it charged the $100 and refunded nothing in that
+# case — fixed in founding_members.py). STILL VERIFY in Stripe TEST mode before relying on
+# this in production, per the module's own header. NOTE: compute_ride_fees()/is_founder()
+# (the "locked platform fee for life" benefit) are not yet wired into the live ride-fare
+# computation in main_new.py/order_flow.py — joining records a founder and charges $100,
+# but no code path currently applies the frozen fee schedule to an actual ride. That
+# integration is a separate follow-up; flagging for human review before marketing promises
+# "locked fees" are relied upon.
+from founding_members import router as founding_router
+app.include_router(founding_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
