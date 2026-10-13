@@ -8,12 +8,6 @@
       location = "group:customer/Pods/Pods.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:restaurant/eatffairrestaurant.xcodeproj">
-   </FileRef>
-   <FileRef
-      location = "group:restaurant/Pods/Pods.xcodeproj">
-   </FileRef>
-   <FileRef
       location = "group:delivery/eatffairdelivery.xcodeproj">
    </FileRef>
    <FileRef
