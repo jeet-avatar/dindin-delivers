@@ -440,7 +440,7 @@ class RideRequestViewModel: ObservableObject {
     }
 
     private func doRequestRide(customerId: Int, customerName: String, customerEmail: String,
-                               customerPhone: String, pickup: String, dropoff: String) {
+                               customerPhone: String, pickup: RideAddressInput, dropoff: RideAddressInput) {
         p2pService.requestRide(
             customerId: customerId,
             pickupAddress: pickup,
