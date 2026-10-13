@@ -45,11 +45,9 @@ from email_service import (
     send_order_cancelled_email, send_new_order_vendor_email
 )
 from document_verification_service import (
-    DocumentVerificationService,
     get_verification_service,
     VerificationStatus,
     DocumentType,
-    VerificationResult
 )
 
 load_dotenv()
@@ -6553,14 +6551,13 @@ async def upload_driver_document_by_id(
     driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
-    """Upload driver document with Persona verification integration"""
+    """Upload driver document for manual review (Persona integration removed; driver
+    background checks are handled separately by Checkr — see checkr_service.py)"""
     check_rate_limit(request, upload_limiter, "upload", identifier=f"driver:{driver.id}")
     # SECURITY: Verify the authenticated driver owns this account
     if driver.id != driver_id:
         raise HTTPException(status_code=403, detail="Access denied")
     from s3_service import get_s3_service
-    from document_verification_service import get_verification_service, DocumentType
-    import os
 
     # Validate document type
     valid_types = ['drivers_license', 'license_front', 'license_back', 'insurance', 'insurance_card',
@@ -6588,47 +6585,17 @@ async def upload_driver_document_by_id(
         raise HTTPException(status_code=500, detail=message)
 
     # Update driver record with document URL (but NOT verified yet)
-    persona_inquiry_url = None
-
     if document_type in ['drivers_license', 'license_front', 'license_back']:
-        # Store URL but keep drivers_license = False until Persona verifies
+        # Store URL but keep drivers_license = False until an admin manually reviews it
         driver.drivers_license_url = url_path
-        driver.drivers_license = False  # Will be set True by Persona webhook
+        driver.drivers_license = False  # Will be set True by manual review (see /api/verification/.../manual-review)
         if expiry_date:
             try:
                 driver.drivers_license_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
             except ValueError as e:
                 logger.warning(f"Invalid drivers license expiry date format: {expiry_date} - {e}")
-
-        # Create Persona verification inquiry for driver's license
-        persona_api_key = os.getenv("PERSONA_API_KEY")
-        if persona_api_key:
-            try:
-                verifier = get_verification_service("persona")
-                result = await verifier.create_persona_inquiry(
-                    reference_id=str(driver.id),
-                    entity_type="driver",
-                    email=driver.email,
-                    document_types=[DocumentType.DRIVERS_LICENSE]
-                )
-
-                if result.get("success"):
-                    driver.persona_inquiry_id = result.get("inquiry_id")
-                    driver.verification_status = "pending"
-                    driver.verification_provider = "persona"
-                    persona_inquiry_url = result.get("inquiry_url")
-                    logger.info(f"Persona inquiry created for driver {driver.id}: {result.get('inquiry_id')}")
-                else:
-                    logger.warning(f"Persona inquiry creation failed for driver {driver.id}: {result.get('error')}")
-                    # Fall back to manual review if Persona fails
-                    driver.verification_status = "pending_manual_review"
-            except Exception as e:
-                logger.error(f"Persona integration error for driver {driver.id}: {str(e)}")
-                driver.verification_status = "pending_manual_review"
-        else:
-            # No Persona API key - use manual review
-            logger.info(f"PERSONA_API_KEY not configured - driver {driver.id} document requires manual review")
-            driver.verification_status = "pending_manual_review"
+        driver.verification_status = "pending_manual_review"
+        logger.info(f"Driver {driver.id} license document requires manual review")
 
     elif document_type in ['insurance', 'insurance_card']:
         driver.insurance_url = url_path
@@ -6651,11 +6618,6 @@ async def upload_driver_document_by_id(
         "document_type": document_type,
         "verification_status": driver.verification_status or "pending"
     }
-
-    # Include Persona inquiry URL if created
-    if persona_inquiry_url:
-        response["persona_inquiry_url"] = persona_inquiry_url
-        response["message"] = f"{document_type} uploaded. Please complete identity verification."
 
     return response
 
@@ -14342,472 +14304,11 @@ def admin_get_all_vendor_documents(
         "approved": len([d for d in all_documents if d["status"] == "approved"]),
     }
 
-# ============================================================================
-# DOCUMENT VERIFICATION ENDPOINTS (Third-Party Integration)
-# ============================================================================
-
-class VerificationRequest(BaseModel):
-    entity_type: str  # "vendor" or "driver"
-    entity_id: int
-    document_types: Optional[List[str]] = None
-    provider: Optional[str] = "persona"
-
-class WebhookPayload(BaseModel):
-    event_type: str
-    data: dict
-
-@app.post("/api/verification/start")
-async def start_verification(
-    request: VerificationRequest,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
-):
-    """
-    Start document verification process with third-party provider.
-    Creates an inquiry/session and returns URL for document upload.
-    """
-    verifier = get_verification_service(request.provider)
-
-    if request.entity_type == "vendor":
-        vendor = db.query(Vendor).filter(Vendor.id == request.entity_id).first()
-        if not vendor:
-            raise HTTPException(status_code=404, detail="Vendor not found")
-
-        # Get required document types
-        doc_types = request.document_types or [
-            DocumentType.FOOD_LICENSE.value,
-            DocumentType.HEALTH_PERMIT.value,
-            DocumentType.BUSINESS_LICENSE.value,
-            DocumentType.LIABILITY_INSURANCE.value
-        ]
-
-        result = await verifier.create_persona_inquiry(
-            reference_id=str(vendor.id),
-            entity_type="vendor",
-            email=vendor.contact_email,
-            document_types=[DocumentType(dt) for dt in doc_types]
-        )
-
-        if result.get("success"):
-            # Store verification reference in vendor record
-            vendor.verification_id = result.get("inquiry_id")
-            vendor.verification_status = VerificationStatus.PENDING.value
-            vendor.last_activity = datetime.now()
-            db.commit()
-
-        return result
-
-    elif request.entity_type == "driver":
-        driver = db.query(Driver).filter(Driver.id == request.entity_id).first()
-        if not driver:
-            raise HTTPException(status_code=404, detail="Driver not found")
-
-        doc_types = request.document_types or [
-            DocumentType.DRIVERS_LICENSE.value,
-            DocumentType.VEHICLE_INSURANCE.value,
-            DocumentType.PROFILE_PHOTO.value
-        ]
-
-        result = await verifier.create_persona_inquiry(
-            reference_id=str(driver.id),
-            entity_type="driver",
-            email=driver.email,
-            document_types=[DocumentType(dt) for dt in doc_types]
-        )
-
-        if result.get("success"):
-            driver.verification_id = result.get("inquiry_id")
-            driver.verification_status = VerificationStatus.PENDING.value
-            driver.updated_at = datetime.now()
-            db.commit()
-
-        return result
-
-    raise HTTPException(status_code=400, detail="Invalid entity type")
-
-
-@app.get("/api/verification/{entity_type}/{entity_id}/status")
-async def get_verification_status(
-    entity_type: str,
-    entity_id: int,
-    db: Session = Depends(get_db)
-):
-    """Get current verification status for vendor or driver"""
-    verifier = get_verification_service()
-
-    if entity_type == "vendor":
-        vendor = db.query(Vendor).filter(Vendor.id == entity_id).first()
-        if not vendor:
-            raise HTTPException(status_code=404, detail="Vendor not found")
-
-        if not vendor.verification_id:
-            return {
-                "entity_type": "vendor",
-                "entity_id": entity_id,
-                "status": "not_started",
-                "message": "Verification not yet initiated",
-                "documents": {
-                    "food_license": {"uploaded": vendor.food_license, "verified": False},
-                    "health_permit": {"uploaded": vendor.health_permit, "verified": False},
-                    "business_license": {"uploaded": vendor.w9_form, "verified": False},
-                    "liability_insurance": {"uploaded": vendor.insurance, "verified": False}
-                }
-            }
-
-        # Get status from verification provider
-        result = await verifier.get_persona_inquiry_status(vendor.verification_id)
-
-        return {
-            "entity_type": "vendor",
-            "entity_id": entity_id,
-            "verification_id": vendor.verification_id,
-            "status": result.status.value,
-            "confidence_score": result.confidence_score,
-            "issues": result.issues,
-            "verified_at": result.verified_at.isoformat() if result.verified_at else None,
-            "documents": {
-                "food_license": {"uploaded": vendor.food_license, "verified": result.status == VerificationStatus.VERIFIED},
-                "health_permit": {"uploaded": vendor.health_permit, "verified": result.status == VerificationStatus.VERIFIED},
-                "business_license": {"uploaded": vendor.w9_form, "verified": result.status == VerificationStatus.VERIFIED},
-                "liability_insurance": {"uploaded": vendor.insurance, "verified": result.status == VerificationStatus.VERIFIED}
-            }
-        }
-
-    elif entity_type == "driver":
-        driver = db.query(Driver).filter(Driver.id == entity_id).first()
-        if not driver:
-            raise HTTPException(status_code=404, detail="Driver not found")
-
-        if not driver.verification_id:
-            return {
-                "entity_type": "driver",
-                "entity_id": entity_id,
-                "status": "not_started",
-                "message": "Verification not yet initiated",
-                "documents": {
-                    "drivers_license": {"uploaded": driver.drivers_license, "verified": False},
-                    "vehicle_insurance": {"uploaded": driver.insurance, "verified": False},
-                    "profile_photo": {"uploaded": bool(driver.photo_url), "verified": False}
-                }
-            }
-
-        result = await verifier.get_persona_inquiry_status(driver.verification_id)
-
-        return {
-            "entity_type": "driver",
-            "entity_id": entity_id,
-            "verification_id": driver.verification_id,
-            "status": result.status.value,
-            "confidence_score": result.confidence_score,
-            "issues": result.issues,
-            "verified_at": result.verified_at.isoformat() if result.verified_at else None,
-            "documents": {
-                "drivers_license": {"uploaded": driver.drivers_license, "verified": result.status == VerificationStatus.VERIFIED},
-                "vehicle_insurance": {"uploaded": driver.insurance, "verified": result.status == VerificationStatus.VERIFIED},
-                "profile_photo": {"uploaded": bool(driver.photo_url), "verified": result.status == VerificationStatus.VERIFIED}
-            }
-        }
-
-    raise HTTPException(status_code=400, detail="Invalid entity type")
-
-
-@app.post("/api/verification/webhook/persona")
-async def persona_webhook(
-    request_body: dict,
-    db: Session = Depends(get_db)
-):
-    """
-    Webhook endpoint for Persona verification events.
-    Updates vendor/driver verification status based on inquiry results.
-    """
-    event_type = request_body.get("data", {}).get("attributes", {}).get("name")
-    inquiry_id = request_body.get("data", {}).get("attributes", {}).get("payload", {}).get("data", {}).get("id")
-
-    if not inquiry_id:
-        return {"status": "ignored", "reason": "No inquiry ID in payload"}
-
-    # Extract reference ID to determine entity type
-    reference_id = request_body.get("data", {}).get("attributes", {}).get("payload", {}).get("data", {}).get("attributes", {}).get("reference-id", "")
-
-    print(f"Persona webhook received: {event_type} for inquiry {inquiry_id}")
-
-    if "vendor_" in reference_id:
-        vendor_id = int(reference_id.replace("vendor_", ""))
-        vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-
-        if vendor:
-            # Update verification status based on event
-            if event_type in ["inquiry.completed", "inquiry.approved"]:
-                vendor.verification_status = VerificationStatus.VERIFIED.value
-                vendor.documents_verified = True
-                vendor.documents_verified_at = datetime.now()
-
-                # Mark all uploaded documents as verified
-                if vendor.food_license_url:
-                    vendor.food_license = True
-                if vendor.health_permit_url:
-                    vendor.health_permit = True
-                if vendor.w9_form_url:
-                    vendor.w9_form = True
-                if vendor.insurance_url:
-                    vendor.insurance = True
-
-                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents VERIFIED")
-
-                vendor.last_activity = datetime.now()
-                db.commit()
-
-                # Send push notification to vendor about verification
-                try:
-                    from order_flow import send_push_notification
-                    send_push_notification(
-                        user_type="vendor",
-                        user_id=vendor_id,
-                        title="Documents Verified! 🎉",
-                        body="Your documents have been verified. Your restaurant is being reviewed for publishing.",
-                        data={"type": "vendor_verified", "vendor_id": vendor_id},
-                        db=db
-                    )
-                    print(f"Push notification sent to vendor {vendor_id} about verification")
-                except Exception as e:
-                    print(f"Failed to send verification push notification to vendor {vendor_id}: {e}")
-
-                # AI Auto-Processing: ComplianceBot triggers full AI workflow
-                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Triggering AI auto-processing for vendor {vendor_id}")
-                try:
-                    # First, MenuBot reviews all menu items
-                    from models import VendorMenuItem
-                    pending_items = db.query(VendorMenuItem).filter(
-                        VendorMenuItem.vendor_id == vendor_id,
-                        or_(
-                            VendorMenuItem.review_status == 'pending',
-                            VendorMenuItem.review_status.is_(None),
-                            VendorMenuItem.needs_review == True
-                        )
-                    ).all()
-
-                    auto_approved_count = 0
-                    for item in pending_items:
-                        result = ai_review_menu_item(item, db)
-                        if result["action"] == "auto_approved":
-                            auto_approved_count += 1
-
-                    print(f"[{AI_MENU_REVIEWER['avatar']} {AI_MENU_REVIEWER['name']}] Auto-approved {auto_approved_count}/{len(pending_items)} menu items")
-
-                    # Then, ComplianceBot checks if ready to auto-publish
-                    publish_result = ai_auto_publish_vendor(vendor_id, db)
-                    if publish_result["success"]:
-                        print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} AUTO-PUBLISHED to all platforms!")
-                    else:
-                        print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} not ready for auto-publish: {publish_result.get('issues', [])}")
-
-                except Exception as e:
-                    print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Error in AI auto-processing: {e}")
-
-                return {"status": "processed", "event": event_type, "ai_processed": True}
-
-            elif event_type in ["inquiry.failed", "inquiry.declined"]:
-                vendor.verification_status = VerificationStatus.REJECTED.value
-                vendor.documents_verified = False
-                # Keep documents as False (not verified) - vendor needs to re-upload
-                vendor.food_license = False
-                vendor.health_permit = False
-                vendor.w9_form = False
-                vendor.insurance = False
-                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents REJECTED - must re-upload")
-
-                # Send push notification about rejection
-                try:
-                    from order_flow import send_push_notification
-                    send_push_notification(
-                        user_type="vendor",
-                        user_id=vendor_id,
-                        title="Document Verification Failed",
-                        body="Your documents could not be verified. Please upload clear photos and try again.",
-                        data={"type": "vendor_rejected", "vendor_id": vendor_id},
-                        db=db
-                    )
-                except Exception as e:
-                    print(f"Failed to send rejection push notification to vendor {vendor_id}: {e}")
-
-            elif event_type == "inquiry.needs_review":
-                vendor.verification_status = VerificationStatus.NEEDS_REVIEW.value
-                # Keep documents as False until manual review completes
-                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents NEEDS MANUAL REVIEW")
-
-            vendor.last_activity = datetime.now()
-            db.commit()
-
-    elif "driver_" in reference_id:
-        driver_id = int(reference_id.replace("driver_", ""))
-        driver = db.query(Driver).filter(Driver.id == driver_id).first()
-
-        if driver:
-            if event_type in ["inquiry.completed", "inquiry.approved"]:
-                driver.verification_status = VerificationStatus.VERIFIED.value
-                driver.documents_verified = True
-                driver.documents_verified_at = datetime.now()
-                # Mark driver's license as verified
-                driver.drivers_license = True
-                print(f"Driver {driver_id} documents VERIFIED via Persona")
-
-                # Check if driver can be auto-approved (all required docs verified)
-                # TNC gate (CPUC 13-09-045): a passed Checkr background check is REQUIRED
-                # for approval — not just license + insurance.
-                was_pending = driver.status == DriverStatus.PENDING.value or driver.status == "pending"
-                if driver.drivers_license and driver.insurance and driver.background_check:
-                    from models import DriverStatus
-                    if was_pending:
-                        driver.status = DriverStatus.APPROVED.value
-                        driver.approved_at = datetime.now()
-                        print(f"Driver {driver_id} AUTO-APPROVED (all documents verified)")
-
-                        # Send push notification to driver about approval
-                        try:
-                            from order_flow import send_push_notification
-                            send_push_notification(
-                                user_type="driver",
-                                user_id=driver_id,
-                                title="You're Approved! 🎉",
-                                body="Your documents have been verified. You can now go online and start earning!",
-                                data={"type": "driver_approved", "driver_id": driver_id},
-                                db=db
-                            )
-                            print(f"Push notification sent to driver {driver_id} about approval")
-                        except Exception as e:
-                            print(f"Failed to send approval push notification to driver {driver_id}: {e}")
-
-                        # Also send email notification
-                        try:
-                            send_driver_approval_email(
-                                to_email=driver.email,
-                                driver_name=f"{driver.first_name} {driver.last_name}"
-                            )
-                            print(f"Approval email sent to driver {driver_id}")
-                        except Exception as e:
-                            print(f"Failed to send approval email to driver {driver_id}: {e}")
-
-            elif event_type in ["inquiry.failed", "inquiry.declined"]:
-                driver.verification_status = VerificationStatus.REJECTED.value
-                driver.drivers_license = False  # Mark as not verified
-                print(f"Driver {driver_id} documents REJECTED via Persona")
-
-                # Send push notification about rejection
-                try:
-                    from order_flow import send_push_notification
-                    send_push_notification(
-                        user_type="driver",
-                        user_id=driver_id,
-                        title="Document Verification Failed",
-                        body="Your documents could not be verified. Please upload clear photos and try again.",
-                        data={"type": "driver_rejected", "driver_id": driver_id},
-                        db=db
-                    )
-                except Exception as e:
-                    print(f"Failed to send rejection push notification to driver {driver_id}: {e}")
-
-            elif event_type == "inquiry.needs_review":
-                driver.verification_status = VerificationStatus.NEEDS_REVIEW.value
-                print(f"Driver {driver_id} documents NEEDS MANUAL REVIEW")
-
-            driver.updated_at = datetime.now()
-            db.commit()
-
-    return {"status": "processed", "event": event_type}
-
-
-@app.post("/api/verification/webhook/onfido")
-async def onfido_webhook(
-    request_body: dict,
-    db: Session = Depends(get_db)
-):
-    """Webhook endpoint for Onfido verification events"""
-    payload = request_body.get("payload", {})
-    action = payload.get("action")
-    resource_type = payload.get("resource_type")
-
-    print(f"Onfido webhook received: {action} for {resource_type}")
-
-    if resource_type == "check" and action == "check.completed":
-        check_id = payload.get("object", {}).get("id")
-        applicant_id = payload.get("object", {}).get("applicant_id")
-        result = payload.get("object", {}).get("result")
-
-        # Update driver/vendor verification status based on result
-        if result == "clear":
-            # Find and update entity verification status
-            driver = db.query(Driver).filter(
-                Driver.onfido_applicant_id == applicant_id
-            ).first()
-            if driver:
-                driver.verification_status = VerificationStatus.VERIFIED.value
-                driver.documents_verified = True
-                driver.updated_at = datetime.now()
-                db.commit()
-                print(f"Driver {driver.id} verified via Onfido")
-
-        return {"status": "processed", "check_id": check_id, "result": result}
-
-    return {"status": "ignored", "reason": f"Unhandled event: {action}"}
-
-
-@app.post("/api/verification/webhook/veriff")
-async def veriff_webhook(
-    request_body: dict,
-    db: Session = Depends(get_db)
-):
-    """
-    Webhook endpoint for Veriff verification events.
-    Processes verification decisions and updates entity status.
-    """
-    verification = request_body.get("verification", {})
-    session_id = verification.get("id")
-    status = verification.get("status")
-    decision = verification.get("decision")
-    vendor_data = verification.get("vendorData", "")
-
-    print(f"Veriff webhook received: session={session_id}, status={status}, decision={decision}")
-
-    # Parse entity info from vendor data (format: "driver_123" or "vendor_456")
-    entity_parts = vendor_data.split("_") if vendor_data else []
-    entity_type = entity_parts[0] if len(entity_parts) > 0 else None
-    entity_id = int(entity_parts[1]) if len(entity_parts) > 1 and entity_parts[1].isdigit() else None
-
-    if status == "approved" and entity_type and entity_id:
-        if entity_type == "driver":
-            driver = db.query(Driver).filter(Driver.id == entity_id).first()
-            if driver:
-                driver.verification_status = VerificationStatus.VERIFIED.value
-                driver.documents_verified = True
-                driver.veriff_session_id = session_id
-                driver.updated_at = datetime.now()
-                db.commit()
-                print(f"Driver {entity_id} verified via Veriff")
-
-        elif entity_type == "vendor":
-            vendor = db.query(Vendor).filter(Vendor.id == entity_id).first()
-            if vendor:
-                vendor.verification_status = VerificationStatus.VERIFIED.value
-                vendor.veriff_session_id = session_id
-                vendor.updated_at = datetime.now()
-                db.commit()
-                print(f"Vendor {entity_id} verified via Veriff")
-
-        return {"status": "processed", "session_id": session_id, "decision": decision}
-
-    elif status in ["declined", "resubmission_requested"]:
-        if entity_type == "driver" and entity_id:
-            driver = db.query(Driver).filter(Driver.id == entity_id).first()
-            if driver:
-                driver.verification_status = VerificationStatus.REJECTED.value if status == "declined" else VerificationStatus.NEEDS_REVIEW.value
-                driver.updated_at = datetime.now()
-                db.commit()
-                print(f"Driver {entity_id} verification {status} via Veriff")
-
-        return {"status": "processed", "session_id": session_id, "decision": decision}
-
-    return {"status": "ignored", "reason": f"Unhandled status: {status}"}
-
+# NOTE: Persona/Onfido/Veriff inquiry-creation endpoints and webhooks
+# (/api/verification/start, /api/verification/{type}/{id}/status,
+# /api/verification/webhook/persona|onfido|veriff) were removed here — those
+# third-party providers are gone, superseded by Checkr (checkr_service.py) for
+# driver background checks. The manual-review workflow below is unaffected.
 
 @app.get("/api/verification/required-documents/{entity_type}")
 def get_required_documents(entity_type: str):
@@ -16690,10 +16191,6 @@ app.include_router(matchmaking_router)
 # Include Admin Accounting Module (Protected - Admin JWT required)
 from accounting_module import router as accounting_router
 app.include_router(accounting_router)
-
-# Include Document Verification Routes (Persona, Onfido, Veriff)
-from verification_routes import router as doc_verification_router
-app.include_router(doc_verification_router)
 
 # Include Investor Deck Tracking (Email-gated access + view logging)
 from investor_tracking import router as investor_router

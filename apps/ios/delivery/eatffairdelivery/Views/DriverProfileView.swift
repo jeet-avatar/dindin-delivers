@@ -80,13 +80,6 @@ struct DriverProfileView: View {
             } message: {
                 Text(viewModel.errorMessage)
             }
-            .sheet(isPresented: $viewModel.showVerificationWebView) {
-                if let urlString = viewModel.pendingVerificationUrl,
-                   let url = URL(string: urlString) {
-                    SafariView(url: url)
-                        .ignoresSafeArea()
-                }
-            }
         }
         .preferredColorScheme(.dark)
     }
