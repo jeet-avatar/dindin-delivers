@@ -515,46 +515,6 @@ export interface DriverProfile {
   approved_at?: string;
 }
 
-export interface AvailableDelivery {
-  id: number;
-  order_id: number;
-  restaurant_name: string;
-  restaurant_address: string;
-  customer_name: string;
-  delivery_address: string;
-  items_count: number;
-  total_amount: number;
-  delivery_fee: number;
-  tip: number;
-  distance_miles: number;
-  estimated_minutes: number;
-  priority_fee?: number;
-  created_at: string;
-}
-
-export interface ActiveDeliveryData {
-  id: number;
-  order_id: string;  // Order number
-  restaurant_name: string;
-  restaurant_address: string;
-  customer_name: string;
-  customer_phone?: string;
-  delivery_address: string;
-  items_count: number;
-  total_amount?: number;
-  payout: number;
-  delivery_fee?: number;  // Distance-based fee, 100% to driver
-  tip?: number;           // Customer tip, 100% to driver
-  distance: string;
-  estimated_time: string;
-  status: 'accepted' | 'picked_up' | 'delivering' | 'delivered';
-  // Location coordinates
-  pickup_latitude?: number;
-  pickup_longitude?: number;
-  dropoff_latitude?: number;
-  dropoff_longitude?: number;
-}
-
 export interface DriverDelivery {
   id: number;
   order_id: number;
@@ -674,26 +634,6 @@ export interface DriverMessage {
   avatar_initial: string;
 }
 
-export interface DriverDashboardData {
-  driver_name: string;
-  driver_id: number;
-  is_online: boolean;
-  rating: number;
-  active_delivery: ActiveDeliveryData | null;
-  pending_deliveries: AvailableDelivery[];
-  today_stats: {
-    deliveries: number;
-    earnings: number;
-    hours_online: number;
-    acceptance_rate: number;
-  };
-  weekly_stats: {
-    deliveries: { current: number; goal: number };
-    earnings: { current: number; goal: number };
-    hours: { current: number; goal: number };
-  };
-}
-
 // Get driver token from localStorage
 const getDriverToken = (): string | null => {
   return globalThis.localStorage.getItem('driver_token') || globalThis.localStorage.getItem('access_token');
@@ -748,15 +688,6 @@ export const driverRegister = async (driverData: {
   return response.data;
 };
 
-// Driver Dashboard
-export const getDriverDashboard = async (): Promise<DriverDashboardData> => {
-  const token = getDriverToken();
-  const response = await api.get('/driver/dashboard', {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-  return response.data;
-};
-
 // Driver Profile
 export const getDriverProfile = async (driverId: number): Promise<DriverProfile> => {
   const token = getDriverToken();
@@ -783,45 +714,6 @@ export const updateDriverOnlineStatus = async (isOnline: boolean) => {
   return response.data;
 };
 
-// Available Deliveries
-export const getAvailableDeliveries = async (): Promise<AvailableDelivery[]> => {
-  const token = getDriverToken();
-  const response = await api.get('/v2/driver/deliveries/available', {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-  // Backend returns {deliveries: [...], count: N}, extract the array
-  return response.data?.deliveries || response.data || [];
-};
-
-// Accept Delivery - uses order assign-driver endpoint
-export const acceptDelivery = async (orderId: number) => {
-  const token = getDriverToken();
-  const driverId = getCurrentDriverId();
-  const response = await api.post(`/erp/orders/${orderId}/assign-driver`,
-    { driver_id: driverId },
-    { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-  );
-  return response.data;
-};
-
-// Mark Delivery as Picked Up
-export const markDeliveryPickedUp = async (orderId: number) => {
-  const token = getDriverToken();
-  const response = await api.post(`/erp/orders/${orderId}/picked-up`, null, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-  return response.data;
-};
-
-// Complete Delivery
-export const completeDelivery = async (orderId: number) => {
-  const token = getDriverToken();
-  const response = await api.post(`/erp/orders/${orderId}/delivered`, null, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-  return response.data;
-};
-
 // Get Driver's Deliveries History
 export const getDriverDeliveries = async (driverId: number): Promise<DriverDelivery[]> => {
   const token = getDriverToken();
@@ -835,18 +727,6 @@ export const getDriverDeliveries = async (driverId: number): Promise<DriverDeliv
   }
 };
 
-// Get Active Delivery
-export const getActiveDelivery = async (): Promise<ActiveDeliveryData | null> => {
-  const token = getDriverToken();
-  try {
-    const response = await api.get('/driver/active-delivery', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    });
-    return response.data;
-  } catch {
-    return null;
-  }
-};
 
 // Driver Earnings
 // Default empty earnings period
@@ -953,113 +833,6 @@ export const uploadDriverDocument = async (driverId: number, formData: FormData)
       'Content-Type': 'multipart/form-data',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     }
-  });
-  return response.data;
-};
-
-// ===================== CHAT API =====================
-
-export interface ChatMessage {
-  id: number;
-  sender_type: 'customer' | 'driver' | 'system';
-  sender_id: number;
-  sender_name?: string;
-  message: string;
-  message_type: string;
-  attachments?: string;
-  is_read: boolean;
-  is_delivered: boolean;
-  created_at: string;
-}
-
-export interface ChatConversation {
-  id: number;
-  order_id: number;
-  customer_id: number;
-  customer_name?: string;
-  driver_id?: number;
-  driver_name?: string;
-  is_active: boolean;
-  last_message_at?: string;
-  last_message_preview?: string;
-  customer_unread_count: number;
-  driver_unread_count: number;
-  customer_typing: boolean;
-  driver_typing: boolean;
-}
-
-// Send a chat message
-export const sendChatMessage = async (
-  orderId: number,
-  senderType: 'customer' | 'driver',
-  senderId: number,
-  message: string,
-  senderName?: string
-) => {
-  const response = await api.post('/chat/send', {
-    order_id: orderId,
-    sender_type: senderType,
-    sender_id: senderId,
-    sender_name: senderName,
-    message: message,
-    message_type: 'text'
-  });
-  return response.data;
-};
-
-// Get chat messages for an order
-export const getChatMessages = async (orderId: number, limit = 50, offset = 0) => {
-  const response = await api.get(`/chat/messages/${orderId}`, {
-    params: { limit, offset }
-  });
-  return response.data;
-};
-
-// Mark messages as read
-export const markMessagesRead = async (
-  orderId: number,
-  readerType: 'customer' | 'driver',
-  readerId: number
-) => {
-  const response = await api.post(`/chat/read/${orderId}`, null, {
-    params: { reader_type: readerType, reader_id: readerId }
-  });
-  return response.data;
-};
-
-// Update typing indicator
-export const updateTypingIndicator = async (
-  orderId: number,
-  senderType: 'customer' | 'driver',
-  senderId: number,
-  isTyping: boolean
-) => {
-  const response = await api.post(`/chat/typing/${orderId}`, {
-    sender_type: senderType,
-    sender_id: senderId,
-    is_typing: isTyping
-  });
-  return response.data;
-};
-
-// Get conversation info for an order
-export const getChatConversation = async (orderId: number) => {
-  const response = await api.get(`/chat/conversation/${orderId}`);
-  return response.data;
-};
-
-// Get driver's conversations list
-export const getDriverConversations = async (driverId: number, activeOnly = true) => {
-  const response = await api.get(`/chat/driver/${driverId}/conversations`, {
-    params: { active_only: activeOnly }
-  });
-  return response.data;
-};
-
-// Get customer's conversations list
-export const getCustomerConversations = async (customerId: number, activeOnly = true) => {
-  const response = await api.get(`/chat/customer/${customerId}/conversations`, {
-    params: { active_only: activeOnly }
   });
   return response.data;
 };

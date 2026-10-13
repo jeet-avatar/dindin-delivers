@@ -235,21 +235,14 @@ const Checkout: React.FC = () => {
               <div>
                 <Paragraph>Order Number: <Text strong>{orderId}</Text></Paragraph>
                 <Paragraph type="secondary">
-                  Your order is being prepared. You can track it in real-time.
+                  Your order is being prepared.
                 </Paragraph>
               </div>
             }
             extra={[
               <Button
-                type="primary"
-                key="track"
-                size="large"
-                onClick={() => navigate('/customer/order-tracking')}
-              >
-                Track Order
-              </Button>,
-              <Button
                 key="home"
+                type="primary"
                 size="large"
                 onClick={() => navigate('/customer/dashboard')}
               >

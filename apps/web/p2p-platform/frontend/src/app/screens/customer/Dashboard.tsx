@@ -281,7 +281,7 @@ const CustomerDashboard: React.FC = () => {
             <span>Recent Rides</span>
           </div>
         }
-        extra={<Button type="link" onClick={() => navigate('/customer/history')}>View All</Button>}
+        extra={<Button type="link" onClick={() => navigate('/customer/dashboard')}>View All</Button>}
         style={{ marginTop: 24 }}
       >
         {recentRides.length > 0 ? (

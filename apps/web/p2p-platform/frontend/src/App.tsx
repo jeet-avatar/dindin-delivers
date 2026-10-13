@@ -58,7 +58,6 @@ import Restaurants from './app/screens/customer/Restaurants';
 import RestaurantDetail from './app/screens/customer/RestaurantDetail';
 import Cart from './app/screens/customer/Cart';
 import Checkout from './app/screens/customer/Checkout';
-import OrderTracking from './app/screens/customer/OrderTracking';
 import RideBooking from './app/screens/customer/RideBooking';
 import DealsPage from './app/screens/customer/DealsPage';
 
@@ -77,8 +76,6 @@ import VendorPaymentSettings from './app/screens/vendor/PaymentSettings';
 // Driver Pages
 import DriverLogin from './app/screens/auth/DriverLogin';
 import DriverLayout from './app/components/layout/DriverLayout';
-import AvailableOrders from './app/screens/driver/AvailableOrders';
-import ActiveDelivery from './app/screens/driver/ActiveDelivery';
 import DriverDeliveries from './app/screens/driver/Deliveries';
 import DriverMessages from './app/screens/driver/Messages';
 import DriverProfile from './app/screens/driver/Profile';
@@ -180,8 +177,6 @@ function App() {
         <Route path="/customer/restaurant/:id" element={<RestaurantDetail />} />
         <Route path="/customer/cart" element={<Cart />} />
         <Route path="/customer/checkout" element={<Checkout />} />
-        <Route path="/customer/order/:orderId" element={<OrderTracking />} />
-        <Route path="/customer/order-tracking" element={<OrderTracking />} />
         <Route path="/customer/rides" element={<RideBooking />} />
         <Route path="/customer/ride" element={<RideBooking />} />
         <Route path="/customer/ride-bids" element={<RideBidsWrapper />} />
@@ -199,7 +194,6 @@ function App() {
         <Route path="/customer/terms" element={<TermsOfService />} />
         <Route path="/customer/help" element={<HelpSupport />} />
         <Route path="/customer/refer" element={<ReferAndEarn />} />
-        <Route path="/customer/history" element={<OrderTracking />} />
 
         {/* Vendor Routes - Aligned with iOS EnhancedDashboardView tabs */}
         <Route path="/vendor/login" element={<VendorLogin />} />
@@ -219,10 +213,8 @@ function App() {
         {/* Driver Routes - Aligned with iOS DriverDashboardView tabs */}
         <Route path="/driver/login" element={<DriverLogin />} />
         <Route path="/driver" element={<DriverLayout />}>
-          <Route index element={<AvailableOrders />} />
-          <Route path="orders" element={<AvailableOrders />} />
+          <Route index element={<RideBidding />} />
           <Route path="bidding" element={<RideBidding />} />
-          <Route path="active" element={<ActiveDelivery />} />
           <Route path="history" element={<DriverDeliveries />} />
           <Route path="messages" element={<DriverMessages />} />
           <Route path="profile" element={<DriverProfile />} />

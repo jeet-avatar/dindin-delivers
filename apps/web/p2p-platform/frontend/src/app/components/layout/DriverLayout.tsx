@@ -56,19 +56,9 @@ const DriverLayout: React.FC = () => {
    */
   const menuItems = [
     {
-      key: '/driver/orders',
-      icon: <CarOutlined />,
-      label: 'Orders',
-    },
-    {
       key: '/driver/bidding',
       icon: <DollarOutlined />,
       label: 'Ride Bids',
-    },
-    {
-      key: '/driver/active',
-      icon: <EnvironmentOutlined />,
-      label: 'Active',
     },
     {
       key: '/driver/history',
