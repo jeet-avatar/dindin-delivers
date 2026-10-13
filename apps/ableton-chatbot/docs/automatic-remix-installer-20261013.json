@@ -1,0 +1,19 @@
+{
+  "version": "1.3.20",
+  "sha256": "50202b70f193c51ec904dae5d692e53f99850cd9ab814c69e9274be47ed8e5cc",
+  "real_install": "passed",
+  "signature_and_gatekeeper": "passed",
+  "bundled_extensions_match_source": [
+    "beatmind_arrangement_audio.py",
+    "beatmind_automation.py",
+    "beatmind_master.py",
+    "beatmind_mixer.py",
+    "beatmind_remix.py",
+    "beatmind_samples.py",
+    "beatmind_sidechain.py",
+    "beatmind_stems.py"
+  ],
+  "frozen_remix_import_capability": true,
+  "launched_app": false,
+  "ableton_acceptance": "not_tested"
+}
