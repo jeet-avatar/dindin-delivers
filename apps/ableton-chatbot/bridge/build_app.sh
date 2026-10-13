@@ -56,6 +56,7 @@ xcrun swiftc native/Capture.swift -parse-as-library -O -target arm64-apple-macos
 codesign --force --options runtime --timestamp --sign "$SIGNING_ID" "$HELPER"
 codesign --force --options runtime --timestamp --entitlements entitlements.plist --sign "$SIGNING_ID" "$APP"
 codesign --verify --deep --strict "$APP"
+BEATMIND_MODELS_DIR="$WORK/models" "$APP/Contents/MacOS/BeatMind Bridge" --model-check
 # Separation smoke test inside the signed bundle: real models, a generated tone, no network credentials.
 "$WORK/venv/bin/python" - "$APP" "$WORK/separation-check" <<'PY'
 import json, math, subprocess, sys, wave, struct
@@ -68,11 +69,13 @@ with wave.open(str(work / 'tone.wav'), 'wb') as out:
                              for i in range(44100 * 8)))
 (work / 'meta.json').write_text(json.dumps({'id': 'check', 'name': 'tone.wav', 'source_file': str(work / 'tone.wav')}))
 worker = subprocess.run([str(app / 'Contents/MacOS/BeatMind Bridge'), '--separate', str(work)], check=True, timeout=1800, capture_output=True, text=True,
-               env={'DEMUCS_MODEL': 'htdemucs', 'DEMUCS_DEVICE': 'cpu', 'BEATMIND_DECODER': 'afconvert', 'HOME': str(Path.home())})
+               env={'DEMUCS_MODEL': 'htdemucs', 'DEMUCS_DEVICE': 'cpu', 'BEATMIND_DECODER': 'afconvert', 'HOME': str(Path.home()),
+                    'BEATMIND_DRUMSEP_CHECKPOINT': str(work.parent / 'models/drumsep-49469ca8.th')})
 print(worker.stdout, worker.stderr)
 assert 'Starting Ableton Chat Bridge' not in worker.stdout + worker.stderr, 'Audio worker unexpectedly started the Bridge UI'
 report = json.loads((work / 'report.json').read_text())
 assert report['stem_health']['checks_passed'], report['stem_health']
+assert {'kick', 'snare', 'toms', 'cymbals'}.issubset({s['name'] for s in report['stems']}), 'Detailed drum stems missing'
 print('Packaged separation check passed:', [s['name'] for s in report['stems']])
 PY
 "$APP/Contents/MacOS/BeatMind Bridge" --network-check "$WORK/network-check.json"

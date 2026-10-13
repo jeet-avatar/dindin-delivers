@@ -3,6 +3,9 @@
     "version": "1.3.20",
     "date": "2026-10-13",
     "notes": [
+      "Local reference separation uses the bundled trusted certificates to download its model securely.",
+      "File-window permission failures are shown as errors instead of being mistaken for cancellation.",
+      "Clip previews allow Ableton time to start playback without firing the clip again.",
       "Connection recovery waits for interrupted operations to finish cleanup without replaying music commands.",
       "Long operations keep the connection responsive, and larger audio imports no longer exceed the previous message limit.",
       "Temporary connection failures retry with backoff while preserving your saved sign-in.",
