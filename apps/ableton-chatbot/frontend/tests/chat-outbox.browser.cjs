@@ -58,7 +58,7 @@ const server = http.createServer((req, res) => {
       };
       const send = async text => { await page.locator('#chat-input').fill(text); await page.locator('#chat-input').press('Enter'); };
       const stored = () => page.evaluate(key => JSON.parse(localStorage.getItem(key)), queueKey);
-      await page.goto(`http://127.0.0.1:${server.address().port}/dashboard`);
+      await page.goto(`${process.env.BEATMIND_TEST_SITE_URL || `http://127.0.0.1:${server.address().port}`}/dashboard`);
       await openChat();
       await send('Build minimal techno at 124 BPM');
       await send('Keep bass dry, change tempo to 123 BPM');
