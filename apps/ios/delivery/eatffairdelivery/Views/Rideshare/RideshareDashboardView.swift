@@ -68,7 +68,9 @@ struct RideshareDashboardView: View {
                     // Content
                     TabView(selection: $selectedTab) {
                         // Available Requests Tab
-                        AvailableRequestsContent(viewModel: viewModel)
+                        AvailableRequestsContent(viewModel: viewModel, onBidSubmitted: {
+                            selectedTab = .myBids
+                        })
                             .tag(RideshareTab.available)
 
                         // My Bids Tab
@@ -270,6 +272,7 @@ struct RideshareDashboardView: View {
 
 struct AvailableRequestsContent: View {
     @ObservedObject var viewModel: RideBiddingViewModel
+    var onBidSubmitted: (() -> Void)? = nil
     @StateObject private var locationManager = LocationManager.shared
     @State private var selectedRequest: RideRequestForBidding?
     @State private var showBidSheet = false
@@ -288,6 +291,7 @@ struct AvailableRequestsContent: View {
             if let request = selectedRequest {
                 SubmitBidSheet(request: request, viewModel: viewModel) {
                     showBidSheet = false
+                    onBidSubmitted?()
                 }
             }
         }
