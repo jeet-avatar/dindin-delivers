@@ -719,14 +719,16 @@ struct RideBottomSheet: View {
             // Action Buttons
             VStack(spacing: 12) {
                 // Find Driver with Suggested Offer
-                Button(action: { if viewModel.canRequestRide { onRequestRide() } }) {
+                Button(action: { if viewModel.canRequestRide && !viewModel.isLoading { onRequestRide() } }) {
                     HStack(spacing: 8) {
-                        if viewModel.isEstimatingFare {
+                        if viewModel.isEstimatingFare || viewModel.isLoading {
                             ProgressView()
                                 .tint(.white)
                                 .scaleEffect(0.85)
                         }
-                        Text(viewModel.isEstimatingFare
+                        Text(viewModel.isLoading
+                             ? "Checking payment…"
+                             : viewModel.isEstimatingFare
                              ? "Estimating fare…"
                              : "Find Driver • $\(String(format: "%.2f", viewModel.estimatedFare))")
                             .font(.system(size: 17, weight: .bold))
@@ -735,16 +737,16 @@ struct RideBottomSheet: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
                     .background(
-                        viewModel.canRequestRide
+                        (viewModel.canRequestRide && !viewModel.isLoading)
                         ? AnyView(LinearGradient(colors: [Color(hex: "FF9A3D"), Color(hex: "FF7A1A")],
                                                  startPoint: .top, endPoint: .bottom))
                         : AnyView(Color.gray.opacity(0.4))
                     )
                     .cornerRadius(14)
-                    .shadow(color: viewModel.canRequestRide ? Color(hex: "FF7A1A").opacity(0.4) : .clear,
+                    .shadow(color: (viewModel.canRequestRide && !viewModel.isLoading) ? Color(hex: "FF7A1A").opacity(0.4) : .clear,
                             radius: 14, y: 6)
                 }
-                .disabled(!viewModel.canRequestRide)
+                .disabled(!viewModel.canRequestRide || viewModel.isLoading)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 8)
 

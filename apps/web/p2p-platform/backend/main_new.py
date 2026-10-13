@@ -4402,6 +4402,18 @@ def update_driver_profile_by_id(
     if license_number is not None:
         driver.license_number = license_number
 
+    # Update expiry dates (from DriverProfileUpdate body only)
+    if body and body.license_expiry:
+        try:
+            driver.drivers_license_expiry = datetime.fromisoformat(body.license_expiry.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            pass
+    if body and body.insurance_expiry:
+        try:
+            driver.insurance_expiry = datetime.fromisoformat(body.insurance_expiry.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            pass
+
     # Update photo URLs
     if photo_url is not None:
         driver.photo_url = photo_url

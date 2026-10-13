@@ -404,35 +404,51 @@ struct StripeAddCardView: View {
         isProcessingCard = true
         errorMessage = nil
 
-        STPAPIClient.shared.createPaymentMethod(with: params) { paymentMethod, error in
-            if let error = error {
+        // Fetch publishable key from backend first (also creates Stripe customer if needed).
+        // STPAPIClient requires publishableKey before any card tokenization call.
+        apiService.createSetupIntent(customerId: customerId) { [self] keyResult in
+            switch keyResult {
+            case .failure(let error):
                 DispatchQueue.main.async {
                     self.isProcessingCard = false
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = "Could not prepare payment setup. Please try again."
+                    logger.error("[AddCard] setupIntent error: \(error.localizedDescription)")
                 }
-                return
-            }
-            guard let paymentMethod = paymentMethod else {
-                DispatchQueue.main.async {
-                    self.isProcessingCard = false
-                    self.errorMessage = "Could not process your card. Please try again."
+            case .success(let setup):
+                if !setup.publishableKey.isEmpty {
+                    STPAPIClient.shared.publishableKey = setup.publishableKey
                 }
-                return
-            }
-            apiService.attachPaymentMethod(customerId: customerId, paymentMethodId: paymentMethod.stripeId) { result in
-                DispatchQueue.main.async {
-                    self.isProcessingCard = false
-                    switch result {
-                    case .success(let card):
-                        self.onCardAdded(card)
-                    case .failure(let error):
-                        let errMsg = error.localizedDescription.lowercased()
-                        if errMsg.contains("invalid") || errMsg.contains("declined") {
-                            self.errorMessage = "Card was declined. Please check card details."
-                        } else if errMsg.contains("duplicate") || errMsg.contains("exists") {
-                            self.errorMessage = "This card is already saved."
-                        } else {
-                            self.errorMessage = "Unable to add card. Please try again."
+                STPAPIClient.shared.createPaymentMethod(with: params) { paymentMethod, error in
+                    if let error = error {
+                        DispatchQueue.main.async {
+                            self.isProcessingCard = false
+                            self.errorMessage = error.localizedDescription
+                        }
+                        return
+                    }
+                    guard let paymentMethod = paymentMethod else {
+                        DispatchQueue.main.async {
+                            self.isProcessingCard = false
+                            self.errorMessage = "Could not process your card. Please try again."
+                        }
+                        return
+                    }
+                    self.apiService.attachPaymentMethod(customerId: customerId, paymentMethodId: paymentMethod.stripeId) { result in
+                        DispatchQueue.main.async {
+                            self.isProcessingCard = false
+                            switch result {
+                            case .success(let card):
+                                self.onCardAdded(card)
+                            case .failure(let error):
+                                let errMsg = error.localizedDescription.lowercased()
+                                if errMsg.contains("invalid") || errMsg.contains("declined") {
+                                    self.errorMessage = "Card was declined. Please check card details."
+                                } else if errMsg.contains("duplicate") || errMsg.contains("exists") {
+                                    self.errorMessage = "This card is already saved."
+                                } else {
+                                    self.errorMessage = "Unable to add card. Please try again."
+                                }
+                            }
                         }
                     }
                 }
