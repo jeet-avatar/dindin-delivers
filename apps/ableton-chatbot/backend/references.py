@@ -30,7 +30,7 @@ import reference_timing
 import sound_comparison
 import recordings
 from file_lock import Lease, Busy
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 from reference_limits import MAX_BYTES, MIN_SECONDS, MAX_SECONDS, UPLOAD_TIMEOUT_SECONDS
 import stems as stem_sets
 
@@ -51,6 +51,30 @@ CLOUD_STAGES = {'SUBMITTED': 'Queued for a BeatMind GPU', 'PENDING': 'Queued for
                 'RUNNING': 'Separating on a BeatMind GPU: highest quality with detailed drums'}
 _cloud_checked = {}
 LOCAL_ONLY = 'Audio for this reference stays on your computer. Open its stems folder or place the stems in Ableton to listen.'
+
+
+class SourceUse(BaseModel):
+    rights_confirmed: StrictBool = False
+    intended_use: Literal['private', 'publication']
+
+
+def require_source_use(consent):
+    if consent is None or not consent.rights_confirmed:
+        raise HTTPException(400, 'Confirm you have the rights needed to reuse this recording and composition for your intended use. Upload permission alone is not enough.')
+
+
+def record_source_use(directory, item, consent, action, stems=None):
+    require_source_use(consent)
+    receipts = directory / 'source-use'
+    receipts.mkdir(exist_ok=True, mode=0o700)
+    # An attestation records the user's decision, not a determination of legal clearance.
+    write_json(receipts / (uuid.uuid4().hex + '.json'), {
+        'version': '2026-10-13', 'reference_id': item['id'], 'user_id': item['user_id'],
+        'source_name': item['name'], 'source_created_at': item['created_at'],
+        'confirmed_at': datetime.now(timezone.utc).isoformat(),
+        'rights_confirmed': True, 'intended_use': consent.intended_use,
+        'action': action, 'stems': stems, 'legal_clearance_verified': False,
+    })
 
 
 def operation_lease():
@@ -904,9 +928,14 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         if directory.is_dir():
             write_json(directory / 'meta.json', item)
 
+    class LocalSeparationRequest(BaseModel):
+        rights: StrictBool = False
+
     @router.post('/local', status_code=202)
-    async def separate_locally(user=Depends(require_subscription)):
+    async def separate_locally(request: LocalSeparationRequest | None = None, user=Depends(require_subscription)):
         from security import rate_limit
+        if request is None or not request.rights:
+            raise HTTPException(400, 'Confirm you have permission to separate and analyze the audio you choose.')
         bridge = local_bridge(user)
         require_credits(user['id'], 'local')
         if sum(item.get('storage') == 'local' for item in (await listing(user))['references']) >= MAX_LOCAL_REFERENCES:
@@ -918,7 +947,8 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         directory = ROOT / reference_id
         directory.mkdir(parents=True, mode=0o700)
         item = {'id': reference_id, 'user_id': user['id'], 'name': 'Choosing a file', 'storage': 'local',
-                'created_at': datetime.now(timezone.utc).isoformat(), 'status': 'choosing'}
+                'created_at': datetime.now(timezone.utc).isoformat(), 'status': 'choosing',
+                'analysis_rights_confirmed_at': datetime.now(timezone.utc).isoformat()}
         write_json(directory / 'meta.json', item)
         # Respond now: the load balancer closes requests idle for 60 seconds, and choosing a file can take longer.
         task = asyncio.create_task(await_file_choice(bridge, directory, item))
@@ -929,7 +959,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     class CloudUpload(BaseModel):
         name: str = Field(min_length=1, max_length=200)
         bytes: int = Field(gt=0)
-        rights: bool = False
+        rights: StrictBool = False
 
     @router.post('/cloud', status_code=201)
     async def cloud_upload(request: CloudUpload, user=Depends(require_subscription)):
@@ -981,13 +1011,18 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
 
     class LocalOpen(BaseModel):
         action: Literal['finder', 'ableton']
+        source_use: SourceUse | None = None
 
     @router.post('/{reference_id}/local-open')
     async def open_locally(reference_id: str, request: LocalOpen, user=Depends(require_subscription)):
         directory, item = owned(reference_id, user['id'])
         if item.get('storage') != 'local' or item['status'] != 'ready':
             raise HTTPException(409, 'This reference has no finished stems on your computer.')
+        if request.action == 'ableton':
+            require_source_use(request.source_use)
         bridge = local_bridge(user)
+        if request.action == 'ableton':
+            record_source_use(directory, item, request.source_use, 'local-open')
         result = await bridge.local_operation('local_reference_open',
                                               {'reference_id': reference_id, 'action': request.action}, timeout=60)
         if result.get('status') not in ('opened', 'verified'):
@@ -1007,6 +1042,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
 
     class ImportRequest(BaseModel):
         stems: list[str] | None = None
+        source_use: SourceUse | None = None
 
     # Placing stems can outlast the load balancer's idle timeout, so it runs in the background and is polled.
     IMPORTS: dict[str, dict] = {}
@@ -1019,6 +1055,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     @router.post('/{reference_id}/import-to-ableton', status_code=202)
     async def import_to_ableton(reference_id: str, request: ImportRequest | None = None, user=Depends(require_subscription)):
         directory, item = owned(reference_id, user['id'])
+        require_source_use(request.source_use if request else None)
         if IMPORTS.get(reference_id, {}).get('status') == 'importing':
             return IMPORTS[reference_id]
         if item['status'] != 'ready':
@@ -1039,6 +1076,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         bridge = bridge_for(user['id'], LOCAL_CAPABILITY if local else IMPORT_CAPABILITY)
         if not bridge:
             raise HTTPException(409, 'Open the BeatMind Bridge on your computer to place stems in Ableton.')
+        record_source_use(directory, item, request.source_use, 'import-to-ableton', names)
         if local:
             operation = bridge.local_operation('local_reference_open',
                                                {'reference_id': reference_id, 'action': 'ableton', 'stems': names}, timeout=60)

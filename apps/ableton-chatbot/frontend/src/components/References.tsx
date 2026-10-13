@@ -22,6 +22,7 @@ import TrackCredits from "./TrackCredits";
 import { uploadToCloud } from "@/lib/cloud-upload";
 import ReferenceWorkflow from "./ReferenceWorkflow";
 import { DeleteReferenceDialog } from "./DeleteReferenceDialog";
+import SourceUseDialog, { type SourceUse } from "./SourceUseDialog";
 
 type Report = {
   duration_seconds: number;
@@ -200,6 +201,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importNotice, setImportNotice] = useState("");
+  const [pendingImport, setPendingImport] = useState<{ id: string; name: string; stems?: string[] } | null>(null);
   const [rights, setRights] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -216,7 +218,6 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [deleting, setDeleting] = useState(false);
   // Hitting the upload limit should show what can be deleted, not leave the list hidden.
   useEffect(() => { if (error.includes("Delete an older reference")) setShowSaved(true); }, [error]);
-  const autoLoadedRef = useRef<Set<string>>(new Set());
   const [stage, setStage] = useState(guided ? "listening" : "stems");
   const pollDelay = useRef(4000);
   useEffect(() => {
@@ -235,10 +236,10 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     } catch (error) { setError(error instanceof Error ? error.message : "Could not attach this reference to the song."); }
     finally { setBusy(false); }
   }
-  async function importToAbleton(id: string, stems?: string[]) {
+  async function importToAbleton(id: string, sourceUse: SourceUse, stems?: string[]) {
     setImporting(true); setImportNotice(""); setError("");
     try {
-      const body = stems?.length ? JSON.stringify({ stems }) : undefined;
+      const body = JSON.stringify({ stems, source_use: sourceUse });
       const res = await apiFetch(`/api/references/${id}/import-to-ableton`, { method: "POST", body });
       let result = await res.json();
       if (!res.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Could not place stems in Ableton.");
@@ -294,26 +295,6 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     void poll();
     return () => { controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", visible); };
   }, [refresh]);
-
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (!items.length) return;
-    if (!initialLoadDone.current) {
-      items.forEach(ref => { if (ref.status === "ready") autoLoadedRef.current.add(ref.id); });
-      initialLoadDone.current = true;
-      return;
-    }
-    for (const ref of items) {
-      if (ref.status === "ready" && !autoLoadedRef.current.has(ref.id)) {
-        autoLoadedRef.current.add(ref.id);
-        if (ref.storage === "local") {
-          void apiFetch(`/api/references/${ref.id}/local-open`, { method: "POST", body: JSON.stringify({ action: "ableton" }) }).catch(() => {});
-        } else {
-          void importToAbleton(ref.id);
-        }
-      }
-    }
-  }, [items]);
 
   async function chooseFile(next: File | null) {
     if (!next) return;
@@ -478,10 +459,10 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
             </dl>
             {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh}
-              onPlaced={chatBusy ? undefined : () => onUse(item.id, true)} />}
-            {item.storage !== "local" && <StemPicker id={item.id} stems={reviewStems(item.report)} cue={cue}
+              disabled={chatBusy || busy || importing} onImport={() => setPendingImport({ id: item.id, name: item.name })} />}
+            {item.storage !== "local" && <StemPicker key={item.id} id={item.id} stems={reviewStems(item.report)} cue={cue}
               importing={importing} disabled={chatBusy || busy} bridgeConnected={bridgeConnected} liveSet={bridgeLiveSet}
-              onImport={stems => void importToAbleton(item.id, stems)} />}
+              onImport={stems => setPendingImport({ id: item.id, name: item.name, stems })} />}
             {importNotice && <p role="status" className="text-sm text-emerald-200">{importNotice}</p>}
             {abletonSet && <div aria-label="Ableton set for this song" className="flex flex-wrap items-center gap-3 rounded border border-neutral-700 p-3 text-xs">
               {abletonSet}
@@ -510,7 +491,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
                 : <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} stems={audioStems(item.report)} />)}
               <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
                 <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}
-                  refresh={refresh} onUse={() => void importToAbleton(item.id)} chatBusy={chatBusy || importing} onApproved={onTemplateApproved}
+                  refresh={refresh} onUse={() => setPendingImport({ id: item.id, name: item.name })} chatBusy={chatBusy || importing} onApproved={onTemplateApproved}
                   onSaved={template => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, template } : reference))}
                   onCompare={() => setStage("compare")} /> :
                 <p role="status" className="text-sm text-amber-200">Stem review and timing confirmation required.</p>}</div>
@@ -531,6 +512,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
         </button>
       </div>}
     </div>
+    {pendingImport && <SourceUseDialog key={pendingImport.id} name={pendingImport.name} onCancel={() => setPendingImport(null)}
+      onConfirm={consent => { const request = pendingImport; setPendingImport(null); void importToAbleton(request.id, consent, request.stems); }} />}
     {pendingDelete && <DeleteReferenceDialog name={pendingDelete.name} local={pendingDelete.storage === "local"} busy={deleting}
       onCancel={() => setPendingDelete(null)} onConfirm={() => void remove(pendingDelete.id)} />}
   </section>;

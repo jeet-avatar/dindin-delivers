@@ -1,8 +1,8 @@
 {
   "date": "2026-10-13",
-  "status": "held_by_user_until_remix_ready",
+  "status": "blocked_by_unmet_release_gates",
   "published": false,
-  "user_confirmation": "Keep release held until remix is ready",
+  "user_confirmation": "Latest request: deploy the code with legal safeguards. Earlier instruction: keep remix and connection changes in one release. No private reference audio may be published.",
   "implemented_candidate_features": [
     "Connection recovery without automatic replay of interrupted music writes",
     "Durable account-scoped instruction queue and structured long briefs",
@@ -15,14 +15,18 @@
     "Automation validates replacement points before clearing existing envelopes and checks written values",
     "Installer bundles extensions; registered existing Ableton integrations update with local backups and a restart notice",
     "Frontend deployment uses the build artifact that passed CI rather than rebuilding it",
-    "Frontend dependencies updated within existing major versions with a PostCSS security override"
+    "Frontend dependencies updated within existing major versions with a PostCSS security override",
+    "Explicit per-import source-use confirmation, account/reference-bound receipts and separate local analysis permission",
+    "Removed automatic stem imports after separation; rights confirmation resets when intended use changes",
+    "Terms no longer promise ownership of third-party or all AI output; privacy discloses confirmation records"
   ],
   "validation": {
-    "backend_sqlite": "571 passed; 42 arrangement tests rerun after model-payload backup redaction",
+    "backend_sqlite": "575 passed after source-use guards; 3 audio library deprecation warnings",
     "bridge": "78 passed",
     "frontend_unit_files": "21 passed",
     "frontend_build": "passed with Next.js 15.5.27",
     "npm_audit": "zero known vulnerabilities after clean npm ci",
+    "source_use_browser": "Local and cloud imports passed at 1440px and 390px: no automatic import, unchecked consent, reset on changed use/cancel, focus restoration, scoped payload and visible server errors",
     "browser_mocked_api": "Arrangement approval, scoped revision approval and durable outbox passed at 1440px and 390px; screenshots inspected",
     "native_ableton": "Disposable project copy: one drop kick clip revised, 87 other clips unchanged, all section positions verified, actual section audio captured with pending review",
     "native_audio": {"seconds": 8.52, "peak_dbfs": -10.499, "rms_dbfs": -25.762, "has_signal": true},
@@ -39,5 +43,16 @@
     "Validate clean-machine setup, existing-client automatic update, signed package contents and installed extension activation",
     "Run PostgreSQL CI and final production smoke tests only when the hold is lifted"
   ],
+  "legal_review": {
+    "complete_legal_compliance_certified": false,
+    "source_use_confirmation_is_not_license_verification": true,
+    "private_remix_demo_is_not_product_end_to_end_validation": true,
+    "third_party_notices_bundled_by_build_script": true,
+    "remaining": [
+      "Review final installer contents against exact dependency and model licences, not just the existing notices file",
+      "Legal counsel review of terms, privacy, rights handling and jurisdiction-specific obligations before representing comprehensive legal clearance"
+    ],
+    "copyright_reference": "https://www.copyright.gov/engage/musicians/"
+  },
   "privacy": "Reference songs, produced songs, recordings and local QA media are not part of the release or Git changes."
 }

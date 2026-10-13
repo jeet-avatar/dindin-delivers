@@ -16,6 +16,7 @@ DETAILED = ['drums', 'bass', 'vocals', 'other', 'kick', 'snare', 'toms', 'cymbal
 REPORT = {'stems': [{'name': n, 'rms_dbfs': -20} for n in DETAILED], 'duration_seconds': 40.0,
           'tempo': {'bpm': 123}, 'stem_health': {'checks_passed': True, 'stems': {}}, 'key_candidates': []}
 USER = {'x-user': '1'}
+SOURCE_USE = {'rights_confirmed': True, 'intended_use': 'private'}
 
 
 class FakeBridge:
@@ -45,7 +46,7 @@ class LocalReferenceTests(unittest.TestCase):
     def start(self, reply={'status': 'started', 'name': 'Track.mp3', 'bytes': 1000, 'folder': '/Users/x/Music/BeatMind Stems/Track - 1'}):
         """Start a local separation and wait until the file choice resolves. Returns the reference id or None."""
         self.bridge = FakeBridge(reply)
-        response = self.client.post('/api/references/local', headers=USER)
+        response = self.client.post('/api/references/local', headers=USER, json={'rights': True})
         self.assertEqual(response.status_code, 202, response.text)
         self.assertEqual(response.json()['status'], 'choosing')
         reference_id = response.json()['id']
@@ -62,7 +63,7 @@ class LocalReferenceTests(unittest.TestCase):
         return items[0]
 
     def test_requires_a_bridge_with_local_separation(self):
-        response = self.client.post('/api/references/local', headers=USER)
+        response = self.client.post('/api/references/local', headers=USER, json={'rights': True})
         self.assertEqual(response.status_code, 409)
         self.assertIn('BeatMind Bridge', response.json()['detail'])
         self.assertFalse(self.client.get('/api/references', headers=USER).json()['local_separation']['available'])
@@ -93,8 +94,8 @@ class LocalReferenceTests(unittest.TestCase):
                 await waiting.wait()
                 return {'status': 'cancelled'}
         self.bridge = Blocked(None)
-        self.assertEqual(self.client.post('/api/references/local', headers=USER).status_code, 202)
-        second = self.client.post('/api/references/local', headers=USER)
+        self.assertEqual(self.client.post('/api/references/local', headers=USER, json={'rights': True}).status_code, 202)
+        second = self.client.post('/api/references/local', headers=USER, json={'rights': True})
         self.assertEqual(second.status_code, 409)
         self.assertIn('already open', second.json()['detail'])
         self.client.portal.call(waiting.set)
@@ -152,14 +153,14 @@ class LocalReferenceTests(unittest.TestCase):
         self.bridge = FakeBridge(lambda operation, payload: {'status': 'observed', 'title': 'Night Drive'} if operation == 'live_set'
                                  else {'status': 'verified' if payload['action'] == 'ableton' else 'opened', 'tracks': ['Ref bass']})
         for action in ('finder', 'ableton'):
-            response = self.client.post(f'/api/references/{reference_id}/local-open', json={'action': action}, headers=USER)
+            response = self.client.post(f'/api/references/{reference_id}/local-open', json={'action': action, 'source_use': SOURCE_USE}, headers=USER)
             self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['live_set'], 'Night Drive')
         self.assertEqual([c[1].get('action', c[0]) for c in self.bridge.calls], ['finder', 'ableton', 'live_set'])
         placed = references.placement(self.root / reference_id)
         self.assertEqual((placed['title'], placed['tracks']), ('Night Drive', ['Ref bass']))
         self.bridge = FakeBridge({'status': 'failed', 'error': 'Placing stems needs Ableton Live 12.'})
-        response = self.client.post(f'/api/references/{reference_id}/local-open', json={'action': 'ableton'}, headers=USER)
+        response = self.client.post(f'/api/references/{reference_id}/local-open', json={'action': 'ableton', 'source_use': SOURCE_USE}, headers=USER)
         self.assertEqual((response.status_code, response.json()['detail']), (409, 'Placing stems needs Ableton Live 12.'))
         self.assertEqual(self.client.post(f'/api/references/{reference_id}/local-open', json={'action': 'shell'}, headers=USER).status_code, 422)
 
@@ -201,12 +202,28 @@ class LocalReferenceTests(unittest.TestCase):
         with patch.dict(os.environ, {'BEATMIND_INCLUDED_TRACKS': '1', 'BEATMIND_PACKS': ''}):
             first = self.start()
             self.bridge = FakeBridge({'status': 'started', 'name': 'b.mp3', 'bytes': 1, 'folder': '/f'})
-            response = self.client.post('/api/references/local', headers=USER)
+            response = self.client.post('/api/references/local', headers=USER, json={'rights': True})
             self.assertEqual(response.status_code, 402)
             self.assertIn('track pack', response.json()['detail'])
             references.local_event(1, {'reference_id': first, 'status': 'failed', 'error': 'Out of memory'})
             self.assertEqual(billing.summary(1)['allowance_left'], 1)
             self.assertIsNotNone(self.start())
+
+    def test_analysis_confirmation_does_not_authorize_reuse(self):
+        reference_id = self.ready_local()
+        self.bridge = FakeBridge({'status': 'opened'})
+        path = f'/api/references/{reference_id}/local-open'
+        self.assertEqual(self.client.post(path, headers=USER, json={'action': 'ableton'}).status_code, 400)
+        self.assertEqual(self.bridge.calls, [])
+        self.assertEqual(self.client.post(path, headers=USER, json={'action': 'finder'}).status_code, 200)
+        self.assertFalse((self.root / reference_id / 'source-use').exists())
+
+    def test_local_analysis_requires_explicit_boolean_permission(self):
+        self.bridge = FakeBridge({'status': 'cancelled'})
+        for value, status in ((None, 400), ({'rights': False}, 400), ({'rights': 'true'}, 422), ({'rights': 1}, 422)):
+            response = self.client.post('/api/references/local', headers=USER, json=value)
+            self.assertEqual(response.status_code, status, response.text)
+        self.assertEqual(self.bridge.calls, [])
 
 
 if __name__ == '__main__':

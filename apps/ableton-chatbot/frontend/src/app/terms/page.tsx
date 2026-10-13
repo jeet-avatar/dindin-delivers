@@ -99,7 +99,9 @@ export default function TermsPage() {
           </Section>
 
           <Section title="5. Your Content and IP Ownership">
-            <p>You own all music and creative output produced using {PRODUCT}. We claim no rights to your compositions, arrangements, or Ableton projects. Samples and presets you load stay under their own licences. You are responsible for having the rights to reference tracks and music you upload or import, and you confirm this when you upload. If you believe content on {PRODUCT} infringes your rights, email <SupportLink />.</p>
+            <p className="mb-3">You retain the rights you hold in your original contributions. We claim no ownership of your compositions, arrangements, or Ableton projects. Using {PRODUCT} does not give you ownership of third-party recordings, compositions, samples or presets, which remain subject to their own rights and licences. We do not guarantee that AI-assisted output is copyrightable or exclusive.</p>
+            <p className="mb-3">You must have the rights needed to upload, analyze, separate and reuse your source audio for your intended purpose. Permission to upload a reference does not automatically authorize a remix or distribution. A remix may require permissions covering both the recording and the underlying composition. Labeling a project private does not itself provide legal clearance. A confirmation in {PRODUCT} records your statement; it is not verification of a licence or permission to publish.</p>
+            <p>If you believe content on {PRODUCT} infringes your rights, email <SupportLink /> with details of the work and the content at issue.</p>
           </Section>
 
           <Section title="6. Desktop Software">
