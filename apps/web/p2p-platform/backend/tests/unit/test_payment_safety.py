@@ -111,14 +111,6 @@ class TestStripeIdempotencyKeys:
         assert "idempotency_key" in source
         assert "conn_fee_" in source
 
-    def test_order_payment_includes_idempotency_key(self):
-        """Order payment in stripe_integration.py already has idempotency_key."""
-        import stripe_integration
-        import inspect
-        source = inspect.getsource(stripe_integration.create_order)
-        assert "idempotency_key" in source
-        assert "order_" in source
-
     def test_transfer_includes_idempotency_key_in_order_flow(self):
         """Stripe Transfer calls in order_flow.py include idempotency keys.
 

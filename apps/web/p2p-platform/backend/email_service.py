@@ -197,7 +197,6 @@ def _validate_recipient_in_db(email: str, db_session) -> Tuple[bool, Optional[st
     DEMO_EMAILS_ALLOWLIST = {
         "demo.customer@dollor.ai",
         "demo.driver@dollor.ai",
-        "demo.restaurant@dollor.ai",
         "jeetnair.in@gmail.com",  # Admin compliance emails (quarterly reports)
     }
     if email and email.lower() in DEMO_EMAILS_ALLOWLIST:
@@ -395,13 +394,12 @@ def send_email(
     Returns True if successful, False otherwise.
     """
     # Demo redirect: for the underwriter walkthrough we route ALL demo-account
-    # emails (customer/driver/restaurant) to a single real inbox so receipts
+    # emails (customer/driver) to a single real inbox so receipts
     # are visible in one place. Production senders are untouched.
     DEMO_REDIRECT_TO = "jeetnair.in@gmail.com"
     DEMO_ACCOUNTS = {
         "demo.customer@dollor.ai",
         "demo.driver@dollor.ai",
-        "demo.restaurant@dollor.ai",
     }
     if to_email and to_email.lower() in DEMO_ACCOUNTS:
         subject = f"[demo:{to_email.split('@')[0]}] {subject}"

@@ -17,7 +17,7 @@ from fastapi import Request
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
-from models import Customer, Order, OrderStatus, RideRequest, RideRequestStatus, Driver
+from models import Customer, RideRequest, RideRequestStatus, Driver
 from email_service import send_email
 
 logger = logging.getLogger(__name__)
@@ -33,16 +33,16 @@ _ALGORITHM = "HS256"
 # Ordered list of (keywords, handler) tuples. First match wins.
 # More specific keywords checked before general ones.
 _INTENT_MAP = [
-    # Cancel must come before general "order" keywords
-    ({"cancel my order", "cancel order", "cancel"}, "_handle_cancel"),
+    # Cancel must come before general "order"/"ride" keywords
+    ({"cancel my order", "cancel order", "cancel my ride", "cancel ride", "cancel"}, "_handle_cancel"),
     # Refund
     ({"refund eligible", "refund request", "get refund", "money back", "refund"}, "_handle_refund"),
-    # Order status
-    ({"order status", "where is my", "where's my", "track order", "track my", "my order", "where is", "status"}, "_handle_order_status"),
-    # Delivery issues
+    # Ride status ("order" is kept as a synonym since customers still say "my order"
+    # out of habit -- there's no separate food-order concept anymore)
+    ({"order status", "where is my", "where's my", "track order", "track my", "my order",
+      "where is", "status", "ride status", "my ride", "rideshare", "ride"}, "_handle_ride_status"),
+    # Delivery/pickup issues
     ({"delivery issue", "delivery", "driver late", "late", "delayed", "taking long"}, "_handle_delivery_issue"),
-    # Ride status
-    ({"ride status", "my ride", "rideshare", "ride"}, "_handle_ride_status"),
     # Account
     ({"reset password", "forgot password", "password", "login issue", "login", "account"}, "_handle_account"),
     # Pricing
@@ -98,27 +98,6 @@ def handle_support_message(
 
 
 # ===================== HELPER FUNCTIONS =====================
-
-def _friendly_status(status: OrderStatus) -> str:
-    """Map OrderStatus enum to human-readable text."""
-    mapping = {
-        OrderStatus.PENDING_PAYMENT: "Awaiting payment",
-        OrderStatus.CONFIRMED: "Confirmed",
-        OrderStatus.PENDING_RESTAURANT: "Waiting for restaurant",
-        OrderStatus.DECLINED_BY_RESTAURANT: "Declined by restaurant",
-        OrderStatus.RESTAURANT_TIMEOUT: "Restaurant didn't respond",
-        OrderStatus.PREPARING: "Being prepared",
-        OrderStatus.READY_FOR_PICKUP: "Ready for pickup",
-        OrderStatus.PENDING_DELIVERY_DECISION: "Awaiting delivery assignment",
-        OrderStatus.RESTAURANT_WILL_DELIVER: "Restaurant is delivering",
-        OrderStatus.DELIVERY_DECISION_TIMEOUT: "Assigning driver",
-        OrderStatus.OUT_FOR_DELIVERY: "Out for delivery",
-        OrderStatus.PENDING_DELIVERY_PROOF: "Delivery being confirmed",
-        OrderStatus.DELIVERED: "Delivered",
-        OrderStatus.CANCELLED: "Cancelled",
-    }
-    return mapping.get(status, str(status.value).replace("_", " ").title())
-
 
 def _friendly_ride_status(status: RideRequestStatus) -> str:
     """Map RideRequestStatus enum to human-readable text."""
@@ -189,26 +168,24 @@ def _send_escalation_email(
         return False
 
 
-_TERMINAL_STATUSES = {
-    OrderStatus.DELIVERED,
-    OrderStatus.CANCELLED,
-    OrderStatus.DECLINED_BY_RESTAURANT,
-    OrderStatus.RESTAURANT_TIMEOUT,
+_RIDE_TERMINAL_STATUSES = {
+    RideRequestStatus.COMPLETED,
+    RideRequestStatus.CANCELLED,
+    RideRequestStatus.EXPIRED,
 }
 
-_CANCELLABLE_STATUSES = {
-    OrderStatus.PENDING_PAYMENT,
-    OrderStatus.CONFIRMED,
-    OrderStatus.PENDING_RESTAURANT,
+_RIDE_CANCELLABLE_STATUSES = {
+    RideRequestStatus.OPEN,
+    RideRequestStatus.BIDDING,
+    RideRequestStatus.MATCHED,
 }
 
-_FULL_REFUND_STATUSES = {
-    OrderStatus.PENDING_PAYMENT,
-    OrderStatus.CONFIRMED,
-    OrderStatus.PENDING_RESTAURANT,
-    OrderStatus.DECLINED_BY_RESTAURANT,
-    OrderStatus.RESTAURANT_TIMEOUT,
-    OrderStatus.CANCELLED,
+_RIDE_FULL_REFUND_STATUSES = {
+    RideRequestStatus.OPEN,
+    RideRequestStatus.BIDDING,
+    RideRequestStatus.MATCHED,
+    RideRequestStatus.CANCELLED,
+    RideRequestStatus.EXPIRED,
 }
 
 
@@ -238,78 +215,42 @@ def try_extract_customer(request: Request, db: Session) -> Optional[Customer]:
 
 # ===================== INTENT HANDLERS =====================
 
-def _handle_order_status(message: str, customer: Optional[Customer], db: Session) -> dict:
-    if not customer:
-        return {
-            "response": "Please log in to check your order status. You can log in through the app and try again.",
-            "action": "require_login",
-            "data": None,
-        }
-
-    orders = (
-        db.query(Order)
-        .filter(Order.customer_id == customer.id)
-        .order_by(Order.created_at.desc())
-        .limit(3)
-        .all()
-    )
-
-    if not orders:
-        return {
-            "response": "You don't have any recent orders.",
-            "action": None,
-            "data": None,
-        }
-
-    lines = []
-    for order in orders:
-        status_text = _friendly_status(order.status)
-        time_text = _relative_time(order.created_at)
-        lines.append(f"Order #{order.order_number} -- {status_text} (placed {time_text})")
-
-    response = "Here are your recent orders:\n" + "\n".join(lines)
-    return {"response": response, "action": None, "data": None}
-
-
 def _handle_cancel(message: str, customer: Optional[Customer], db: Session) -> dict:
     if not customer:
         return {
-            "response": "Please log in to cancel an order. You can log in through the app and try again.",
+            "response": "Please log in to cancel a ride. You can log in through the app and try again.",
             "action": "require_login",
             "data": None,
         }
 
-    # Find most recent non-terminal order
-    active_order = (
-        db.query(Order)
+    # Find most recent non-terminal ride
+    active_ride = (
+        db.query(RideRequest)
         .filter(
-            Order.customer_id == customer.id,
-            ~Order.status.in_(_TERMINAL_STATUSES),
+            RideRequest.customer_id == customer.id,
+            ~RideRequest.status.in_(_RIDE_TERMINAL_STATUSES),
         )
-        .order_by(Order.created_at.desc())
+        .order_by(RideRequest.created_at.desc())
         .first()
     )
 
-    if not active_order:
+    if not active_ride:
         return {
-            "response": "You don't have any active orders to cancel.",
+            "response": "You don't have any active rides to cancel.",
             "action": None,
             "data": None,
         }
 
-    if active_order.status in _CANCELLABLE_STATUSES:
-        active_order.status = OrderStatus.CANCELLED
-        active_order.cancelled_at = datetime.utcnow()
-        db.commit()
+    if active_ride.status in _RIDE_CANCELLABLE_STATUSES:
         return {
-            "response": f"Your order #{active_order.order_number} has been cancelled. If you were charged, a refund will be processed within 1-3 business days.",
-            "action": "order_cancelled",
-            "data": {"order_number": active_order.order_number},
+            "response": f"To cancel ride {active_ride.request_id}, use the 'Cancel Ride' button in the app. If you were charged, a refund will be processed within 1-3 business days.",
+            "action": "cancel_instructions",
+            "data": {"request_id": active_ride.request_id},
         }
 
-    # Not cancellable (PREPARING or later)
+    # Not cancellable (driver already en route or ride in progress)
     return {
-        "response": f"Sorry, order #{active_order.order_number} cannot be cancelled because the restaurant has already started preparing it. You can request a refund by saying 'refund'.",
+        "response": f"Sorry, ride {active_ride.request_id} can't be cancelled because your driver is already on the way or the ride is in progress. You can request a refund by saying 'refund'.",
         "action": None,
         "data": None,
     }
@@ -323,109 +264,111 @@ def _handle_refund(message: str, customer: Optional[Customer], db: Session) -> d
             "data": None,
         }
 
-    recent_order = (
-        db.query(Order)
-        .filter(Order.customer_id == customer.id)
-        .order_by(Order.created_at.desc())
+    recent_ride = (
+        db.query(RideRequest)
+        .filter(RideRequest.customer_id == customer.id)
+        .order_by(RideRequest.created_at.desc())
         .first()
     )
 
-    if not recent_order:
+    if not recent_ride:
         return {
-            "response": "You don't have any orders to check for refund eligibility.",
+            "response": "You don't have any rides to check for refund eligibility.",
             "action": None,
             "data": None,
         }
 
-    # Full refund eligible
-    if recent_order.status in _FULL_REFUND_STATUSES:
+    # Full refund eligible (ride never started)
+    if recent_ride.status in _RIDE_FULL_REFUND_STATUSES:
         return {
-            "response": f"Order #{recent_order.order_number} is eligible for a full refund. If you were charged, the refund will be processed within 1-3 business days.",
+            "response": f"Ride {recent_ride.request_id} is eligible for a full refund. If you were charged, the refund will be processed within 1-3 business days.",
             "action": "refund_eligible",
-            "data": {"order_number": recent_order.order_number, "refund_type": "full"},
+            "data": {"request_id": recent_ride.request_id, "refund_type": "full"},
         }
 
-    # Delivered within 48 hours -- possible refund
-    if recent_order.status == OrderStatus.DELIVERED and recent_order.delivered_at:
-        hours_since = (datetime.utcnow() - recent_order.delivered_at).total_seconds() / 3600
+    # Completed within 48 hours -- possible refund
+    if recent_ride.status == RideRequestStatus.COMPLETED and recent_ride.completed_at:
+        hours_since = (datetime.utcnow() - recent_ride.completed_at).total_seconds() / 3600
         if hours_since <= 48:
             return {
-                "response": f"Order #{recent_order.order_number} was delivered {_relative_time(recent_order.delivered_at)}. For refund requests on delivered orders, please email support@dollor.ai with your order number and reason. Our team will review within 24 hours.",
+                "response": f"Ride {recent_ride.request_id} was completed {_relative_time(recent_ride.completed_at)}. For refund requests on completed rides, please email support@dollor.ai with your ride ID and reason. Our team will review within 24 hours.",
                 "action": "refund_review",
-                "data": {"order_number": recent_order.order_number, "refund_type": "possible"},
+                "data": {"request_id": recent_ride.request_id, "refund_type": "possible"},
             }
 
-    # Delivery issue -- stuck at OUT_FOR_DELIVERY for >2 hours
-    if recent_order.status == OrderStatus.OUT_FOR_DELIVERY and recent_order.dispatched_at:
-        hours_out = (datetime.utcnow() - recent_order.dispatched_at).total_seconds() / 3600
-        if hours_out > 2:
+    # Ride issue -- stuck IN_PROGRESS for an unusually long time
+    if recent_ride.status == RideRequestStatus.IN_PROGRESS and recent_ride.matched_at:
+        hours_in_progress = (datetime.utcnow() - recent_ride.matched_at).total_seconds() / 3600
+        if hours_in_progress > 3:
             _send_escalation_email(
-                issue_type="Delivery Failure",
-                summary=f"Order #{recent_order.order_number} has been out for delivery for over 2 hours. Customer requesting refund.",
+                issue_type="Ride Issue",
+                summary=f"Ride {recent_ride.request_id} has been in progress for over 3 hours. Customer requesting refund.",
                 customer=customer,
                 db=db,
             )
             return {
-                "response": f"Your order #{recent_order.order_number} appears to have a delivery issue. You're eligible for a full refund. We've escalated this to our team.",
+                "response": f"Your ride {recent_ride.request_id} appears to have an issue. You're eligible for a full refund. We've escalated this to our team.",
                 "action": "refund_escalated",
-                "data": {"order_number": recent_order.order_number, "refund_type": "full"},
+                "data": {"request_id": recent_ride.request_id, "refund_type": "full"},
             }
 
     # Not eligible or past 48 hours
     return {
-        "response": f"For refund requests on order #{recent_order.order_number}, please email support@dollor.ai with your order number and reason. Our team will review within 24 hours.",
+        "response": f"For refund requests on ride {recent_ride.request_id}, please email support@dollor.ai with your ride ID and reason. Our team will review within 24 hours.",
         "action": "refund_review",
-        "data": {"order_number": recent_order.order_number},
+        "data": {"request_id": recent_ride.request_id},
     }
 
 
 def _handle_delivery_issue(message: str, customer: Optional[Customer], db: Session) -> dict:
     if not customer:
         return {
-            "response": "Please log in to check your delivery. You can log in through the app and try again.",
+            "response": "Please log in to check your ride. You can log in through the app and try again.",
             "action": "require_login",
             "data": None,
         }
 
-    # Find most recent active (non-terminal) order
-    active_order = (
-        db.query(Order)
+    # Find most recent active (non-terminal) ride
+    active_ride = (
+        db.query(RideRequest)
         .filter(
-            Order.customer_id == customer.id,
-            ~Order.status.in_(_TERMINAL_STATUSES),
+            RideRequest.customer_id == customer.id,
+            ~RideRequest.status.in_(_RIDE_TERMINAL_STATUSES),
         )
-        .order_by(Order.created_at.desc())
+        .order_by(RideRequest.created_at.desc())
         .first()
     )
 
-    if not active_order:
+    if not active_ride:
         return {
-            "response": "You don't have any active deliveries right now.",
+            "response": "You don't have any active rides right now.",
             "action": None,
             "data": None,
         }
 
-    if active_order.status == OrderStatus.OUT_FOR_DELIVERY:
+    if active_ride.status == RideRequestStatus.IN_PROGRESS:
         driver_info = ""
-        if active_order.driver_name:
-            driver_info = f" Your driver is {active_order.driver_name}."
+        if active_ride.matched_driver_id:
+            driver = db.query(Driver).filter(Driver.id == active_ride.matched_driver_id).first()
+            if driver:
+                driver_info = f" Your driver is {driver.first_name} {driver.last_name}.".rstrip()
         return {
-            "response": f"Your order #{active_order.order_number} is out for delivery.{driver_info}",
+            "response": f"Your ride {active_ride.request_id} is in progress.{driver_info}",
             "action": None,
-            "data": {"order_number": active_order.order_number},
+            "data": {"request_id": active_ride.request_id},
         }
 
-    if active_order.status in {OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP}:
+    if active_ride.status in {RideRequestStatus.OPEN, RideRequestStatus.BIDDING}:
         return {
-            "response": f"Your order #{active_order.order_number} is being prepared by the restaurant. The driver will be assigned once it's ready.",
+            "response": f"Ride {active_ride.request_id} is still waiting for a driver to accept. We'll notify you as soon as one is matched.",
             "action": None,
-            "data": {"order_number": active_order.order_number},
+            "data": {"request_id": active_ride.request_id},
         }
 
     return {
-        "response": f"Your order #{active_order.order_number} is currently in '{_friendly_status(active_order.status)}' status.",
+        "response": f"Your ride {active_ride.request_id} is currently '{_friendly_ride_status(active_ride.status)}'.",
         "action": None,
-        "data": {"order_number": active_order.order_number},
+        "data": {"request_id": active_ride.request_id},
     }
 
 
@@ -476,7 +419,6 @@ def _handle_pricing(message: str, customer: Optional[Customer], db: Session) -> 
     return {
         "response": (
             "Dollor.ai charges a flat matchmaking fee:\n"
-            "- Food delivery: $1 service fee for customers, $1 per order for restaurants. Drivers keep 100% of delivery fees and tips.\n"
             "- Rideshare: $1 fee for fares up to $35, $2 for $35-70, $3 for over $70. Drivers keep the rest plus 100% of tips.\n\n"
             "We never take a percentage commission."
         ),
@@ -503,11 +445,10 @@ def _handle_general(message: str, customer: Optional[Customer], db: Session) -> 
     return {
         "response": (
             "I can help you with:\n"
-            "- Check order status\n"
-            "- Cancel an order\n"
-            "- Refund eligibility\n"
-            "- Delivery updates\n"
             "- Ride status\n"
+            "- Cancel a ride\n"
+            "- Refund eligibility\n"
+            "- Ride/driver updates\n"
             "- Pricing info\n\n"
             "What would you like help with? For complex issues, I can connect you with our support team."
         ),
@@ -518,7 +459,6 @@ def _handle_general(message: str, customer: Optional[Customer], db: Session) -> 
 
 # ===================== REGISTER ALL HANDLERS =====================
 
-_register_handler("_handle_order_status", _handle_order_status)
 _register_handler("_handle_cancel", _handle_cancel)
 _register_handler("_handle_refund", _handle_refund)
 _register_handler("_handle_delivery_issue", _handle_delivery_issue)

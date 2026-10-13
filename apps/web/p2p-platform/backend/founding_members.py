@@ -198,7 +198,7 @@ class JoinRequest(BaseModel):
         return v
 
 
-DEMO_EMAILS = ["demo.customer@dollor.ai", "demo.driver@dollor.ai", "demo.restaurant@dollor.ai"]
+DEMO_EMAILS = ["demo.customer@dollor.ai", "demo.driver@dollor.ai"]
 
 
 def _founding_status_payload(db: Session, member_type: str, member_id: int, state: str | None,

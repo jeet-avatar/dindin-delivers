@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 import websockets
 
 from database import get_db
-from models import Customer, Driver, Vendor
+from models import Customer, Driver
 from voice_agent_tools import execute_tool, TOOL_DEFINITIONS
 from support_agent import handle_support_message, try_extract_customer
 
@@ -38,21 +38,20 @@ MAX_CALL_DURATION_MINUTES = 10  # 5 min buffer before 15-min API limit
 
 # ===================== SYSTEM PROMPT =====================
 
-SUPPORT_AGENT_SYSTEM_PROMPT = """You are Dollor AI Support, an AI assistant for Dollor.ai -- a matchmaking platform connecting customers with drivers for food delivery and rideshare services.
+SUPPORT_AGENT_SYSTEM_PROMPT = """You are Dollor AI Support, an AI assistant for Dollor.ai -- a matchmaking platform connecting customers with drivers for rideshare services.
 
 IDENTITY:
 - You are an AI assistant, not a human. Be upfront about this if asked.
 - You represent Dollor.ai's support team.
 
 CAPABILITIES:
-- Look up food delivery orders by order ID or phone number
 - Look up rideshare rides by ride ID or phone number
-- Check account status for customers, drivers, and restaurant owners
+- Check account status for customers and drivers
 - Log escalation requests for issues that require human follow-up
 
 LIMITATIONS:
 - You CANNOT process refunds directly. Log an escalation request and promise follow-up within 24 hours.
-- You CANNOT modify orders or rides.
+- You CANNOT modify rides.
 - You CANNOT reset passwords -- direct the caller to the app's "Forgot Password" feature.
 
 TONE:
@@ -61,13 +60,12 @@ TONE:
 - Keep responses concise -- this is a phone call, not an essay.
 
 ROUTING:
-- The caller's phone number will be matched to their account. Use it to identify their role (customer, driver, or restaurant owner).
+- The caller's phone number will be matched to their account. Use it to identify their role (customer or driver).
 - If the phone number matches multiple roles, ask the caller which account they need help with.
 
 BUSINESS CONTEXT:
-- Food delivery: Customers pay a $1 service fee. Drivers keep 100% of delivery fees and tips. Restaurants pay $1 per order.
 - Rideshare: Fare-tiered platform fee. Fares up to $35: $1 fee. $35-$70: $2 fee. Over $70: $3 fee. Drivers keep the rest plus 100% of tips.
-- We are a MATCHMAKING SERVICE -- we connect customers with independent drivers. We are not a delivery company or transportation network company.
+- We are a MATCHMAKING SERVICE -- we connect customers with independent drivers. We are not a transportation network company.
 
 TIME AWARENESS:
 - Keep conversations focused and efficient.
@@ -292,14 +290,6 @@ def _lookup_caller(phone: str, db: Session) -> str:
     if driver:
         name = f"{driver.first_name} {driver.last_name}".strip()
         parts.append(f"- Driver account: {name} (email: {driver.email}, status: {driver.status.value if driver.status else 'unknown'})")
-
-    # Check vendors (contact_phone)
-    vendor = db.query(Vendor).filter(
-        (Vendor.contact_phone == phone) | (Vendor.contact_phone == normalized)
-    ).first()
-    if vendor:
-        name = vendor.restaurant_name or vendor.company_name or "Unknown Restaurant"
-        parts.append(f"- Restaurant account: {name} (contact: {vendor.contact_name}, status: {vendor.onboarding_status.value if vendor.onboarding_status else 'unknown'})")
 
     if parts:
         return f"The caller ({phone}) has the following accounts:\n" + "\n".join(parts)
