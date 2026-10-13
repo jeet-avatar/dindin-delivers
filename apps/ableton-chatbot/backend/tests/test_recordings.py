@@ -32,6 +32,24 @@ class RecordingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("audio_base64", result)
         self.assertEqual(result["recording"]["decision"], "pending")
 
+    def test_old_acceptance_cannot_approve_a_requested_revision(self):
+        old = self.saved()["recording"]["id"]
+        recordings.decide_recording(old, 7, "accepted")
+        revised = recordings.decide_recording(old, 7, "revise")
+        self.assertEqual(len(revised["decision_history"]), 2)
+        with self.assertRaisesRegex(ValueError, "revised sound"):
+            recordings.decide_recording(old, 7, "accepted")
+        fresh = self.saved()["recording"]["id"]
+        self.assertEqual(recordings.owned_recording(fresh, 7)["decision"], "pending")
+        self.assertEqual(recordings.decide_recording(fresh, 7, "accepted")["decision"], "accepted")
+
+    def test_revision_cannot_supersede_another_songs_recording(self):
+        old, fresh = self.saved()["recording"]["id"], self.saved()["recording"]["id"]
+        recordings.attach_evidence(old, 7, [], "song-one")
+        recordings.attach_evidence(fresh, 7, [], "song-two")
+        recordings.link_revision(fresh, old, 7)
+        self.assertNotIn("supersedes", recordings.owned_recording(fresh, 7))
+
     def test_recordings_are_owner_scoped_and_paths_validated(self):
         item = self.saved()["recording"]
         self.assertIsNone(recordings.owned_recording(item["id"], 8))

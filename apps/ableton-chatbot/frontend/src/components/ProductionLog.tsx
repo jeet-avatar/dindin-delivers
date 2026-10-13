@@ -2,6 +2,7 @@
 
 import { actionLabel, summarizeProduction, trackOutcomes } from "@/lib/production-status";
 import ChatTimestamp from "@/components/ChatTimestamp";
+import ArrangementTimeline, { type ArrangementPlan } from "@/components/ArrangementTimeline";
 
 export interface MidiNote {
   pitch: number;
@@ -42,6 +43,7 @@ export interface ProductionAction {
     /** record_arrangement: the sections as recorded on the Arrangement timeline. */
     checks?: { id: string; label: string; status: "pass" | "warn" | "fail"; detail: string; fix?: string }[];
     measurements?: Record<string, number>;
+    arrangement_plan?: ArrangementPlan;
     sections?: { scene: number; name: string; bars: number; start_bar: number }[];
     devices?: { name: string }[];
     observations?: Record<string, unknown[]>;
@@ -93,12 +95,17 @@ function NoteTable({ notes, label = "MIDI notes" }: { notes: MidiNote[]; label?:
   );
 }
 
-export default function ProductionLog({ actions, requestStatus }: { actions: ProductionAction[]; requestStatus?: import("@/lib/production-status").RequestStatus }) {
+export default function ProductionLog({ actions, requestStatus, onApproveArrangement, onApproveRevision, busy }: {
+  actions: ProductionAction[]; requestStatus?: import("@/lib/production-status").RequestStatus;
+  onApproveArrangement?: (revision: string) => void; busy?: boolean;
+  onApproveRevision?: (revision: string) => void;
+}) {
   if (!actions.length) return null;
   const summary = summarizeProduction(actions, requestStatus);
   const tracks = trackOutcomes(actions);
   const section = actions.map(action => action.result?.section_brief).filter(Boolean).at(-1);
   const mixCheck = actions.filter(action => action.tool === "mix_check").at(-1);
+  const arrangement = actions.map(action => action.result?.arrangement_plan).filter(Boolean).at(-1);
   return (
     <section className="min-w-0 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }} aria-label="Production actions">
       <div className="mb-3">
@@ -106,6 +113,7 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
         <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{summary.detail}</p>
         {summary.repairs > 0 && <p className="text-xs mt-2 text-emerald-300">{summary.repairs} earlier {summary.repairs === 1 ? "issue repaired" : "issues repaired"} and rechecked.</p>}
       </div>
+      {arrangement && <ArrangementTimeline plan={arrangement} onApprove={onApproveArrangement} onApproveRevision={onApproveRevision} busy={busy} />}
       {section && <div aria-label="Requested section" className="text-sm mb-3 space-y-1 break-words">
         <p className="font-semibold">{section.name} / {section.bars} bars</p>
         <p className="text-xs">{section.sound}</p>

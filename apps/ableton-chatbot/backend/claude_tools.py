@@ -557,7 +557,9 @@ for name, description, properties, required in [
 
 from automation import AUTOMATION_TOOLS
 from production import PLAN_TOOL
+from arrangement_plan import TOOLS as ARRANGEMENT_TOOLS
 ABLETON_TOOLS.append(PLAN_TOOL)
+ABLETON_TOOLS.extend(ARRANGEMENT_TOOLS)
 ABLETON_TOOLS.extend({key: value for key, value in item.items() if key != "operation"} for item in AUTOMATION_TOOLS)
 
 # Inspection tools use the same schemas as the execution layer.
@@ -846,9 +848,39 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - For pack mode, discover actual samples in that exact pack and verify loaded file identity. Do not replace missing samples with another pack or a synth.
 - Create or revise the musical clips with verified tools, then describe and audition the result. A saved brief, named scene or sent launch is not a completed audible section.
 - Track numbers shown to the user are one-based; tool indices are zero-based. With N tracks, the final existing index is N-1. Refresh names/counts after structural changes; never guess the next index.
-- Session scenes are not Arrangement View clips. To put the song on the Arrangement timeline, propose the section
-  order and bar counts (for example Intro 8, Build 8, Drop 16, Break 8, Drop 2 16, Outro 8), wait for the user's
-  explicit approval, then call record_arrangement once with exactly those sections. It needs an empty Arrangement.
+- Session scenes and locators are not Arrangement View clips. For "build the full song" or "arrange this song":
+  inspect get_arrangement_state (all pages), then plan_song_arrangement with actual clip IDs, purposes, energy,
+  active layers, transitions and dependencies. Follow the user's section order, duration, genre and meter.
+  Seconds per bar = 60/BPM * numerator * 4/denominator. Six minutes at 128 BPM in 4/4 is 192 bars.
+  Do not impose pop sections on minimal techno/house. Use restrained builds, subtle development, differentiated
+  drops and DJ-friendly ends; names and energy targets alone are not musical variation.
+  The user approves the exact revision using the arrangement approval control. On "Approve arrangement <revision>",
+  read get_song_arrangement_plan to recover the saved section IDs and approval state. Then execute_arrangement_section
+  in order, inspect each result, and verify_song_arrangement. A failed/uncertain section must not be replayed.
+  Preserve current instruments, approved sounds, source clips and project. Never clear existing music or open
+  another set to work around an overlap. Revise the proposed destinations or explain the supported limitation.
+  Non-destructive placement currently copies whole clips or retains them in place; it does not trim phrases,
+  stretch unwarped reference stems or automatically implement effect instructions. Do not pretend otherwise.
+  Create requested new material and transitions through existing verified source/automation tools, audition it,
+  then inspect/replan before approval. Do not change already approved source clips during placement.
+  Effects text is intent only. Inspect parameter units and actual envelopes, audition transitions and full-song
+  audio, and verify the saved Live Set separately. Never say "finished", "saved" or "mastered" from a plan,
+  clip count or successful text response. Report remaining checks explicitly.
+  Accept requests to change or redo previously approved music. Acceptance is a review of that version,
+  not a permanent lock. Resolve the requested section/track from current state; ask only if ambiguous.
+  For a MIDI-pattern-only revision of a placed section, prepare a separate same-length Session variation,
+  preserving the original; call plan_arrangement_revision. After "Approve part revision <revision>", read
+  get_song_arrangement_plan and execute_arrangement_revision. Do not recreate the song or modify other
+  sections. Never use whole-track effects to pretend to make a section-local change. Revised audio needs
+  a fresh recording and review; old acceptance does not transfer. This operation does not replace audio
+  stems, change phrase lengths, or redesign devices. State those limitations when relevant.
+  After a section revision, use audition_arrangement_section for its actual Arrangement audio and timing;
+  a Session preview does not prove the edited Arrangement was heard. Never treat an excerpt as full-song coverage.
+  Remix (authorized source reuse), style-inspired original and arrangement-only are distinct user choices.
+  Never silently switch them. Use actual reference analysis with time/confidence evidence; unknown vocals,
+  chords, key and instruments stay unknown. No source-audio reuse without the user's permission.
+  The older record_arrangement tool is only for an explicitly approved real-time performance into an empty
+  Arrangement; it is not a fallback for an occupied project or failed staged placement.
 - To let the user hear several parts together (a section, or the whole mix), use audition_scene on that scene;
   audition_part only records one track.
 
@@ -1006,7 +1038,8 @@ When the user asks to create a vocal, voice, choir or sung element, build it fro
 2. mix_check on that recording. Present each warn/fail item with its fix. Fix must-fix items (clipping first:
    lower the loudest faders with set_track_volume in dB), preview again, and re-run mix_check until nothing fails.
 3. With the user's agreement, apply_master_chain with the measured loudness, preview and mix_check again.
-4. Propose the section order and bar counts, get approval, then record_arrangement.
+4. Inspect and plan the full timeline with plan_song_arrangement, obtain revision approval, place sections in
+   order and verify_song_arrangement. Confirm full-song listening and saved-project evidence separately.
 - Preserve the user's explicit tempo, time signature, instruments, source constraints and edit scope.
 - Genre labels are creative context, not fixed tempo ranges, track counts or device chains.
 - Inspect the current set and discover installed sources before choosing instruments or effects.

@@ -28,6 +28,7 @@ from production import create_plan, get_plan, link_audition, review_part, replac
 from producer_reply import preview_reply
 from session_context import matching_recordings, context_note
 from model_history import bounded_history
+from song_brief import brief_context
 import ai_usage
 import model_access
 import mixmind_ai
@@ -36,6 +37,7 @@ import catalog
 import references
 import chat_store
 import song_projects
+import arrangement_plan
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
 from recordings import ROOT as RECORDINGS_ROOT, save_recording, list_recordings, owned_recording, decide_recording, attach_evidence
@@ -69,57 +71,81 @@ class BridgeConnection:
         self.pending: dict[str, asyncio.Future] = {}
         self.capabilities: set[str] = set()
         self.automated_controls: dict[int, set] = {}  # scene -> automated (track, target) this connection
+        self.disconnected = False
+        self.operation_lock = asyncio.Lock()
+
+    def disconnect(self):
+        self.disconnected = True
+        if bridges.get(self.session_id) is self:
+            bridges.pop(self.session_id)
+        for future in self.pending.values():
+            if not future.done():
+                future.set_result(self.disconnected_result())
+        self.pending.clear()
+
+    @staticmethod
+    def disconnected_result():
+        return {"status": "unverified", "summary": (
+            "The Ableton Bridge connection was lost. No commands were replayed. "
+            "Let the Bridge reconnect, then inspect Ableton before continuing; "
+            "the last action may already have run.")}
+
+    async def _send(self, message):
+        if self.disconnected:
+            return False
+        try:
+            await self.ws.send_json(message)
+            return True
+        except (WebSocketDisconnect, OSError):
+            self.disconnect()
+        except RuntimeError as error:
+            # Starlette rejects sends after its close state, before touching the socket.
+            if not any(text in str(error) for text in (
+                    'websocket.close', 'close message has been sent', 'response already completed')):
+                raise
+            self.disconnect()
+        return False
 
     async def send_command(self, address: str, args: list, query: bool = False, timeout: float = 5.0) -> dict:
-        request_id = str(uuid.uuid4())
-        future = asyncio.get_event_loop().create_future()
-        self.pending[request_id] = future
-        try:
-            await self.ws.send_json({
-                "type": "osc_query" if query else "osc_send",
-                "request_id": request_id,
-                "address": address,
-                "args": args,
-                "timeout": timeout,
-            })
-            return await asyncio.wait_for(future, timeout=timeout + 2)
-        except asyncio.TimeoutError:
-            return {"status": "timeout", "address": address}
-        finally:
-            self.pending.pop(request_id, None)
+        result = await self._request({"type": "osc_query" if query else "osc_send",
+                                      "address": address, "args": args, "timeout": timeout}, timeout + 2)
+        return {"status": "timeout", "address": address} if result.get('status') == 'timeout' else result
 
     async def send_batch(self, commands: list[dict]) -> list[dict]:
-        request_id = str(uuid.uuid4())
-        future = asyncio.get_event_loop().create_future()
-        self.pending[request_id] = future
-        await self.ws.send_json({"type": "batch", "request_id": request_id, "commands": commands})
-        try:
-            result = await asyncio.wait_for(future, timeout=30)
-            return result.get("results", [])
-        except asyncio.TimeoutError:
-            self.pending.pop(request_id, None)
-            return [{"status": "timeout"}]
+        result = await self._request({"type": "batch", "commands": commands}, 30)
+        return [result] if result.get('status') in {'unverified', 'timeout'} else result.get('results', [])
 
     async def capture_part(self, track, scene, seconds):
         return await self.local_operation("capture_part", {"track": track, "scene": scene, "seconds": seconds})
 
     async def local_operation(self, operation, payload, timeout=55):
-        request_id = str(uuid.uuid4())
-        future = asyncio.get_running_loop().create_future()
-        self.pending[request_id] = future
-        try:
-            await self.ws.send_json({"type": operation, "request_id": request_id, **payload})
-            try:
-                return await asyncio.wait_for(asyncio.shield(future), timeout=timeout)
-            except asyncio.CancelledError:
-                # Keep the session locked until the bridge has restored playback state.
-                with suppress(asyncio.TimeoutError):
-                    await asyncio.wait_for(asyncio.shield(future), timeout=timeout)
-                raise
-        except asyncio.TimeoutError:
+        result = await self._request({"type": operation, **payload}, timeout, restore_on_cancel=True)
+        if result.get('status') == 'timeout':
             return {"status": "unverified", "summary": "Local bridge operation timed out. Inspect Ableton before continuing."}
-        finally:
-            self.pending.pop(request_id, None)
+        return result
+
+    async def _request(self, message, timeout, restore_on_cancel=False):
+        # Background inspection and production share one OSC request channel.
+        async with self.operation_lock:
+            if self.disconnected:
+                return self.disconnected_result()
+            request_id = str(uuid.uuid4())
+            future = asyncio.get_running_loop().create_future()
+            self.pending[request_id] = future
+            try:
+                if not await self._send({**message, 'request_id': request_id}):
+                    return self.disconnected_result()
+                return await asyncio.wait_for(asyncio.shield(future) if restore_on_cancel else future, timeout)
+            except asyncio.CancelledError:
+                if restore_on_cancel:
+                    # Keep the channel locked until playback restoration finishes.
+                    with suppress(asyncio.TimeoutError):
+                        await asyncio.wait_for(asyncio.shield(future), timeout)
+                raise
+            except asyncio.TimeoutError:
+                return {'status': 'timeout'}
+            finally:
+                self.pending.pop(request_id, None)
 
     def handle_response(self, data: dict):
         rid = data.get("request_id")
@@ -722,6 +748,7 @@ async def produce_chat(req, session, bridge, emit=None):
                 list_recordings(session.user_id, session.session_id) if session.project else list_recordings(session.user_id),
                 state["args"], session_scoped=bool(session.project and session.project.get('live_set')))
             session.pending_review = any(item["decision"] == "pending" for item in session.current_recordings)
+        arrangement_plan.approve_from_message(session, req.message)
         session.messages.append({"role": "user", "content": req.message})
         now = datetime.now(timezone.utc).isoformat()
         session.ui_messages.extend([
@@ -862,12 +889,13 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     messages = session.messages
     bridge_note = "" if bridge else "\n\nNOTE: No Ableton bridge connected. No live music changes are possible. Server-side saved-audio discovery and comparison remain available."
     bridge_note += getattr(session, 'reference_note', '')
+    bridge_note += brief_context(messages)
     bridge_note += '\n' + getattr(session, 'project_note', '')
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
         bridge_note += "\nThis turn is discussion only. Recommend the best next step and explain why, with up to two concrete alternatives grounded in discovered sources and the current project. Ask one focused question only when necessary. Do not play, audition, change music or create a production plan; only read-only discovery is available."
     if bridge and session.project and not session.project.get('live_set'):
-        bridge_note += "\nNEW SONG: The user started a fresh song project. Ignore any existing tracks or clips in Ableton — they belong to a previous song. Start from scratch: set tempo, create new tracks, and build new sounds. Do not reference or continue previous work."
+        bridge_note += "\nUNLINKED SONG: Confirm which Live Set belongs to this song before music changes. Existing clips may be the user's current work: never ignore, replace or delete them, and never start a new set to continue an existing song. Use the Choose Live Set workflow."
     if bridge and (not session.project or session.project.get('live_set')):
         previous_section = get_brief(session.user_id, session.session_id)
         if previous_section:
@@ -960,6 +988,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                         section_brief = result["section_brief"]
                 elif constraint:
                     result = {"status": "failed", "summary": constraint, "steps": []}
+                elif tu.name in arrangement_plan.NAMES and not blocked and not audition_ready:
+                    result = await arrangement_plan.execute(tu.name, tu.input, session, bridge)
                 elif tu.name == "create_production_plan" and not blocked and not audition_ready:
                     result = create_plan(session.user_id, session.session_id, tu.input)
                 elif tu.name in {"create_midi_track", "create_audio_track"} and not get_plan(session.user_id, session.session_id):
@@ -979,13 +1009,13 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 tool_calls_log.append(action)
                 if result.get("recording"):
                     # A full-mix preview belongs to the song, not to one planned part.
-                    previous_id = (None if result["recording"].get("kind") == "scene"
+                    previous_id = (None if result["recording"].get("kind") in {"scene", "arrangement"}
                                    else link_audition(session.user_id, session.session_id, result["recording"]))
-                    if previous_id:
-                        from recordings import link_revision
-                        link_revision(result["recording"]["id"], previous_id, session.user_id)
                     result["recording"] = attach_evidence(result["recording"]["id"], session.user_id, tool_calls_log,
                                                           **({'session_id': session.session_id} if session.project else {}))
+                    if previous_id:
+                        from recordings import link_revision
+                        result["recording"] = link_revision(result["recording"]["id"], previous_id, session.user_id) or result["recording"]
                 tool_results.append({"type": "tool_result", "tool_use_id": tu.id,
                                      "content": json.dumps(result), "is_error": result.get("status") in BAD_STATUSES})
                 if emit:
@@ -1002,7 +1032,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         preview_summary = preview_reply(tool_calls_log)
         if preview_summary:
             return preview_summary, tool_calls_log
-        if any(action["tool"] in {"audition_part", "audition_scene"} for action in tool_calls_log):
+        if any(action["tool"] in {"audition_part", "audition_scene", "audition_arrangement_section"} for action in tool_calls_log):
             return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log
 
     return "Production paused at the action limit. Some requested work may remain; review the action log before continuing.", tool_calls_log
@@ -1237,7 +1267,7 @@ async def recording_mixer(recording_id: str, req: MixerRequest, user: dict = Dep
                         "result": {"status": "verified", "summary": "Live fader readback: " + result["mixer"]["display"]}},
                        {"id": str(uuid.uuid4()), "tool": "audition_part", "input": {"track": item["track"], "scene": item["scene"], "seconds": 8},
                         "result": {"status": "verified", "summary": "Fresh level audition recorded; exact sample SHA-256 verified.", "recording": recording}}]
-            recording = attach_evidence(recording["id"], user["id"], actions)
+            recording = attach_evidence(recording["id"], user["id"], actions, item.get("session_id"))
             replace_audition(user["id"], recording_id, recording["id"])
             if item["decision"] == "pending":
                 decide_recording(recording_id, user["id"], "revise")
@@ -1247,7 +1277,10 @@ async def recording_mixer(recording_id: str, req: MixerRequest, user: dict = Dep
 
 @app.post("/api/recordings/{recording_id}/decision")
 async def recording_decision(recording_id: str, req: RecordingDecision, user: dict = Depends(get_current_user)):
-    item = decide_recording(recording_id, user["id"], req.decision)
+    try:
+        item = decide_recording(recording_id, user["id"], req.decision)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
     if item is None:
         raise HTTPException(404, "Recording not found")
     item["continuation"] = review_part(user["id"], recording_id, req.decision)
@@ -1282,11 +1315,7 @@ async def bridge_ws(ws: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
-        bridges.pop(session_id, None)
-        for future in bridge.pending.values():
-            if not future.done():
-                future.set_result({"status": "disconnected"})
-        bridge.pending.clear()
+        bridge.disconnect()
         log.info("Bridge disconnected: %s", session_id)
 
 

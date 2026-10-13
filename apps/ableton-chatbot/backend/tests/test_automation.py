@@ -301,6 +301,23 @@ class PlanTests(unittest.TestCase):
             self.assertNotIn("recording_id", parts[1])
             self.assertIsNone(production.review_part(7, "dry", "accepted"))
 
+    def test_accepted_part_can_be_revised_without_consuming_next_part(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(production, "ROOT", Path(directory)):
+            production.save({"user_id": 7, "session_id": "song", "parts": [
+                {"role": "Kick", "status": "accepted", "recording_id": "old", "track": 0, "scene": 0},
+                {"role": "Bass", "status": "planned"}]})
+            production.review_part(7, "old", "revise")
+            parts = production.get_plan(7, "song")["parts"]
+            self.assertEqual(parts[0]["status"], "revise")
+            self.assertEqual(parts[0]["review_history"][0]["previous_status"], "accepted")
+            production.review_part(7, "old", "accepted")
+            self.assertEqual(production.get_plan(7, "song")["parts"][0]["status"], "revise")
+            production.link_audition(7, "song", {"id": "new", "track": 0, "scene": 0})
+            production.review_part(7, "new", "accepted")
+            parts = production.get_plan(7, "song")["parts"]
+            self.assertEqual([p["status"] for p in parts], ["accepted", "planned"])
+            self.assertEqual(parts[0]["recording_id"], "new")
+
 
 class OrchestrationTests(unittest.IsolatedAsyncioTestCase):
     async def run_actions(self, names, pending=False, plan=None):

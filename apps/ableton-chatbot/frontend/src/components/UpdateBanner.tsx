@@ -18,6 +18,7 @@ export default function UpdateBanner() {
   const [dismissed, setDismissed] = useState(false);
   const [download, setDownload] = useState("");
   const [legacy, setLegacy] = useState(false);
+  const [automatic, setAutomatic] = useState(false);
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function UpdateBanner() {
         if (!active) return;
         setNotice(updateNotice(BUILT_COMMIT, release, version, latest));
         setLegacy(version !== null && newerVersion(FIRST_VISIBLE_UPDATER, version));
+        setAutomatic(version !== null && !newerVersion("1.3.18", version));
         setDownload(latest && typeof latest === "object" && "url" in latest ? String(latest.url) : "");
         setNotes(latest && typeof latest === "object" && "notes" in latest ? String(latest.notes) : "");
       } catch { /* Checked again at the next interval. */ }
@@ -56,7 +58,9 @@ export default function UpdateBanner() {
     </span>}
     {notice.bridge && (legacy
       ? <span>BeatMind Bridge {notice.bridge} is available{notes ? `: ${notes}` : "."} <a href={download} className="underline">Download it</a>, then replace the old app when your song is saved.</span>
-      : <span>BeatMind Bridge {notice.bridge} is available{notes ? `: ${notes}` : "."} Click Install update in the Bridge window when you are ready.</span>)}
+      : <span>BeatMind Bridge {notice.bridge} is available{notes ? `: ${notes}` : "."} {automatic
+        ? "Your Bridge will install it automatically when idle and reconnect. Your Ableton set stays open."
+        : "Click Install update in the Bridge window when you are ready."}</span>)}
     {notice.bridge && <a href="/changelog" className="underline whitespace-nowrap">Full changelog</a>}
     <button type="button" onClick={() => setDismissed(true)} className="ml-auto text-xs underline">Later</button>
   </div>;

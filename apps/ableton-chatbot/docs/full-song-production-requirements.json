@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-13",
+  "title": "BeatMind reference-based full song production engine",
+  "source": "Both user-supplied full-song arrangement and master production specifications",
+  "release_decision": "Hold publication until remix is ready and tested in a disposable Ableton Live Set.",
+  "production_ready": false,
+  "objective": "Analyze a selected reference, plan and build real musical material, arrange it in the correct existing Ableton Live 12 project, audition it, save it, and verify the result. Plans, markers and successful requests are not completed songs.",
+  "requirements": {
+    "reference_analysis": [
+      "Use actual audio, not filename inference. Preserve source identity and timestamps.",
+      "Measure or estimate tempo stability, meter, beat/downbeat grid, key, tonal center and harmonic content with uncertainty.",
+      "Inspect kick/bass interplay, percussion rhythm, swing, velocity, syncopation, vocal entrances and phrases, motifs, textures and effects.",
+      "Map section boundaries, energy, density, repetition, variations, stereo image and frequency balance.",
+      "Never fabricate detected voices, instruments, chords, exact keys or processing chains. Unknown stays unknown."
+    ],
+    "user_modes_and_controls": [
+      "Reference-faithful remix: retain authorized recognizable musical material and develop new production.",
+      "Style-inspired original: borrow high-level groove, energy and palette without copying specific recordings, melodies or vocals.",
+      "Arrangement only: retain approved sounds, MIDI, audio, instruments and bassline; arrange the current material.",
+      "User-selected mode cannot silently change. Persist reference, genre, BPM, duration, energy, vocal source, fidelity, structure and replacement/new-instrument permissions.",
+      "Bind source reuse permission to the reference. Do not substitute upload consent for remix rights."
+    ],
+    "structure": [
+      "Configurable intro, verse, pre-chorus, chorus, post-chorus, instrumental break, bridge, breakdown, final chorus and outro, with repeated numbered sections.",
+      "Electronic alternatives include DJ intro, groove development/main groove, vocal section, build/drop cycles, groove variation, mid-track bridge, second breakdown, final build/drop and DJ outro.",
+      "Every section has a purpose, bar/time boundaries, energy target, active instrument/clip assignments, vocals, percussion density, kick/bass states, transitions, effects and dependencies.",
+      "Derive seconds from quarter-note beats, actual BPM and meter. At 128 BPM, 4/4, 192 bars is 360 seconds.",
+      "Support 4/8/16/32/64-bar phrases and intentional alternatives. Never silently round a requested duration or cut vocal phrases.",
+      "Electronic minimal genres use restrained development and DJ-friendly endings, not a mandatory pop form. Repeating the same full-mix loop is not musical development."
+    ],
+    "production": [
+      "Preserve the approved kick; shape a controlled transient and tail with kick/bass separation and headroom.",
+      "Use deep, warm bass with compatible pitch, rhythmic interplay and subtle variation.",
+      "Use sparse hats, shakers, rims, claps, clicks, metallic percussion and restrained fills with musical timing/velocity.",
+      "Use restrained pads, stabs, drones, motifs and textures; do not force chord progressions onto atonal music.",
+      "Authorized vocals retain phrasing and lyrical order. Fragments, hooks and chops must refer to real audio; speech generation is not singing.",
+      "Build section energy through meaningful layer, rhythmic and tonal variation with contrasting breakdowns and differentiated drops.",
+      "Place risers, downlifters, reverses, impacts, filter/noise builds, optional rolls, delay throws, reverb tails and fills on the timeline only when musically appropriate.",
+      "Use discovered parameter mappings and real units for EQ, compression, sidechain, saturation, reverb, delay, width, transient shaping, gain and pan.",
+      "Check clipping, phase risk, sub width, masking, abrupt transitions and tails. Do not claim mastering without real processing and verification."
+    ],
+    "execution": [
+      "Verify the correct open Live Set and inspect tempo, tracks, instruments, clips and markers before editing.",
+      "Never start a new project for a continue/arrange request or clear existing work to bypass an overlap.",
+      "Validate timing and real clip availability before changes. Persist the exact proposed revision and user approval.",
+      "Make bounded changes, inspect readback and save recoverable checkpoints before continuing.",
+      "On disconnect, timeout or restart, retain completed work and uncertain-operation evidence. Inspect before retrying; never duplicate writes blindly.",
+      "Verify all section material and transitions, target duration, no unwanted gaps/cutoffs, real playback/audio, and saved-project identity."
+    ]
+  },
+  "implemented_in_this_increment": [
+    "Five chat tools for paginated Live arrangement inspection, persisted planning, plan retrieval, approved section placement and full planned-clip readback.",
+    "Exact constant-tempo/meter timing, section ordering/dependencies, gaps/overlaps, requested duration and source-availability validation.",
+    "Native whole-clip placement with retained source identity, MIDI-content fingerprint, exact boundary checks and occupied-destination refusal.",
+    "Revision-specific user approval from the frontend and durable write-ahead checkpoints that block automatic replay after an uncertain write.",
+    "Visible section purposes, timing, energy targets, active parts and execution status in chat.",
+    "Separate placement status from unverified effects, audio and project saving; no finished-song certificate is issued."
+  ],
+  "not_yet_complete": [
+    "Explicit mode/settings UI and reference-bound remix rights gate across generation/import tools.",
+    "Reference analysis confidence/provenance audit and accurate reviewed beat-grid/phrase mapping.",
+    "Tempo-changing remix stem warping, pitch/formant control and source-to-destination phrase slicing.",
+    "Track-scoped transition automation, tail overlaps and automatically verified effect execution from the section plan.",
+    "Section save checkpoints with file evidence, full arrangement audio capture/playback evidence and finished-song export verification.",
+    "Automatic reconciliation of uncertain placements after extension restart. Current behavior safely stops and requires inspection.",
+    "Variable-tempo/meter timeline support. Current planner explicitly uses one tempo and meter.",
+    "Customer delivery/update of the changed AbletonOSC extension and real Ableton Live 12 compatibility testing. The previously notarized connection-only installer does not certify these new changes."
+  ],
+  "verification": {
+    "backend": "560 tests passed after this increment, including 34 new arrangement tests.",
+    "bridge": "66 tests passed, including automatic-update deferral after arrangement writes.",
+    "frontend": "21 test files passed; production build passed.",
+    "browser": "Desktop 1440px and mobile 390px: five-section timeline, approval message/revision, no false completion claim, no horizontal overflow, no page errors.",
+    "actual_ableton_arrangement_and_audio": "Not run for this increment; release remains blocked.",
+    "published": false
+  },
+  "official_interfaces_checked": [
+    "https://docs.cycling74.com/apiref/lom/track/",
+    "https://docs.cycling74.com/apiref/lom/clip/"
+  ]
+}

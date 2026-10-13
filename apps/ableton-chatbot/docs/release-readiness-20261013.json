@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-13",
+  "status": "held_by_user_until_remix_ready",
+  "published": false,
+  "user_confirmation": "Keep release held until remix is ready",
+  "implemented_candidate_features": [
+    "Connection recovery without automatic replay of interrupted music writes",
+    "Durable account-scoped instruction queue and structured long briefs",
+    "Full-song section plans with exact bar timing and checked whole-clip placement",
+    "Explicitly approved MIDI-pattern revisions scoped to one track in one placed section",
+    "Original-note checkpoints retained outside model history, exact target readback and no blind retries",
+    "Previously accepted sounds can enter Changes requested, with a fresh recording required for new acceptance",
+    "Arrangement section recording verifies actual playback position and transport restoration",
+    "Instrument loading rejects audio-only tracks before browser loading",
+    "Automation validates replacement points before clearing existing envelopes and checks written values",
+    "Installer bundles extensions; registered existing Ableton integrations update with local backups and a restart notice",
+    "Frontend deployment uses the build artifact that passed CI rather than rebuilding it",
+    "Frontend dependencies updated within existing major versions with a PostCSS security override"
+  ],
+  "validation": {
+    "backend_sqlite": "571 passed; 42 arrangement tests rerun after model-payload backup redaction",
+    "bridge": "78 passed",
+    "frontend_unit_files": "21 passed",
+    "frontend_build": "passed with Next.js 15.5.27",
+    "npm_audit": "zero known vulnerabilities after clean npm ci",
+    "browser_mocked_api": "Arrangement approval, scoped revision approval and durable outbox passed at 1440px and 390px; screenshots inspected",
+    "native_ableton": "Disposable project copy: one drop kick clip revised, 87 other clips unchanged, all section positions verified, actual section audio captured with pending review",
+    "native_audio": {"seconds": 8.52, "peak_dbfs": -10.499, "rms_dbfs": -25.762, "has_signal": true},
+    "extension_update": "Backed-up installation exercised on this Mac, then Live restarted; new native functions worked",
+    "not_proven": ["Frontend-to-model-to-Bridge production flow for the new features", "PostgreSQL CI for this final candidate", "Rebuilt signed and notarized installer containing these final changes", "Clean-machine first integration setup", "Reference-faithful remix end to end"]
+  },
+  "release_gates": [
+    "Complete reference-bound remix mode, source authorization and retained/replaced layer state",
+    "Implement and test tempo/warp alignment and section-local audio-stem replacement without changing original media",
+    "Verify durable stem import recovery and actual clip/file identities after interrupted operations",
+    "Test the selected reference through the frontend, arrangement, previews, saved project and complete export",
+    "Audit automation/device changes separately from MIDI-note fingerprints; note JSON backups do not contain per-note expression",
+    "Build and notarize a fresh installer after code freeze; the earlier local 1.3.20 DMG predates these changes and must not be published",
+    "Validate clean-machine setup, existing-client automatic update, signed package contents and installed extension activation",
+    "Run PostgreSQL CI and final production smoke tests only when the hold is lifted"
+  ],
+  "privacy": "Reference songs, produced songs, recordings and local QA media are not part of the release or Git changes."
+}

@@ -24,6 +24,8 @@ def save_recording(user_id, result):
                 "track_name": result["track_name"], "track": result["track"], "scene": result["scene"],
                 "metrics": result["metrics"], "source": "Ableton Live application audio", "decision": "pending",
                 "kind": result.get("kind", "part"), **({"scene_name": result["scene_name"]} if result.get("scene_name") else {})}
+    if result.get("kind") == "arrangement":
+        metadata.update(section_id=result["section_id"], start_beat=result["start_beat"])
     (ROOT / f"{recording_id}.m4a").write_bytes(data)
     (ROOT / f"{recording_id}.json").write_text(json.dumps(metadata))
     return {**result, "recording": metadata}
@@ -50,10 +52,11 @@ def link_revision(recording_id, previous_id, user_id):
     previous = owned_recording(previous_id, user_id)
     if not item or not previous or recording_id == previous_id:
         return
-    if any(item.get(key) != previous.get(key) for key in ("track", "scene", "track_name")):
+    if any(item.get(key) != previous.get(key) for key in ("track", "scene", "track_name", "session_id")):
         return
     item["supersedes"] = previous_id
     (ROOT / f"{recording_id}.json").write_text(json.dumps(item))
+    return {key: value for key, value in item.items() if key != "production_log"}
 
 
 def attach_evidence(recording_id, user_id, actions, session_id=None):
@@ -80,6 +83,11 @@ def decide_recording(recording_id, user_id, decision):
         return None
     if decision not in {"accepted", "revise"}:
         raise ValueError("Invalid decision")
+    if decision == "accepted" and item["decision"] == "revise":
+        raise ValueError("Changes were requested for this version. Record and review the revised sound before accepting it.")
+    if item["decision"] != decision:
+        item.setdefault("decision_history", []).append({"previous": item["decision"], "decision": decision,
+            "created_at": datetime.now(timezone.utc).isoformat()})
     item["decision"] = decision
     (ROOT / f"{recording_id}.json").write_text(json.dumps(item))
     return item

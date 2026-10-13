@@ -23,21 +23,26 @@ trap 'rm -rf "$WORK"' EXIT
   --paths ../backend \
   --hidden-import audio_preview --hidden-import live_set --hidden-import arrangement \
   --hidden-import mixer_preview --hidden-import sample_library \
+  --hidden-import arrangement_audio \
   --hidden-import local_separation --hidden-import stem_import \
   --hidden-import cloud_stem_import --hidden-import audio_import \
   --hidden-import reference_worker --hidden-import separation --hidden-import stems \
   --collect-data demucs --collect-submodules demucs --collect-data librosa \
   --add-data "$PWD/THIRD_PARTY_NOTICES.txt:." \
+  --add-data "$PWD/abletonosc:abletonosc" \
   --distpath "$WORK/dist" --workpath "$WORK/work" --specpath "$WORK" bridge_app.py
 APP="$WORK/dist/BeatMind Bridge.app"
 "$WORK/venv/bin/python" - "$APP/Contents/Info.plist" <<'PY'
 import plistlib
 import sys
+from bridge import BRIDGE_VERSION
 from launch_link import URL_TYPES
 path = sys.argv[1]
 with open(path, 'rb') as source:
     info = plistlib.load(source)
 info['CFBundleURLTypes'] = URL_TYPES
+info['CFBundleShortVersionString'] = BRIDGE_VERSION
+info['CFBundleVersion'] = BRIDGE_VERSION
 with open(path, 'wb') as target:
     plistlib.dump(info, target)
 PY

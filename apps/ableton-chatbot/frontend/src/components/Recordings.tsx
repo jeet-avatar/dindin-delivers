@@ -21,7 +21,7 @@ export interface Recording {
   scene?: number;
   track_name: string;
   /** "scene" for a full-mix preview of a whole scene. */
-  kind?: "part" | "scene";
+  kind?: "part" | "scene" | "arrangement";
   scene_name?: string;
   source: string;
   decision: "pending" | "accepted" | "revise";
@@ -140,7 +140,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
     {item.supersedes && !superseded && <BeforeAfter beforeId={item.supersedes} afterId={item.id} afterRms={item.metrics.rms_dbfs} />}
     {superseded && <p className="text-xs mt-1">Historical version. A newer recording is available.</p>}
     <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-      Ableton reference at capture: {item.kind === "scene" ? "Full mix, all tracks"
+      Ableton reference at capture: {item.kind === "arrangement" ? "Arrangement section, full mix" : item.kind === "scene" ? "Full mix, all tracks"
         : typeof item.track === "number" && item.track >= 0 ? `Track ${item.track + 1}` : "Track not recorded"}
       {typeof item.scene === "number" && item.scene >= 0 ? ` / Scene ${item.scene + 1}${item.scene_name ? ` (${item.scene_name})` : ""}` : ""}
     </p>

@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bridge import AbletonBridge, BRIDGE_VERSION, SignInRejected
 import credentials
 import updater
+import integration_update
 from launch_link import register_mac_launch
 from bridge_network import tls_context, connection_error, network_check
 
@@ -125,6 +126,7 @@ class BeatMindBridgeApp:
         if saved:
             self.root.after(300, self._resume, saved)
         self.root.after(2000, self._check_updates)
+        self.root.after(1000, self._check_integration)
         updater.clean_previous()
 
     def _build_ui(self, config: dict):
@@ -157,6 +159,9 @@ class BeatMindBridgeApp:
         self.check_update_btn = ttk.Button(title_frame, text="Check again", style='Disconnect.TButton',
                                            command=self._request_update_check, takefocus=True)
         self.check_update_btn.pack(pady=(4, 0))
+        self.integration_status = tk.Label(title_frame, text="Checking Ableton integration...", font=self.font_small,
+                                           bg=BG, fg=TEXT_DIM, wraplength=360, justify='center')
+        self.integration_status.pack(pady=(6, 0))
 
         # ── Login section ──
         form = tk.Frame(self.root, bg=BG_CARD, highlightbackground=BORDER,
@@ -464,6 +469,20 @@ class BeatMindBridgeApp:
             return
         self._request_update_check()
         self.root.after(UPDATE_CHECK_MS, self._check_updates)
+
+    def _check_integration(self):
+        def check():
+            try:
+                result = integration_update.update_existing()
+            except (OSError, ValueError, SyntaxError):
+                result = {"status": "error", "summary": "Ableton integration update failed. Your backup and current song are preserved."}
+            self._post(self._show_integration_status, result)
+        threading.Thread(target=check, daemon=True).start()
+
+    def _show_integration_status(self, result):
+        color = SUCCESS if result["status"] == "current" else ACCENT
+        self.integration_status.config(text=result["summary"], fg=color)
+        self._fit_window()
 
     def _request_update_check(self):
         if self.closing or self.updating or self.checking_update:

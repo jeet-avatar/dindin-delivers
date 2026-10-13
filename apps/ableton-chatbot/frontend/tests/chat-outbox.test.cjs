@@ -1,0 +1,36 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const Module = require('node:module');
+const ts = require('typescript');
+const file = require('node:path').resolve(__dirname, '../src/lib/chat-outbox.ts');
+const mod = new Module(file, module);
+mod._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText, file);
+const { emptyQueue, outboxKey, readQueue, recoverQueue, appendInstruction, nextInstructions, settleInstructions } = mod.exports;
+let queue = appendInstruction(emptyQueue(), 'Build minimal techno at 124 BPM');
+queue = appendInstruction(queue, 'Change to 123 BPM and keep the bass dry');
+assert.equal(queue.items.length, 2);
+const batch = nextInstructions(queue);
+assert.equal(batch.ids.length, 2);
+assert.match(batch.text, /later changes override earlier/);
+assert.ok(batch.text.indexOf('124 BPM') < batch.text.indexOf('123 BPM'));
+assert.equal(recoverQueue(queue).paused, true, 'Reload must not auto-send');
+queue.items[0].state = 'sending';
+const restored = recoverQueue(readQueue({ getItem: () => JSON.stringify(queue) }, 'test'));
+assert.equal(restored.items[0].state, 'uncertain');
+assert.equal(nextInstructions(restored), null, 'Uncertain delivery must never replay');
+const failed = settleInstructions(queue, batch.ids, false);
+assert.equal(failed.paused, true);
+assert.ok(failed.items.every(item => item.state === 'uncertain'));
+assert.equal(settleInstructions(queue, batch.ids, true).items.length, 0);
+assert.notEqual(outboxKey(1, 'song-a'), outboxKey(1, 'song-b'));
+assert.notEqual(outboxKey(1, 'song-a'), outboxKey(2, 'song-a'));
+const long = 'a'.repeat(12000);
+assert.equal(nextInstructions(appendInstruction(emptyQueue(), long)).text, long);
+assert.throws(() => appendInstruction(emptyQueue(), long + 'a'), /12,000/);
+assert.throws(() => readQueue({ getItem: () => '{"items":[{}]}' }, 'test'), /not.*overwritten/);
+assert.throws(() => readQueue({ getItem: () => { throw Error('storage denied'); } }, 'test'), /storage denied/);
+const fresh = appendInstruction(queue, 'Add a water texture next');
+assert.deepEqual(settleInstructions(fresh, batch.ids, true).items.map(item => item.text), ['Add a water texture next']);
+console.log('Durable instruction queue: ordering, batching, limits, recovery, isolation and no replay passed.');

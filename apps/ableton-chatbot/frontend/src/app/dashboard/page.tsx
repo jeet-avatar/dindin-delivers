@@ -1,6 +1,9 @@
 "use client";
 
 import { streamHealth } from "@/lib/stream-health";
+import { appendInstruction, nextInstructions, outboxKey, readQueue, settleInstructions } from "@/lib/chat-outbox";
+import { useChatOutbox } from "@/lib/use-chat-outbox";
+import { Trash2 } from "lucide-react";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -144,7 +147,8 @@ function writeChat(userId: number, id: string, snapshot: SavedChat): ChatEntry[]
   const index = JSON.parse(localStorage.getItem(prefix) || '{"chats":[]}');
   const title = snapshot.project?.title || snapshot.messages.find(m => m.role === "user")?.content.slice(0, 70) || "New song";
   const restored = restoreChatIndex(index.chats, chatId => localStorage.getItem(`${prefix}_${chatId}`));
-  if (!snapshot.sessionId && !snapshot.messages.length && !snapshot.input.trim() && !snapshot.project) return restored;
+  if (!snapshot.sessionId && !snapshot.messages.length && !snapshot.input.trim() && !snapshot.project
+      && !readQueue(localStorage, outboxKey(userId, id)).items.length) return restored;
   const chats: ChatEntry[] = [...restored.filter(c => c.id !== id), { id, title, sessionId: snapshot.sessionId }];
   // Save the conversation before changing the active pointer; failed storage must not erase it.
   localStorage.removeItem(`beatmind_chat_v1_${userId}`);  // legacy duplicate of the active chat
@@ -269,7 +273,6 @@ export default function DashboardPage() {
   const recordingIdsByMessage = useMemo(() => messageRecordingIds(messages, recordings.items), [messages, recordings.items]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const queuedRef = useRef<string | null>(null);
   const [streamNotice, setStreamNotice] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelTier>("fast");
@@ -280,6 +283,9 @@ export default function DashboardPage() {
   const ableton = useAbletonLaunch(bridgeStatus, user?.id);
   const [historyReady, setHistoryReady] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const queueKey = user && chatId ? outboxKey(user.id, chatId) : null;
+  const outbox = useChatOutbox(queueKey, setHistoryError);
+  const queueAttempt = useRef<string | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -357,7 +363,7 @@ export default function DashboardPage() {
         chat.id === savedChats[index].id && chat.title === savedChats[index].title && chat.sessionId === savedChats[index].sessionId
       ) ? previous : savedChats);
     } catch { setHistoryError("Chat history could not be saved in this browser. Keep this tab open until the request finishes."); }
-  }, [historyReady, user, messages, sessionId, input, loading, chatId, project, referenceId]);
+  }, [historyReady, user, messages, sessionId, input, loading, chatId, project, referenceId, outbox.queue]);
 
   useEffect(() => {
     if (!user?.id || loading) return;
@@ -378,11 +384,13 @@ export default function DashboardPage() {
       const response = await apiFetch(`/api/chats/${encodeURIComponent(id)}`);
       if (!response.ok) throw new Error("Saved conversation could not be loaded. Your current chat is unchanged.");
       const data = await response.json();
-      const saved: SavedChat = { messages: data.messages, sessionId: data.sessionId, input: "", project: data.project, referenceId: data.referenceId };
-      const localId = `server-${id}`;
+      const localId = chats.find(chat => chat.sessionId === id)?.id || `server-${id}`;
+      const cached = JSON.parse(localStorage.getItem(`beatmind_chats_v2_${user.id}_${localId}`) || "null");
+      const saved: SavedChat = { messages: data.messages, sessionId: data.sessionId,
+        input: typeof cached?.input === "string" ? cached.input : "", project: data.project, referenceId: data.referenceId };
       setChats(writeChat(user.id, localId, saved));
       document.querySelectorAll("audio").forEach(audio => audio.pause());
-      setChatId(localId); setMessages(restoredMessages(saved)); setSessionId(saved.sessionId); setInput("");
+      setChatId(localId); setMessages(restoredMessages(saved)); setSessionId(saved.sessionId); setInput(saved.input);
       setProject(saved.project || null); setReferenceId(saved.referenceId || null); setNav("beatmind"); setHistoryOpen(false);
       setHistoryError("");
     } catch (e) { setHistoryError(e instanceof Error ? e.message : "Saved conversation unavailable."); }
@@ -427,7 +435,7 @@ export default function DashboardPage() {
     }
     if (!response.ok) throw new Error("Your new song could not be saved. The current song is unchanged.");
     const data = await response.json();
-    const id = `server-${data.sessionId}`;
+    const id = !fresh && chatId ? chatId : `server-${data.sessionId}`;
     const snapshot: SavedChat = { messages: [], sessionId: data.sessionId, input: "", project: data.project, referenceId: null };
     setChats(writeChat(user.id, id, snapshot));
     document.querySelectorAll("audio").forEach(audio => audio.pause());
@@ -481,14 +489,21 @@ export default function DashboardPage() {
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
-  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, selectedReference?: string | null, planningOnly = false) => {
+  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, selectedReference?: string | null, planningOnly = false, queuedIds: string[] = []) => {
     const text = (messageOverride ?? input).trim();
     if (!text || !historyReady || loading || requestRef.current) return;
+    try {
+      if (queuedIds.length) outbox.update(queue => ({ ...queue, items: queue.items.map(item =>
+        queuedIds.includes(item.id) ? { ...item, state: "sending" } : item) }));
+    } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save instructions. Nothing was sent."); return; }
     const runId = crypto.randomUUID();
     const controller = new AbortController();
     requestRef.current = controller;
     const createdAt = new Date().toISOString();
     let actionsSent = false;
+    let submitted = false;
+    let completed = false;
+    let safeToContinue = false;
     setLoading(true);
     setStreamNotice("");
     let lastEvent = Date.now();
@@ -501,7 +516,8 @@ export default function DashboardPage() {
     try {
       const activeSession = continuationSession ?? sessionId ?? await createProject();
       setMessages(p => [...p, { role: "user", content: text, createdAt }, { id: runId, role: "assistant", createdAt, requestStatus: "running", content: "Planning the next steps...", toolCalls: [] }]);
-      setInput("");
+      if (!queuedIds.length) setInput("");
+      submitted = true;
       const res = await apiFetch("/api/chat/stream", {
         method: "POST",
         body: JSON.stringify({ message: text, session_id: activeSession, reference_id: selectedReference, planning_only: planningOnly, model_tier: selectedModel }),
@@ -523,7 +539,6 @@ export default function DashboardPage() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let completed = false;
       let narration = "";
       const consume = (line: string) => {
         if (!line.trim()) return;
@@ -553,6 +568,8 @@ export default function DashboardPage() {
           }));
         } else if (event.type === "complete") {
           completed = true;
+          safeToContinue = event.tool_calls.every((action: ProductionAction) =>
+            action.result && ["verified", "observed"].includes(action.result.status || ""));
           setMessages(p => p.map(m => m.id === runId ? { ...m, requestStatus: "complete", content: event.response,
             toolCalls: event.tool_calls.map((action: ProductionAction) => ({ ...m.toolCalls?.find(a => a.id === action.id), ...action })) } : m));
         } else if (event.type === "error") {
@@ -575,9 +592,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : "Request failed.";
-      // Most failures (trial ended, Bridge offline, set changed, AI busy) happen before anything reaches Ableton.
-      // Say that plainly instead of warning about an interrupted production.
-      if (!actionsSent) {
+      // Missing stream events do not prove a submitted request made no changes.
+      if (!submitted && !actionsSent) {
         const timeoutReason = controller.signal.reason;
         const why = controller.signal.aborted
           ? (timeoutReason instanceof Error && timeoutReason.name !== "AbortError" ? timeoutReason.message : "Stopped.")
@@ -600,10 +616,31 @@ export default function DashboardPage() {
       }));
     } finally {
       window.clearInterval(watchdog); requestRef.current = null; setLoading(false); setStreamNotice("");
-      const queued = queuedRef.current;
-      if (queued) { queuedRef.current = null; setTimeout(() => sendMessage(queued), 50); }
+      try {
+        if (queuedIds.length || !safeToContinue) outbox.update(queue => ({
+          ...settleInstructions(queue, queuedIds, completed), paused: queue.paused || !safeToContinue,
+        }));
+      } catch { setHistoryError("Could not save delivery status. Inspect the conversation before sending saved instructions again."); }
     }
-  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject]);
+  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject, selectedModel, outbox.update]);
+
+  function saveInstruction() {
+    if (!historyReady || !input.trim()) return;
+    try {
+      outbox.update(queue => appendInstruction(queue, input));
+      setInput("");
+    } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save this instruction. Your draft is unchanged."); }
+  }
+
+  useEffect(() => {
+    if (!historyReady || !outbox.ready || loading || projectBusy || requestRef.current || !bridgeConnected || outbox.queue.paused) return;
+    const next = nextInstructions(outbox.queue);
+    if (!next) return;
+    const attempt = `${queueKey}:${next.ids.join(",")}`;
+    if (queueAttempt.current === attempt) return;
+    queueAttempt.current = attempt;
+    void sendMessage(next.text, undefined, undefined, false, next.ids);
+  }, [historyReady, outbox.ready, outbox.queue, loading, projectBusy, bridgeConnected, queueKey, sendMessage]);
 
   // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
   const openBilling = async () => {
@@ -665,7 +702,12 @@ export default function DashboardPage() {
                 {msg.role === "assistant" && msg.requestStatus !== "running" && <SpeakButton text={msg.content} />}
               </div>
               {msg.role === "user" ? <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p> : <>
-                {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} requestStatus={msg.requestStatus} />}
+                {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} requestStatus={msg.requestStatus}
+                  busy={loading || !historyReady} onApproveArrangement={i === messages.length - 1
+                    ? revision => void sendRef.current(`Approve arrangement ${revision}`, undefined, undefined, false)
+                    : undefined} onApproveRevision={i === messages.length - 1
+                    ? revision => void sendRef.current(`Approve part revision ${revision}`, undefined, undefined, false)
+                    : undefined} />}
                 {!!msg.toolCalls?.length && <FailedAudition actions={msg.toolCalls} busy={loading} onInspect={prompt => {
                   setInput(prompt); inputRef.current?.focus();
                 }} />}
@@ -1010,14 +1052,31 @@ export default function DashboardPage() {
             )}
           </div>
         )}
+        {!!outbox.queue.items.length && <section aria-label="Saved instructions" className="mb-3 border-t pt-3 text-sm" style={{ borderColor: "var(--border)" }}>
+          <p role="status">{outbox.queue.paused ? "Saved instructions paused" : "Saved instructions"} ({outbox.queue.items.length})</p>
+          <ol className="max-h-40 overflow-y-auto">
+            {outbox.queue.items.map(item => <li key={item.id} className="flex items-start gap-2 py-2">
+              <div className="min-w-0 flex-1">
+                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{item.state === "queued" ? "Not sent" : item.state === "sending" ? "Sending" : "Delivery uncertain; inspect chat and Ableton"}</span>
+                <p className="whitespace-pre-wrap break-words">{item.text}</p>
+              </div>
+              <button type="button" aria-label="Remove saved instruction" title="Remove saved instruction" disabled={item.state === "sending"}
+                onClick={() => { try { outbox.update(queue => ({ ...queue, items: queue.items.filter(entry => entry.id !== item.id) })); }
+                  catch { setHistoryError("Could not update saved instructions."); } }} className="p-2 disabled:opacity-40"><Trash2 size={16} /></button>
+            </li>)}
+          </ol>
+          {outbox.queue.paused && <button type="button" disabled={loading || !bridgeConnected || outbox.queue.items.some(item => item.state !== "queued")}
+            onClick={() => { try { queueAttempt.current = null; outbox.update(queue => ({ ...queue, paused: false })); }
+              catch { setHistoryError("Could not resume saved instructions."); } }} className="mt-2 underline disabled:opacity-40">Send unsent instructions</button>}
+          <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>Saved in this browser for this song. Uncertain requests are never sent again automatically.</p>
+        </section>}
         <div className="flex gap-3 items-end">
           <label htmlFor="chat-input" className="sr-only">Message BeatMind</label>
           <textarea
             id="chat-input" ref={inputRef} value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (loading) { queuedRef.current = input.trim() || null; setInput(""); } else sendMessage(); } }}
-            placeholder={queuedRef.current ? "Message queued — sending when ready..."
-              : referenceInAbleton ? "Tell BeatMind what to build, e.g. a drum groove like the reference" : "Message BeatMind..."}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); saveInstruction(); } }}
+            placeholder={referenceInAbleton ? "Tell BeatMind what to build, e.g. a drum groove like the reference" : "Message BeatMind..."}
             rows={1}
             className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-sm outline-none"
             style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
@@ -1031,7 +1090,7 @@ export default function DashboardPage() {
               <span className="block w-4 h-4 bg-current" aria-hidden="true" />
             </button>
           )}
-          <button type="button" onClick={() => { if (loading) { queuedRef.current = input.trim() || null; setInput(""); } else sendMessage(); }} disabled={!input.trim()}
+          <button type="button" onClick={saveInstruction} disabled={!input.trim() || !historyReady || !outbox.ready}
             aria-label="Send"
             title="Send"
             className="px-4 py-3 rounded-xl transition-opacity disabled:opacity-30 flex items-center justify-center"
@@ -1041,7 +1100,9 @@ export default function DashboardPage() {
         </div>
         {micError && <p role="alert" className="text-xs mt-2 text-center" style={{ color: "var(--warning)" }}>{micError}</p>}
         <p className="text-xs mt-2 text-center" style={{ color: "var(--text-secondary)" }}>
-          {queuedRef.current ? `Your message is queued — it will send when the current response finishes.` : bridgeStatusLabel[bridgeStatus]}
+          {outbox.queue.items.length ? outbox.queue.paused ? "Review the saved instructions before continuing."
+            : !bridgeConnected ? "Waiting for the Bridge to reconnect. Instructions are saved."
+            : "Saved instructions will be read together after the current response." : bridgeStatusLabel[bridgeStatus]}
         </p>
       </div>
     </div>

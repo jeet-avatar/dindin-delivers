@@ -18,8 +18,10 @@ import struct
 import sys
 import time
 from dataclasses import dataclass
+from contextlib import suppress
 
 import websockets
+from websockets.exceptions import ConnectionClosed
 from bridge_network import tls_context
 
 logging.basicConfig(
@@ -39,11 +41,12 @@ def rejected_sign_in(error):
     return status in (401, 403) or code == 4001
 
 # AbletonOSC defaults
-BRIDGE_VERSION = "1.3.19"
+BRIDGE_VERSION = "1.3.20"
 BACKGROUND_TASKS = set()
 OSC_HOST = "127.0.0.1"
 OSC_SEND_PORT = 11000
 OSC_RECV_PORT = 11001
+MAX_WS_MESSAGE_BYTES = 16 * 1024 * 1024  # Base64 audio imports exceed websockets' 1 MiB default.
 
 
 # --- OSC Protocol Helpers ---
@@ -146,6 +149,8 @@ class AbletonBridge:
         self.active_commands = 0
         self.last_mutation_at = time.monotonic()
         self.running = False
+        self._stopped = asyncio.Event()
+        self._connected_at = None
         self._recv_protocol = None
         self.on_connection = on_connection
         from local_separation import LocalReferences
@@ -159,6 +164,7 @@ class AbletonBridge:
     async def start(self):
         """Start the bridge — connect to both WebSocket and UDP."""
         self.running = True
+        self._stopped.clear()
         log.info("Starting Ableton Chat Bridge...")
 
         # Start UDP listener for OSC responses
@@ -174,20 +180,28 @@ class AbletonBridge:
         # Connect to cloud backend WebSocket. Any outage (network loss, a BeatMind deploy returning 503,
         # timeouts) is retried with backoff; only a rejected sign-in stops the Bridge.
         delay = 2
-        while self.running:
-            try:
-                await self._connect_websocket()
-                delay = 2
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                if rejected_sign_in(e):
-                    raise SignInRejected("Please sign in to BeatMind again.") from e
+        try:
+            while self.running:
+                try:
+                    await self._connect_websocket()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    if rejected_sign_in(e):
+                        raise SignInRejected("Please sign in to BeatMind again.") from e
+                    log.warning("Connection interrupted (%s).", type(e).__name__)
                 if not self.running:
                     break
-                log.warning(f"Connection interrupted ({type(e).__name__}). Reconnecting in {delay}s...")
-                await asyncio.sleep(delay)
+                if self._connected_at is not None and time.monotonic() - self._connected_at >= 30:
+                    delay = 2
+                self._connected_at = None
+                log.info("Reconnecting in %ss...", delay)
+                # Back off on clean remote closes too; Disconnect interrupts the wait.
+                with suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(self._stopped.wait(), timeout=delay)
                 delay = min(delay * 2, 30)
+        finally:
+            await self.stop()
 
     async def _connect_websocket(self):
         """Connect to backend WebSocket and handle messages."""
@@ -195,31 +209,64 @@ class AbletonBridge:
         log.info(f"Connecting to backend: {self.server_url}")
 
         options = {'ssl': tls_context()} if self.server_url.startswith('wss://') else {}
-        async with websockets.connect(url, ping_interval=20, ping_timeout=10, **options) as ws:
+        async with websockets.connect(url, ping_interval=20, ping_timeout=30,
+                                      max_size=MAX_WS_MESSAGE_BYTES, **options) as ws:
             self.ws = ws
             log.info("Connected to backend!")
-
-            # Send capabilities/status
-            from local_separation import available as local_separation_available
-            await ws.send(json.dumps({
-                "type": "bridge_hello",
-                "version": BRIDGE_VERSION,
-                "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
-                "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1"]
-                                + (["local_separation_v1"] if local_separation_available() else []),
-            }))
-            # Deliver separation results that finished while the connection was down.
-            await self.local.flush()
-
             try:
+                from local_separation import available as local_separation_available
+                await ws.send(json.dumps({
+                    "type": "bridge_hello",
+                    "version": BRIDGE_VERSION,
+                    "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
+                    "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1", "arrangement_audition_v1"]
+                                    + (["local_separation_v1"] if local_separation_available() else []),
+                }))
+                await self.local.flush()
+                self._connected_at = time.monotonic()
                 if self.on_connection:
                     self.on_connection(True)
-                async for message in ws:
-                    await self._handle_ws_message(message)
+                await self._receive_commands(ws)
             finally:
-                self.ws = None
-                if self.on_connection:
-                    self.on_connection(False)
+                self._socket_disconnected(ws)
+
+    def _socket_disconnected(self, ws):
+        if self.ws is ws:
+            self.ws = None
+            if self.on_connection:
+                self.on_connection(False)
+
+    async def _receive_commands(self, ws):
+        active = None
+        try:
+            async for raw in ws:
+                try:
+                    message = json.loads(raw)
+                except (ValueError, TypeError):
+                    log.warning("Ignored invalid Bridge message.")
+                    continue
+                if not isinstance(message, dict):
+                    continue
+                if active and active.done():
+                    active.result()
+                    active = None
+                if message.get('type') == 'ping':
+                    await self._reply(message.get('request_id', 'unknown'), {'status': 'pong'})
+                elif active:
+                    # Never queue writes that could execute after their caller has timed out.
+                    await self._reply(message.get('request_id', 'unknown'), {
+                        'status': 'unverified',
+                        'summary': 'Bridge is completing another operation. This request was not started; wait for it to finish.'})
+                else:
+                    active = asyncio.create_task(self._handle_ws_message(raw))
+        finally:
+            self._socket_disconnected(ws)
+            if active:
+                if not active.done():
+                    active.cancel()
+                # Await playback/solo restoration before accepting a new connection.
+                with suppress(asyncio.CancelledError, ConnectionClosed):
+                    await active
 
     def update_is_busy(self):
         """Wait for commands/imports and a quiet period before an automatic restart."""
@@ -231,6 +278,18 @@ class AbletonBridge:
         previous_mutation = self.last_mutation_at
         try:
             await self._execute_ws_message(raw)
+        except ConnectionClosed:
+            raise
+        except Exception as error:
+            log.warning("Bridge operation interrupted (%s).", type(error).__name__)
+            try:
+                message = json.loads(raw)
+            except (ValueError, TypeError):
+                return
+            if isinstance(message, dict):
+                await self._reply(message.get('request_id', 'unknown'), {
+                    'status': 'unverified',
+                    'summary': 'The local operation could not finish. Inspect Ableton before retrying; some changes may have run.'})
         finally:
             self.active_commands -= 1
             if self.last_mutation_at != previous_mutation:
@@ -248,6 +307,13 @@ class AbletonBridge:
         request_id = msg.get("request_id", "unknown")
         # Health checks and read-only inspection must not postpone updates forever.
         read_only = msg_type in {'ping', 'osc_query'} or (msg_type == 'live_set' and msg.get('operation') == 'inspect')
+        if msg_type == 'osc_query' and msg.get('address') == '/live/beatmind/arrangement':
+            try:
+                operation = json.loads(msg['args'][0]).get('action')
+            except (ValueError, TypeError, KeyError, IndexError):
+                operation = None
+            # Query/reply transport can carry writes. Do not update between placements.
+            read_only = operation in {'inspect', 'state', 'verify_section'}
         if not read_only:
             self.last_mutation_at = time.monotonic()
 
@@ -282,6 +348,9 @@ class AbletonBridge:
             result = await capture_part(self, msg.get("track"), msg.get("scene"), msg.get("seconds", 8))
             await self._reply(request_id, result)
 
+        elif msg_type == "capture_arrangement":
+            from arrangement_audio import capture
+            await self._reply(request_id, await capture(self, msg))
         elif msg_type == "capture_scene":
             from audio_preview import capture_scene
             await self._reply(request_id, await capture_scene(self, msg.get("scene"), msg.get("seconds", 12), msg.get("then_scene"),
@@ -446,6 +515,7 @@ class AbletonBridge:
 
     async def stop(self):
         self.running = False
+        self._stopped.set()
         if self.ws:
             await self.ws.close()
         if self.udp_transport:

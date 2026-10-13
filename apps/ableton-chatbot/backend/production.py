@@ -17,6 +17,13 @@ PLAN_TOOL = {
         "bpm": {"type": "number", "minimum": 20, "maximum": 300},
         "key": {"type": "string", "minLength": 1, "maxLength": 60},
         "scope": {"type": "string", "enum": ["loop", "session_sections"]},
+        "sections": {"type": "array", "maxItems": 64, "items": {
+            "type": "object", "additionalProperties": False, "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": 120},
+                "start_bar": {"type": "integer", "minimum": 1, "maximum": 8192},
+                "bars": {"type": "integer", "minimum": 1, "maximum": 1024},
+                "intent": {"type": "string", "maxLength": 1200}},
+            "required": ["name", "start_bar", "bars", "intent"]}},
         "assumptions": {"type": "array", "minItems": 0, "maxItems": 12, "items": {"type": "string", "maxLength": 300}},
         "parts": {"type": "array", "minItems": 1, "maxItems": 16, "items": {
             "type": "object", "additionalProperties": False, "properties": {
@@ -24,6 +31,8 @@ PLAN_TOOL = {
                 "source_kind": {"type": "string", "enum": ["pack", "instrument", "plugin"]},
                 "source": {"type": "string", "minLength": 1, "maxLength": 300},
                 "sound": {"type": "string", "minLength": 1, "maxLength": 600},
+                "effects_intent": {"type": "string", "maxLength": 1200},
+                "automation_intent": {"type": "string", "maxLength": 1200},
                 "bars": {"type": "integer", "minimum": 1, "maximum": 64}},
             "required": ["role", "source_kind", "source", "sound", "bars"]}}},
         "required": ["title", "genre", "bpm", "key", "scope", "assumptions", "parts"]},
@@ -57,6 +66,11 @@ def create_plan(user_id, session_id, data):
                 "plan": existing, "steps": []}
     if len({part["role"].casefold() for part in data["parts"]}) != len(data["parts"]):
         return {"status": "failed", "summary": "Each part needs a distinct role.", "steps": []}
+    previous_end = 1
+    for section in data.get('sections', []):
+        if section['start_bar'] < previous_end:
+            return {"status": "failed", "summary": "Plan sections in order with non-overlapping bar ranges.", "steps": []}
+        previous_end = section['start_bar'] + section['bars']
     plan = {**data, "user_id": user_id, "session_id": session_id,
             "parts": [{**part, "status": "planned"} for part in data["parts"]]}
     save(plan)
@@ -89,8 +103,12 @@ def review_part(user_id, recording_id, decision):
             continue
         part = next((part for part in plan["parts"] if part.get("recording_id") == recording_id), None)
         if part:
-            if part["status"] != "awaiting_review":
+            if decision not in {"accepted", "revise"}:
+                raise ValueError("Invalid review decision")
+            if part["status"] != "awaiting_review" and not (decision == "revise" and part["status"] == "accepted"):
                 return None
+            part.setdefault("review_history", []).append({"recording_id": recording_id,
+                "previous_status": part["status"], "decision": decision})
             part["status"] = decision
             save(plan)
             # Saving a decision is not authorization to run another model/tool turn.

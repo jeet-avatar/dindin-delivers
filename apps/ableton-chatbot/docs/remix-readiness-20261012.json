@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-12",
+  "status": "audited_not_implemented",
+  "production_ready": false,
+  "release_decision": "User explicitly requested holding the release until remix is ready. Do not publish the connection-only release.",
+  "scope": "Optional remix of a user-selected reference, distinct from an original composition inspired by it",
+  "release_blockers": [
+    {
+      "area": "Remix project identity and consent",
+      "evidence": ["backend/main.py:SongProjectRequest", "backend/song_projects.py:planning_reason", "backend/references.py:reference_context"],
+      "required": "Persist remix mode, parent reference identity, source authorization, retained/replaced layers and target musical brief. Bind consent to the selected source. Do not inherit another song's approvals or silently substitute inspiration mode."
+    },
+    {
+      "area": "Tempo and pitch",
+      "evidence": ["bridge/abletonosc/beatmind_stems.py:import_stems"],
+      "required": "Current stem imports explicitly disable warping. Add capability-tested clip timing, shared source beat maps, per-source stretch mode, pitch/formant handling where supported, readback and audition. Do not change project BPM and claim the imported stems followed. Preserve originals."
+    },
+    {
+      "area": "Non-destructive Arrangement",
+      "evidence": ["bridge/arrangement.py:record_arrangement"],
+      "required": "Current record_arrangement refuses occupied arrangements; replacement clears arrangement material. Add stable source/work-track identities, track-scoped edits, source-to-destination section maps, fades/tails and verified boundaries without clearing retained stems."
+    },
+    {
+      "area": "Durable and verifiable stem placement",
+      "evidence": ["backend/references.py:import_to_ableton", "bridge/stem_import.py:import_stems"],
+      "required": "Persist import progress and source/output manifests across workers and restarts. Identify partial imports and reconcile exact audio file identities, clip offsets, duration and routing before retrying; track-name verification alone is insufficient."
+    }
+  ],
+  "quality_work": [
+    "Prefer user-supplied original multitracks when available; offer separation as an estimated fallback, with per-stem auditions, bleed/artifact warnings and explicit retention choices.",
+    "Confirm tempo, downbeats, meter, key/tuning uncertainty and section boundaries. Use one shared timing map for all stems and retain each source's offsets.",
+    "Record intended retained hooks/vocals, new style, target tempo/key, duration, sections, exclusions and source-pack constraints. Ask focused follow-up questions only for unresolved choices.",
+    "Build complementary drums, bass and harmonic parts one at a time; do not double full drums with child drum stems or stack a replacement bass over a retained conflicting bass.",
+    "Discover actual EQ, sidechain, delay, reverb and automation controls; verify units, routing, envelopes and readback. Effects do not imply recovery of the source track's original processing.",
+    "Provide dry/processed and source/remix comparisons at matched levels, with both solo and in-context previews and per-revision approval.",
+    "Validate complete export bounds, absence of missing media, clipping, unintended silence, doubled sources and truncated effect tails. Measure integrated loudness and true peak; retain unmastered and final renders.",
+    "Keep source files, new project, remix brief, revisions, approvals and action checkpoints separate and recoverable. Package project media without overwriting the user's original."
+  ],
+  "release_acceptance": [
+    "Frontend-only flow from selecting Remix this reference through source authorization, layer selection, timing confirmation, saved plan, preview approval, arrangement and export.",
+    "Same-tempo and changed-tempo cases with vocals, percussion and sustained material; inspect alignment at start, transitions and end and audition artifacts.",
+    "Reconnect, refresh, canceled import and worker restart do not duplicate tracks or lose the saved remix intent.",
+    "Original audio hashes and original project remain unchanged; retained layers and rebuilt layers are independently traceable.",
+    "Real disposable Ableton set and exported audio verified, not only mocked tools or a successful render response."
+  ],
+  "primary_references": [
+    "https://www.ableton.com/en/live-manual/12/audio-clips-tempo-and-warping/",
+    "https://docs.cycling74.com/apiref/lom/clip/",
+    "https://github.com/facebookresearch/demucs"
+  ],
+  "separate_connection_release": "Bridge 1.3.20 build/signing is in progress. No remix feature or new installer has been published by this work."
+}

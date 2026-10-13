@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import re
+import uuid
 
 
 ALIASES = {
@@ -140,6 +141,242 @@ def map_id(device):
 
 
 def register(handler, app):
+    arrangement_objects = []
+    arrangement_song = [None, None]
+
+    def object_id(obj):
+        # Live can return different Python wrappers for the same Live object.
+        for saved, identifier in arrangement_objects:
+            if saved == obj:
+                return identifier
+        identifier = uuid.uuid4().hex
+        arrangement_objects.append((obj, identifier))
+        return identifier
+
+    def arrangement_set_id():
+        if arrangement_song[0] != handler.song:
+            arrangement_objects.clear()
+            arrangement_song[:] = [handler.song, uuid.uuid4().hex]
+        return arrangement_song[1]
+
+    def describe_clip(clip, kind, index):
+        # Session start_time is transport history, not the clip's musical start.
+        start = float(clip.start_time) if kind == "arrangement" else float(clip.loop_start if clip.looping else clip.start_marker)
+        end = float(clip.end_time) if kind == "arrangement" else float(clip.loop_end if clip.looping else clip.end_marker)
+        content = {"name": clip.name, "looping": bool(clip.looping), "loop_start": float(clip.loop_start),
+                   "loop_end": float(clip.loop_end), "start_marker": float(clip.start_marker), "end_marker": float(clip.end_marker)}
+        if clip.is_audio_clip:
+            content.update(file_path=str(clip.file_path), warping=bool(clip.warping),
+                           pitch_coarse=int(clip.pitch_coarse), pitch_fine=float(clip.pitch_fine))
+        else:
+            first = min(0.0, float(clip.start_marker), float(clip.loop_start))
+            notes = (clip.get_all_notes_extended() if hasattr(clip, "get_all_notes_extended") else
+                     clip.get_notes_extended(0, 128, first, max(float(clip.end_marker), float(clip.loop_end)) - first))
+            content["notes"] = sorted((n.pitch, n.start_time, n.duration, n.velocity, bool(n.mute),
+                getattr(n, "probability", 1.0), getattr(n, "velocity_deviation", 0.0), getattr(n, "release_velocity", 64.0)) for n in notes)
+        version = hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
+        return {"clip_id": object_id(clip), "source_version": version, "kind": kind, "index": index, "name": clip.name,
+                "start_beats": start, "end_beats": end,
+                "placement_ready": kind == "arrangement" or not clip.looping or abs(clip.start_marker - clip.loop_start) < 1e-6,
+                "audio": bool(clip.is_audio_clip), "muted": bool(clip.muted),
+                "has_material": bool(clip.is_audio_clip or any(not n[4] for n in content.get("notes", []))),
+                "warping": bool(clip.warping) if clip.is_audio_clip else None,
+                "file_path": str(clip.file_path) if clip.is_audio_clip else None}
+
+    def arrangement_inventory(data):
+        song = handler.song
+        set_id = arrangement_set_id()
+        offset, limit = data.get("offset", 0), data.get("limit", 1)
+        clip_offset = data.get("clip_offset", 0)
+        if type(offset) is not int or offset < 0 or limit != 1 or type(clip_offset) is not int or clip_offset < 0:
+            raise ValueError("Invalid track page.")
+        tracks, next_clip = [], None
+        for index in range(offset, min(offset + limit, len(song.tracks))):
+            track = song.tracks[index]
+            sources = [(slot.clip, "session", i) for i, slot in enumerate(track.clip_slots) if slot.has_clip]
+            sources += [(clip, "arrangement", i) for i, clip in enumerate(track.arrangement_clips)]
+            clips = [describe_clip(*source) for source in sources[clip_offset:clip_offset + 8]]
+            next_clip = clip_offset + 8 if clip_offset + 8 < len(sources) else None
+            tracks.append({"index": index, "name": track.name, "mute": bool(track.mute),
+                           "muted_via_solo": bool(track.muted_via_solo), "has_audio_output": bool(track.has_audio_output),
+                           "devices": [d.name for d in track.devices], "clips": clips})
+        return {"status": "observed", "set_id": set_id, "file_path": str(getattr(song, "file_path", "") or ""),
+                "is_playing": bool(song.is_playing), "bpm": float(song.tempo),
+                "numerator": int(song.signature_numerator), "denominator": int(song.signature_denominator),
+                "tracks": tracks, "locators": [{"name": p.name, "beat": float(p.time)} for p in song.cue_points],
+                "next_clip_offset": next_clip,
+                "next_offset": offset if next_clip is not None else offset + limit if offset + limit < len(song.tracks) else None,
+                "summary": "Arrangement and Session clips inspected; no music changed."}
+
+    def arrangement_place(data):
+        song = handler.song
+        if data.get("set_id") != arrangement_set_id():
+            raise ValueError("Live Set identity changed. Inspect before placing any clips.")
+        if song.is_playing or song.record_mode or song.session_record:
+            raise ValueError("Stop playback and recording before section placement.")
+        if type(data.get("track")) is not int or not 0 <= data["track"] < len(song.tracks):
+            raise ValueError("The target track no longer exists.")
+        track = song.tracks[data["track"]]
+        if data.get("kind") == "session":
+            candidates = [s.clip for s in track.clip_slots if s.has_clip]
+        elif data.get("kind") == "arrangement":
+            candidates = list(track.arrangement_clips)
+        else:
+            raise ValueError("Source clip is missing.")
+        source = next((c for c in candidates if object_id(c) == data.get("clip_id")), None)
+        if source is None:
+            raise ValueError("Source identity changed. Inspect before retrying.")
+        source_state = describe_clip(source, data["kind"], 0)
+        if not source_state["has_material"] or source_state["source_version"] != data.get("source_version"):
+            raise ValueError("Source material changed or is empty. Inspect before retrying.")
+        start, end = data.get("start"), data.get("end")
+        if any(type(v) not in (float, int) or not math.isfinite(v) for v in (start, end)) or not 0 <= start < end:
+            raise ValueError("Invalid placement boundaries.")
+        if not source_state["placement_ready"]:
+            raise ValueError("This Session clip has a pickup/offset start. Review its phrase before whole-clip placement.")
+        if abs((source_state["end_beats"] - source_state["start_beats"]) - (end - start)) > 1e-6:
+            raise ValueError("Source duration changed. Replan without trimming the original.")
+        if source.muted or track.mute or track.muted_via_solo or not track.has_audio_output:
+            raise ValueError("Source is muted or cannot output audio. Inspect before placement.")
+        if source.is_audio_clip and not source.warping:
+            raise ValueError("Unwarped audio requires a reviewed beat grid before this placement.")
+        # Keep an existing source that is already exactly in position; never copy over it.
+        if data["kind"] == "arrangement" and abs(source.start_time - start) < 1e-6 and abs(source.end_time - end) < 1e-6:
+            target = source
+        else:
+            before = list(track.arrangement_clips)
+            if any(c.start_time < end - 1e-6 and start < c.end_time - 1e-6 for c in before):
+                raise ValueError("Destination contains existing music. Nothing was overwritten; revise the plan.")
+            track.duplicate_clip_to_arrangement(source, float(start))
+            after = list(track.arrangement_clips)
+            added = [c for c in after if c not in before]
+            if len(added) != 1 or abs(added[0].start_time - start) > 1e-6 or abs(added[0].end_time - end) > 1e-6:
+                raise ValueError("Placement was sent but its exact boundaries were not verified. Inspect; do not repeat.")
+            target = added[0]
+        return {"status": "verified", "receipt": {"track": data["track"], "clip_id": object_id(target),
+                "source_version": describe_clip(target, "arrangement", 0)["source_version"],
+                "start": float(target.start_time), "end": float(target.end_time)},
+                "summary": "One clip's Arrangement boundaries checked. Audio and saving remain unverified."}
+
+    def arrangement_verify(data):
+        if data.get("set_id") != arrangement_set_id():
+            raise ValueError("Live Set identity changed. No verification is possible against the old session.")
+        rows, receipts = data.get("placements", []), data.get("receipts", [])
+        if not rows or len(rows) > 512 or len(receipts) != len(rows):
+            return {"status": "observed", "all_present": False, "summary": "Missing durable placement receipts; inspect before retrying."}
+        missing = []
+        for i, (row, receipt) in enumerate(zip(rows, receipts)):
+            if not 0 <= row["track"] < len(handler.song.tracks):
+                missing.append(i)
+                continue
+            track = handler.song.tracks[row["track"]]
+            if track.mute or track.muted_via_solo or not track.has_audio_output:
+                missing.append(i)
+                continue
+            clips = track.arrangement_clips
+            present = any(object_id(c) == receipt["clip_id"] and receipt["track"] == row["track"]
+                          and abs(c.start_time - row["start"]) < 1e-6 and abs(c.end_time - row["end"]) < 1e-6
+                          and not c.muted and describe_clip(c, "arrangement", 0)["source_version"] == receipt.get("source_version") for c in clips)
+            if not present:
+                missing.append(i)
+        return {"status": "observed", "all_present": not missing, "missing_placements": missing,
+                "summary": "Clip identity and start/end positions inspected. This is not an audio or save check."}
+
+    def revision_target(data):
+        song = handler.song
+        if data.get("set_id") != arrangement_set_id():
+            raise ValueError("Live Set changed; no revision was made.")
+        index = data.get("track")
+        if type(index) is not int or not 0 <= index < len(song.tracks):
+            raise ValueError("Revision track is missing.")
+        track = song.tracks[index]
+        target = next((c for c in track.arrangement_clips if object_id(c) == data.get("target_id")), None)
+        if target is None or target.is_audio_clip:
+            raise ValueError("Select an existing MIDI Arrangement clip. Audio replacement is not supported by this operation.")
+        if describe_clip(target, "arrangement", 0)["source_version"] != data.get("target_version"):
+            raise ValueError("The target was edited after inspection; no revision was made.")
+        if any(type(data.get(key)) not in (int, float) or not math.isfinite(data[key])
+               or abs(actual - data[key]) > 1e-6
+               for key, actual in (("start", target.start_time), ("end", target.end_time))):
+            raise ValueError("The target moved after inspection; no revision was made.")
+        return track, target
+
+    def note_rows(clip):
+        if not hasattr(clip, "get_all_notes_extended"):
+            raise ValueError("This Live version cannot back up all MIDI notes for a scoped revision.")
+        notes = list(clip.get_all_notes_extended())
+        fields = ("pitch", "start_time", "duration", "velocity", "mute", "probability", "velocity_deviation", "release_velocity")
+        defaults = {"probability": 1.0, "velocity_deviation": 0.0, "release_velocity": 64.0}
+        rows = [{key: getattr(n, key, defaults.get(key)) for key in fields} for n in notes]
+        return notes, sorted(rows, key=lambda n: (n["start_time"], n["pitch"], n["velocity"]))
+
+    def arrangement_notes(data):
+        _, target = revision_target(data)
+        _, rows = note_rows(target)
+        offset = data.get("offset", 0)
+        if type(offset) is not int or offset < 0:
+            raise ValueError("Invalid notes page.")
+        return {"status": "observed", "notes": rows[offset:offset + 24], "total": len(rows),
+                "next_offset": offset + 24 if offset + 24 < len(rows) else None}
+
+    def arrangement_revise_notes(data):
+        song = handler.song
+        track, target = revision_target(data)
+        if song.is_playing or song.record_mode or song.session_record:
+            raise ValueError("Stop playback and recording before revising a part.")
+        source = next((s.clip for s in track.clip_slots if s.has_clip and object_id(s.clip) == data.get("source_id")), None)
+        if source is None or source.is_audio_clip:
+            raise ValueError("The replacement MIDI Session clip is missing.")
+        info = describe_clip(source, "session", 0)
+        if info["source_version"] != data.get("source_version") or not info["placement_ready"] or not info["has_material"]:
+            raise ValueError("Replacement material changed, is empty, or has an unsupported pickup.")
+        if (abs(source.loop_start) > 1e-6 or abs(target.loop_start) > 1e-6
+                or abs(source.start_marker) > 1e-6 or abs(target.start_marker) > 1e-6
+                or abs(info["end_beats"] - info["start_beats"] - (target.end_time - target.start_time)) > 1e-6):
+            raise ValueError("Revision must have the same whole-clip length and a zero-based phrase. No resizing was attempted.")
+        _, original = note_rows(target)
+        _, replacement = note_rows(source)
+        digest = hashlib.sha256(json.dumps(original, sort_keys=True).encode()).hexdigest()
+        if digest != data.get("backup_digest"):
+            raise ValueError("Durable note backup does not match this clip.")
+        if not replacement or len(replacement) > 2048:
+            raise ValueError("Revision must contain 1 to 2048 notes.")
+        import Live
+        specifications = tuple(Live.Clip.MidiNoteSpecification(**row) for row in replacement)
+        def check(rows):
+            _, observed = note_rows(target)
+            if len(observed) != len(rows) or any(
+                    any(not math.isclose(float(actual[k]), float(expected[k]), abs_tol=1e-4, rel_tol=1e-5)
+                        for k in expected) for actual, expected in zip(observed, rows)):
+                raise ValueError("Note readback differs from the replacement.")
+        song.begin_undo_step()
+        failure = None
+        try:
+            current, _ = note_rows(target)
+            target.remove_notes_by_id(tuple(n.note_id for n in current))
+            target.add_new_notes(specifications)
+            check(replacement)
+        except Exception as error:
+            failure = error
+        finally:
+            song.end_undo_step()
+        if failure is not None:
+            try:
+                _, current = note_rows(target)
+                if current != original:
+                    # Live's own undo preserves per-note expression and hidden metadata;
+                    # rebuilding notes from the JSON backup would not.
+                    song.undo()
+                check(original)
+            except Exception:
+                raise ValueError("Revision failed and restoration is unverified. Stop and inspect; do not retry.") from failure
+            return {"status": "partial", "summary": "Revision failed; original notes were restored and checked. Inspect before retrying."}
+        result = describe_clip(target, "arrangement", 0)
+        return {"status": "verified", "note_count": len(replacement),
+                "receipt": {"track": data["track"], "clip_id": result["clip_id"], "source_version": result["source_version"],
+                            "start": result["start_beats"], "end": result["end_beats"]},
+                "summary": "Only this clip's MIDI notes changed. Devices, boundaries and existing automation were retained. A fresh audition is required."}
+
     def device_at(data):
         path = data["path"]
         if not path or len(path) % 2 == 0 or len(path) > 9 or any(type(i) is not int or i < 0 for i in path):
@@ -204,6 +441,8 @@ def register(handler, app):
             raise ValueError("Source category and requested device type do not match.")
         track = handler.song.tracks[data["track"]]
         before = list(track.devices)
+        if data["kind"] == "instrument" and not track.has_midi_input:
+            raise ValueError("This is an audio track. Choose a MIDI track before loading an instrument; no track was created.")
         if data["kind"] == "instrument" and any(device.type == 1 for device in before):
             raise ValueError("An instrument already exists on this track. No replacement was attempted.")
         if category == "plugins" and before:
@@ -317,14 +556,16 @@ def register(handler, app):
                 raise ValueError("Device mapping changed. Discover the controls again before writing.")
             index, parameter = resolve_parameter(device.parameters, data["control"])
         points = sorted(data["points"], key=lambda point: point["beat"])
-        if len(points) < 2 or points[0]["beat"] < 0 or points[-1]["beat"] > clip.length + 1e-6:
+        if (len(points) < 2 or any(not math.isfinite(point["beat"]) for point in points)
+                or points[0]["beat"] < 0 or points[-1]["beat"] > clip.length + 1e-6):
             raise ValueError("Give at least two points inside the clip (0 to %.2f beats)." % clip.length)
+        if any(end["beat"] <= start["beat"] for start, end in zip(points, points[1:])):
+            raise ValueError("Automation points must have distinct beat positions.")
         step = 1.0 / max(1, min(16, int(data.get("steps_per_beat", 4))))
-        clip.clear_envelope(parameter)
-        envelope = clip.automation_envelope(parameter) or clip.create_automation_envelope(parameter)
-        if envelope is None:
-            raise ValueError("Live does not allow automation of this control in a clip.")
-        written = 0
+        # Validate and convert the entire replacement before clearing an approved envelope.
+        for point in points:
+            native_value(parameter, point["value"], data["unit"], nearest=True)
+        planned = []
         for start, end in zip(points, points[1:]):
             if (start.get("curve") != "step" and str(start["value"]) != str(end["value"])
                     and "inf" in (str(start["value"]) + str(end["value"])).casefold()):
@@ -343,11 +584,31 @@ def register(handler, app):
                 else:
                     value = curve_value(start["value"], end["value"], fraction, start.get("curve", "linear"))
                 native = native_value(parameter, value, data["unit"], nearest=True)
-                envelope.insert_step(beat, min(step, end["beat"] - beat), native)
-                written += 1
+                planned.append((beat, min(step, end["beat"] - beat), native))
+        # Live's insert_step restores the old value after its duration. Keep the
+        # final point active through the loop boundary, including step resets.
+        if points[-1]["beat"] < clip.length:
+            native = native_value(parameter, points[-1]["value"], data["unit"], nearest=True)
+            planned.append((points[-1]["beat"], clip.length - points[-1]["beat"], native))
+        envelope = clip.automation_envelope(parameter) or clip.create_automation_envelope(parameter)
+        if envelope is None:
+            raise ValueError("Live does not allow automation of this control in a clip.")
+        clip.clear_envelope(parameter)
+        envelope = clip.automation_envelope(parameter) or clip.create_automation_envelope(parameter)
+        if envelope is None:
+            raise ValueError("Automation was cleared but could not be recreated; inspect this clip before retrying.")
+        for beat, length, native in planned:
+            envelope.insert_step(beat, length, native)
+        written = len(planned)
+        tolerance = max(1e-6, (parameter.max - parameter.min) * 1e-5)
+        observed = [envelope.value_at_time(beat + length / 2) for beat, length, _ in planned]
+        if any(not math.isfinite(actual) or abs(actual - native) > tolerance
+               for actual, (_, _, native) in zip(observed, planned)):
+            return {"status": "partial", "summary": "Automation was written but its readback differs; inspect the clip before retrying.",
+                    "control": {"index": index, "name": parameter.name}}
         # Read inside the first and last steps; exactly at a step boundary Live can report the previous value.
-        first = parameter.str_for_value(envelope.value_at_time(points[0]["beat"] + step / 2))
-        last = parameter.str_for_value(envelope.value_at_time(max(points[-1]["beat"] - step / 2, 0)))
+        first = parameter.str_for_value(observed[0])
+        last = parameter.str_for_value(observed[-1])
         return {"status": "verified", "summary": "%s automated in the clip from %s to %s over %.1f beats (%d steps)." % (
                     parameter.name, first, last, points[-1]["beat"] - points[0]["beat"], written),
                 "control": {"index": index, "name": parameter.name}, "start_display": first, "end_display": last}
@@ -561,6 +822,19 @@ def register(handler, app):
         Arrangement clip (only after the user explicitly agreed to replace the Arrangement)."""
         song = handler.song
         action = data["action"]
+        if action in {"preview_state", "preview_start", "preview_restore"}:
+            from .beatmind_arrangement_audio import execute as preview_transport
+            return preview_transport(song, data, arrangement_set_id())
+        if action == "inspect_notes":
+            return arrangement_notes(data)
+        if action == "revise_notes":
+            return arrangement_revise_notes(data)
+        if action == "inspect":
+            return arrangement_inventory(data)
+        if action == "place_clip":
+            return arrangement_place(data)
+        if action == "verify_section":
+            return arrangement_verify(data)
         if action == "state":
             counts = {track.name: len(list(track.arrangement_clips)) for track in song.tracks}
             return {"status": "observed", "automation_arm": bool(song.session_automation_record), "clips": counts,

@@ -182,22 +182,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Download verified frontend export
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: apps/ableton-chatbot/frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: apps/ableton-chatbot/frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: apps/ableton-chatbot/frontend
-        run: npm run build
-        env:
-          NEXT_PUBLIC_API_URL: https://api.beatmind.io
+          name: beatmind-frontend-${{ github.sha }}
+          path: apps/ableton-chatbot/frontend/out/
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

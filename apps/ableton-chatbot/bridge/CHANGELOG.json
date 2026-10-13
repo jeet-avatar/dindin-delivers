@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.3.20",
+    "date": "2026-10-13",
+    "notes": [
+      "Connection recovery waits for interrupted operations to finish cleanup without replaying music commands.",
+      "Long operations keep the connection responsive, and larger audio imports no longer exceed the previous message limit.",
+      "Temporary connection failures retry with backoff while preserving your saved sign-in.",
+      "Scoped MIDI pattern revisions preserve other sections and require a fresh audio review.",
+      "Arrangement previews check the real playback position and restore the stopped transport.",
+      "Bundled Ableton extensions update registered installations with backups; activation requires restarting Live after saving."
+    ]
+  },
+  {
     "version": "1.3.19",
     "date": "2026-10-12",
     "notes": [
