@@ -120,13 +120,15 @@ class TestStripeIdempotencyKeys:
         assert "order_" in source
 
     def test_transfer_includes_idempotency_key_in_order_flow(self):
-        """Stripe Transfer calls in order_flow.py include idempotency keys."""
+        """Stripe Transfer calls in order_flow.py include idempotency keys.
+
+        vendor_xfer_/driver_xfer_ (food-delivery payout transfers) were removed
+        along with the rest of the food order flow; only the ride-driver transfer
+        remains.
+        """
         import order_flow
         import inspect
-        # Read the module source to find all idempotency keys
         source = inspect.getsource(order_flow)
-        assert "vendor_xfer_" in source
-        assert "driver_xfer_" in source
         assert "ride_driver_xfer_" in source
 
 
@@ -237,17 +239,6 @@ class TestRefundEndpoint:
 
         assert response.status_code == 400
         assert "Cannot refund completed order" in response.json()["detail"]
-
-    def test_vendor_transfer_failure_sets_payout_failed(self):
-        """When stripe.Transfer.create fails, vendor payout status becomes 'failed'."""
-        import order_flow
-        import inspect
-        # Verify the failure handling code exists
-        source = inspect.getsource(order_flow)
-        # The except block should set vendor_payout.status = "failed"
-        assert 'vendor_payout.status = "failed"' in source
-        assert 'driver_payout_record.status = "failed"' in source
-
 
 # ===================== GAP-5: PRICE CHANGE DETECTION TESTS =====================
 
@@ -499,45 +490,3 @@ class TestVendorOfflineBlocking:
         # Should NOT be 400 with offline message
         assert response.status_code != 400 or "offline" not in response.json().get("detail", "").lower()
 
-    @patch('stripe.PaymentIntent.cancel')
-    def test_vendor_going_offline_cancels_pending_orders(
-        self, mock_pi_cancel, client, db_session, vendor_auth_headers, test_vendor
-    ):
-        """Vendor toggle-offline cancels PENDING orders."""
-        # Create a pending order for this vendor
-        order = Order(
-            order_number="DOLL2026OFFLINE001",
-            customer_name="Test Customer",
-            customer_email="test@test.com",
-            customer_phone="+14155551234",
-            vendor_id=test_vendor.id,
-            items=json.dumps([]),
-            subtotal=20.0,
-            tax_amount=1.50,
-            delivery_fee=3.00,
-            platform_fee=1.00,
-            total_amount=25.50,
-            status=OrderStatus.PENDING_PAYMENT,
-            payment_status="pending",
-            stripe_payment_intent_id="pi_test_autocancel_001"
-        )
-        db_session.add(order)
-        # Vendor must be online first
-        test_vendor.is_online = True
-        db_session.commit()
-        db_session.refresh(order)
-
-        # Toggle vendor offline
-        response = client.put(
-            f"/api/vendors/{test_vendor.id}/online-status?is_online=false",
-            headers=vendor_auth_headers
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["is_online"] is False
-        assert data["auto_cancelled_orders"] >= 1
-
-        # Verify the order was cancelled
-        db_session.refresh(order)
-        assert order.status == OrderStatus.CANCELLED

@@ -300,45 +300,6 @@ class TestDriverAuthentication:
         )
 
 
-class TestVendorAuthentication:
-    """Tests for vendor authentication endpoints"""
-
-    def test_vendor_login_success(self, client: TestClient, test_vendor):
-        """Should successfully login vendor"""
-        # Vendor login uses OAuth2PasswordRequestForm (form data with username field)
-        response = client.post("/api/auth/vendor/login", data={
-            "username": test_vendor.contact_email,
-            "password": "VendorPassword123!",
-        })
-        # May succeed or fail depending on password verification
-        assert response.status_code in [200, 400, 401]
-        if response.status_code == 200:
-            data = response.json()
-            assert "access_token" in data or "token" in data
-
-    def test_vendor_login_wrong_password(self, client: TestClient, test_vendor):
-        """Should reject wrong vendor password"""
-        response = client.post("/api/auth/vendor/login", data={
-            "username": test_vendor.contact_email,
-            "password": "WrongPassword123!",
-        })
-        assert response.status_code in [400, 401]
-
-    def test_vendor_login_nonexistent(self, client: TestClient):
-        """Should reject nonexistent vendor"""
-        response = client.post("/api/auth/vendor/login", data={
-            "username": f"nonexistent_{datetime.now().timestamp()}@test.com",
-            "password": "AnyPassword123!",
-        })
-        assert response.status_code in [400, 401, 404]
-
-    def test_vendor_dashboard_requires_auth(self, client: TestClient):
-        """Should require auth for vendor dashboard"""
-        response = client.get("/api/vendor/dashboard")
-        # Dashboard endpoint may not exist (404) or require auth
-        assert response.status_code in [401, 403, 404]
-
-
 class TestPasswordReset:
     """Tests for password reset flow - uses /api/customer/password-reset/* endpoints"""
 
@@ -497,19 +458,6 @@ class TestMultiRoleAppleAuth:
         data = response.json()
         assert "registration_url" in data
         assert data["registration_url"] == "https://dollor.ai/driver/apply"
-        assert data["requires_registration"] is True
-
-    def test_vendor_apple_auth_brand_new_user_returns_403(self, client: TestClient):
-        """Vendor Apple auth should return 403 for a completely new email/apple_id"""
-        response = client.post("/api/auth/vendor/apple-auth", json={
-            "apple_id": "apple_brand_new_vendor_test_12345",
-            "email": "brand.new.vendor.test@example.com",
-            "name": "Brand New Vendor",
-        })
-        assert response.status_code == 403, f"Expected 403, got {response.status_code}: {response.text}"
-        data = response.json()
-        assert "registration_url" in data
-        assert data["registration_url"] == "https://dollor.ai/restaurant/apply"
         assert data["requires_registration"] is True
 
     def test_driver_apple_auth_brand_new_user_returns_403(self, client: TestClient):
