@@ -15,8 +15,9 @@ def import_names(report):
     return names
 
 
-async def import_stems(bridge, reference_id):
+async def import_stems(bridge, reference_id, selected=None):
     steps = []
+    changes_started = False
 
     async def query(address, args, timeout=5):
         result = await bridge._query_osc("stems", address, args, timeout)
@@ -31,6 +32,12 @@ async def import_stems(bridge, reference_id):
         if not directory or not (directory / 'report.json').is_file():
             raise RuntimeError("This reference's stems are not on this computer.")
         names = import_names(json.loads((directory / 'report.json').read_text()))
+        if selected is not None:
+            if (not isinstance(selected, list) or not selected
+                    or any(not isinstance(name, str) or name not in names for name in selected)
+                    or len(set(selected)) != len(selected)):
+                raise RuntimeError('Choose available stems without duplicates. No tracks were created.')
+            names = [name for name in names if name in selected]
         files = [(directory / f'{name}.wav', name) for name in names]
         if not files or not all(path.is_file() for path, _ in files):
             raise RuntimeError('Some stem files are missing from the stems folder.')
@@ -40,9 +47,12 @@ async def import_stems(bridge, reference_id):
         args = ["Ref"]
         for path, name in files:
             args += [str(path), name]
+        changes_started = True
         result = await query("/live/song/beatmind_import_stems", args, timeout=30)
         if result[0] != "imported":
             raise RuntimeError(str(result[-1]) if len(result) > 1 else "Ableton did not import the stems.")
+        if list(result[1:]) != [len(before), len(files)]:
+            raise RuntimeError('Ableton reported different stem positions or counts. Inspect the set before continuing.')
         after = await query("/live/song/get/track_names", [])
         added = after[len(before):]
         if after[:len(before)] != before or added != [f"Ref {name}" for _, name in files]:
@@ -50,4 +60,5 @@ async def import_stems(bridge, reference_id):
         return {"status": "verified", "summary": f"Placed {len(files)} stems on new audio tracks at the start of the Arrangement.",
                 "tracks": added, "steps": steps}
     except Exception as error:
-        return {"status": "failed", "error": str(error), "summary": str(error), "steps": steps}
+        return {"status": "failed", "error": str(error), "summary": str(error), "steps": steps,
+                "changes_started": changes_started}

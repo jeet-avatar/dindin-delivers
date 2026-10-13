@@ -23,6 +23,7 @@ import { uploadToCloud } from "@/lib/cloud-upload";
 import ReferenceWorkflow from "./ReferenceWorkflow";
 import { DeleteReferenceDialog } from "./DeleteReferenceDialog";
 import SourceUseDialog, { type SourceUse } from "./SourceUseDialog";
+import { importOperation, finishImport } from "@/lib/reference-import";
 
 type Report = {
   duration_seconds: number;
@@ -201,6 +202,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importNotice, setImportNotice] = useState("");
+  const importGeneration = useRef(0);
   const [pendingImport, setPendingImport] = useState<{ id: string; name: string; stems?: string[] } | null>(null);
   const [rights, setRights] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -225,6 +227,38 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   }, [stage]);
   const [cue, setCue] = useState({ seconds: 0 });
   useEffect(() => { setSelected(selectedId || null); }, [selectedId]);
+  useEffect(() => {
+    const generation = ++importGeneration.current;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    setImportNotice(""); setImporting(false);
+    if (!selected) return;
+    async function check() {
+      try {
+        const response = await apiFetch(`/api/references/${selected}/import-status`, { signal: controller.signal });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (controller.signal.aborted || generation !== importGeneration.current) return;
+        setImporting(result.status === "importing");
+        if (result.status === "importing") {
+          setImportNotice("Placing stems in Ableton. Your import is saved; no need to send it again.");
+          timer = setTimeout(check, 5000);
+        } else if (result.status === "needs_inspection" || result.status === "failed") {
+          setError(result.error || "Inspect the stem import in Ableton before continuing.");
+          setImportNotice("");
+        } else if (result.status === "verified") {
+          setImportNotice(`Last import: ${result.summary || "Stem placement completed."}`);
+        }
+      } catch {
+        if (!controller.signal.aborted && generation === importGeneration.current) {
+          setImportNotice("Cannot check stem placement right now. Reconnecting does not repeat the import.");
+          timer = setTimeout(check, 5000);
+        }
+      }
+    }
+    void check();
+    return () => { ++importGeneration.current; controller.abort(); clearTimeout(timer); };
+  }, [selected]);
   async function select(id: string | null) {
     setBusy(true); setError("");
     try {
@@ -237,9 +271,12 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     finally { setBusy(false); }
   }
   async function importToAbleton(id: string, sourceUse: SourceUse, stems?: string[]) {
+    const generation = ++importGeneration.current;
     setImporting(true); setImportNotice(""); setError("");
     try {
-      const body = JSON.stringify({ stems, source_use: sourceUse });
+      const intent = { stems, source_use: sourceUse };
+      const operation_id = importOperation(sessionStorage, id, intent);
+      const body = JSON.stringify({ ...intent, operation_id });
       const res = await apiFetch(`/api/references/${id}/import-to-ableton`, { method: "POST", body });
       let result = await res.json();
       if (!res.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Could not place stems in Ableton.");
@@ -247,14 +284,18 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       const deadline = Date.now() + 11 * 60 * 1000;
       while (result.status === "importing" && Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 2000));
+        if (generation !== importGeneration.current) return;
         const poll = await apiFetch(`/api/references/${id}/import-status`);
         if (poll.ok) result = await poll.json();
       }
-      if (result.status !== "verified") throw new Error(result.error || "Ableton did not confirm the stems. Check Ableton and try again.");
+      if (generation !== importGeneration.current) return;
+      if (result.status === "failed") finishImport(sessionStorage, id);
+      if (result.status !== "verified") throw new Error(result.error || "Stem placement is not confirmed. Inspect Ableton before continuing; do not repeat the import.");
+      finishImport(sessionStorage, id);
       setImportNotice(result.summary || "Stems placed in Ableton.");
       onUse(id, true);
-    } catch (e) { setError(e instanceof Error ? e.message : "Could not place stems in Ableton."); }
-    finally { setImporting(false); }
+    } catch (e) { if (generation === importGeneration.current) setError(e instanceof Error ? e.message : "Could not place stems in Ableton."); }
+    finally { if (generation === importGeneration.current) setImporting(false); }
   }
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const response = await apiFetch("/api/references", { signal });

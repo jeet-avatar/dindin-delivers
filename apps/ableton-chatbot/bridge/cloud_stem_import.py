@@ -20,6 +20,7 @@ def _download_stem(base_url, name, token, dest):
 
 async def import_cloud_stems(bridge, reference_id, stems, base_url, token):
     steps = []
+    changes_started = False
 
     async def query(address, args, timeout=5):
         result = await bridge._query_osc("cloud-stems", address, args, timeout)
@@ -47,15 +48,21 @@ async def import_cloud_stems(bridge, reference_id, stems, base_url, token):
         args = ["Ref"]
         for path, name in files:
             args += [str(path), name]
+        changes_started = True
         result = await query("/live/song/beatmind_import_stems", args, timeout=30)
         if result[0] != "imported":
             raise RuntimeError(str(result[-1]) if len(result) > 1 else "Ableton did not import the stems.")
+        if list(result[1:]) != [len(before), len(files)]:
+            raise RuntimeError('Ableton reported different stem positions or counts. Inspect the set before continuing.')
 
         after = await query("/live/song/get/track_names", [])
         added = after[len(before):]
+        if after[:len(before)] != before or added != [f"Ref {name}" for _, name in files]:
+            raise RuntimeError('The new tracks do not match the selected stems. Inspect the set before continuing.')
 
         return {"status": "verified",
                 "summary": f"Placed {len(files)} reference stems on new audio tracks in Ableton.",
                 "tracks": added, "steps": steps}
     except Exception as error:
-        return {"status": "failed", "error": str(error), "summary": str(error), "steps": steps}
+        return {"status": "failed", "error": str(error), "summary": str(error), "steps": steps,
+                "changes_started": changes_started}

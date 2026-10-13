@@ -22,7 +22,7 @@ const server = http.createServer((req, res) => {
       const id = 'e'.repeat(32), calls = [], errors = [];
       const user = { id: 987995, subscribed: true, subscription_status: 'active', plan_tier: 'pro' };
       const project = { title: 'Rights check', starting_point: 'reference', live_set: null };
-      let ready = false;
+      let ready = false, importStatus = { status: 'idle' };
       await context.addInitScript(({ user, project, id }) => {
         localStorage.setItem('beatmind_token', 'fixture-not-real');
         localStorage.setItem('beatmind_user', JSON.stringify(user));
@@ -47,6 +47,7 @@ const server = http.createServer((req, res) => {
               stems: ['drums', 'bass', 'vocals', 'other'].map(name => ({ name })), possible_change_points_seconds: [], limitations: [],
             } : undefined }] });
         if (url.endsWith('/import-to-ableton')) return reply({ detail: 'Fixture: Bridge unavailable. No stems placed.' }, 409);
+        if (url.endsWith('/import-status')) return reply(importStatus);
         return reply({});
       });
       const page = await context.newPage();
@@ -86,9 +87,16 @@ const server = http.createServer((req, res) => {
       assert.equal(imports().length, 1);
       assert.deepEqual(imports()[0].body.source_use, { rights_confirmed: true, intended_use: 'private' });
       assert.ok(imports()[0].url.includes(id));
+      assert.match(imports()[0].body.operation_id, /^[a-f0-9]{32}$/);
+      importStatus = { status: 'needs_inspection', error: 'Saved import needs inspection. Do not repeat the import.' };
+      await page.reload();
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'References', exact: true }).click();
+      await page.getByRole('alert').filter({ hasText: 'Saved import needs inspection' }).waitFor();
+      assert.equal(imports().length, 1, 'Reload must read the saved status, never repeat a music write');
+      await page.screenshot({ path: `/tmp/beatmind-import-recovery-${storage}-${width}.png` });
       assert.deepEqual(errors, []);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-      console.log(`PASS ${storage} ${width}px: no automatic import, explicit rights, changed-use reset, cancel, focus restoration, scoped payload, visible failure`);
+      console.log(`PASS ${storage} ${width}px: explicit consent, scoped request identity, saved interruption visible after reload without repeated import`);
       await context.close();
     }
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

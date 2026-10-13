@@ -220,7 +220,7 @@ class AbletonBridge:
                     "version": BRIDGE_VERSION,
                     "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
                     "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1", "arrangement_audition_v1", "staged_arrangement_v1"]
-                                    + (["local_separation_v1"] if local_separation_available() else []),
+                                    + (["local_separation_v1", "selected_stem_import_v1"] if local_separation_available() else []),
                 }))
                 await self.local.flush()
                 self._connected_at = time.monotonic()
@@ -387,7 +387,7 @@ class AbletonBridge:
         elif msg_type == "local_reference_open":
             if msg.get("action") == "ableton":
                 from stem_import import import_stems
-                await self._reply(request_id, await import_stems(self, msg.get("reference_id")))
+                await self._reply(request_id, await import_stems(self, msg.get("reference_id"), msg.get("stems")))
             else:
                 await self._reply(request_id, await self.local.reveal(msg.get("reference_id")))
 

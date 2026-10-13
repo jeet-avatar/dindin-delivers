@@ -113,7 +113,7 @@ class StemImportTests(unittest.IsolatedAsyncioTestCase):
         four = {'stems': [{'name': n} for n in ('drums', 'bass', 'vocals', 'other')]}
         self.assertEqual(stem_import.import_names(four), ['drums', 'bass', 'vocals', 'other'])
 
-    async def run_import(self, after_names):
+    async def run_import(self, after_names, selected=None):
         folder = Path(self.temp.name)
         (folder / 'report.json').write_text(json.dumps(REPORT))
         for name in stem_import.import_names(REPORT):
@@ -124,13 +124,13 @@ class StemImportTests(unittest.IsolatedAsyncioTestCase):
             async def _query_osc(self, request_id, address, args, timeout):
                 sent.append((address, args))
                 replies = {'/live/song/beatmind_stem_capabilities': ['stem_import_v1'],
-                           '/live/song/beatmind_import_stems': ['imported', 2, 7]}
+                           '/live/song/beatmind_import_stems': ['imported', 2, (len(args) - 1) // 2]}
                 if address == '/live/song/get/track_names':
                     names = ['Drums', 'Bass'] if len([a for a, _ in sent if a == address]) == 1 else after_names
                     return {'status': 'ok', 'args': names}
                 return {'status': 'ok', 'args': replies[address]}
         with patch.object(stem_import, 'find_folder', return_value=folder):
-            return await stem_import.import_stems(Bridge(), REFERENCE_ID), sent
+            return await stem_import.import_stems(Bridge(), REFERENCE_ID, selected), sent
 
     async def asyncSetUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -149,6 +149,20 @@ class StemImportTests(unittest.IsolatedAsyncioTestCase):
         result, _ = await self.run_import(['Drums', 'Bass', 'Ref bass'])
         self.assertEqual(result['status'], 'failed')
         self.assertIn('do not match', result['error'])
+        self.assertTrue(result['changes_started'])
+
+    async def test_only_selected_stems_are_imported(self):
+        result, sent = await self.run_import(['Drums', 'Bass', 'Ref vocals', 'Ref kick'], ['kick', 'vocals'])
+        self.assertEqual(result['status'], 'verified')
+        args = dict(sent)['/live/song/beatmind_import_stems']
+        self.assertEqual(args[2::2], ['vocals', 'kick'])
+
+    async def test_invalid_selection_never_writes(self):
+        for selected in ([], ['vocals', 'vocals'], ['absent'], ['drums', 'kick'], [None], 'vocals'):
+            result, sent = await self.run_import([], selected)
+            self.assertEqual(result['status'], 'failed', selected)
+            self.assertFalse(result['changes_started'])
+            self.assertEqual(sent, [])
 
 
 class ExtensionTests(unittest.TestCase):

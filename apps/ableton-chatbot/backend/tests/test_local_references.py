@@ -159,7 +159,7 @@ class LocalReferenceTests(unittest.TestCase):
         self.assertEqual([c[1].get('action', c[0]) for c in self.bridge.calls], ['finder', 'ableton', 'live_set'])
         placed = references.placement(self.root / reference_id)
         self.assertEqual((placed['title'], placed['tracks']), ('Night Drive', ['Ref bass']))
-        self.bridge = FakeBridge({'status': 'failed', 'error': 'Placing stems needs Ableton Live 12.'})
+        self.bridge = FakeBridge({'status': 'failed', 'error': 'Placing stems needs Ableton Live 12.', 'changes_started': False})
         response = self.client.post(f'/api/references/{reference_id}/local-open', json={'action': 'ableton', 'source_use': SOURCE_USE}, headers=USER)
         self.assertEqual((response.status_code, response.json()['detail']), (409, 'Placing stems needs Ableton Live 12.'))
         self.assertEqual(self.client.post(f'/api/references/{reference_id}/local-open', json={'action': 'shell'}, headers=USER).status_code, 422)

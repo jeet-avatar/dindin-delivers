@@ -25,6 +25,7 @@ from beatmind_auth import create_stem_download_token, verify_stem_download_token
 import billing
 import cloud_separation
 import reference_listening
+import reference_imports
 import reference_templates
 import reference_timing
 import sound_comparison
@@ -883,14 +884,23 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         busy = item['status'] in ('uploading', 'processing') and 'storage' not in item
         if busy or reference_id in LISTENING or reference_id in SUGGESTING or reference_id in COMPARING:
             raise HTTPException(409, 'Wait for processing to finish before deleting.')
-        if item.get('storage') == 'cloud':
-            if item.get('job_id') and item['status'] in ('processing', 'importing'):
-                await asyncio.to_thread(cloud_separation.cancel, item['job_id'])
-            try:
-                await asyncio.to_thread(cloud_separation.delete_objects, reference_id)
-            except Exception:
-                pass  # The bucket lifecycle rule removes leftovers within a day.
-        shutil.rmtree(directory)
+        try:
+            import_lease = reference_imports.lease(directory)
+        except Busy:
+            raise HTTPException(409, 'Wait for stem placement to finish before deleting this reference.')
+        try:
+            if reference_imports.recover(directory)['status'] == 'needs_inspection':
+                raise HTTPException(409, 'Inspect the interrupted stem import before deleting its recovery record.')
+            if item.get('storage') == 'cloud':
+                if item.get('job_id') and item['status'] in ('processing', 'importing'):
+                    await asyncio.to_thread(cloud_separation.cancel, item['job_id'])
+                try:
+                    await asyncio.to_thread(cloud_separation.delete_objects, reference_id)
+                except Exception:
+                    pass  # The bucket lifecycle rule removes leftovers within a day.
+            shutil.rmtree(directory)
+        finally:
+            import_lease.close()
         # Local stems are the user's own files; only BeatMind's saved analysis is removed.
         return {'deleted': reference_id, 'local_files_kept': item.get('storage') == 'local'}
 
@@ -1020,15 +1030,21 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
             raise HTTPException(409, 'This reference has no finished stems on your computer.')
         if request.action == 'ableton':
             require_source_use(request.source_use)
+            started = await import_to_ableton(reference_id, ImportRequest(source_use=request.source_use), user)
+            # Older clients used this synchronous route. Use the same durable job, never a second write path.
+            for _ in range(120):
+                state = reference_imports.status(directory)
+                if state['status'] != 'importing':
+                    if state['status'] != 'verified':
+                        raise HTTPException(409, state.get('error', reference_imports.INSPECT))
+                    return state
+                await asyncio.sleep(0.5)
+            return Response(content=json.dumps(started), status_code=202, media_type='application/json')
         bridge = local_bridge(user)
-        if request.action == 'ableton':
-            record_source_use(directory, item, request.source_use, 'local-open')
         result = await bridge.local_operation('local_reference_open',
                                               {'reference_id': reference_id, 'action': request.action}, timeout=60)
         if result.get('status') not in ('opened', 'verified'):
             raise HTTPException(409, str(result.get('error') or result.get('summary') or 'The Bridge could not open the stems.'))
-        if request.action == 'ableton' and result.get('status') == 'verified':
-            result['live_set'] = await record_placement(directory, bridge, result.get('tracks'))
         return result
 
     @router.post('/{reference_id}/local-cancel')
@@ -1043,70 +1059,105 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     class ImportRequest(BaseModel):
         stems: list[str] | None = None
         source_use: SourceUse | None = None
+        operation_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
 
     # Placing stems can outlast the load balancer's idle timeout, so it runs in the background and is polled.
-    IMPORTS: dict[str, dict] = {}
-
     @router.get('/{reference_id}/import-status')
     async def import_status(reference_id: str, user=Depends(get_user)):
-        owned(reference_id, user['id'])
-        return IMPORTS.get(reference_id, {'status': 'idle'})
+        directory, _ = owned(reference_id, user['id'])
+        return reference_imports.status(directory)
 
     @router.post('/{reference_id}/import-to-ableton', status_code=202)
     async def import_to_ableton(reference_id: str, request: ImportRequest | None = None, user=Depends(require_subscription)):
         directory, item = owned(reference_id, user['id'])
         require_source_use(request.source_use if request else None)
-        if IMPORTS.get(reference_id, {}).get('status') == 'importing':
-            return IMPORTS[reference_id]
         if item['status'] != 'ready':
             raise HTTPException(409, 'This reference is not ready yet.')
         report = report_of(directory)
         all_names = stem_sets.audio_stems(report)
         if any(name in stem_sets.DRUM_PARTS for name in all_names):
             all_names = [name for name in all_names if name != 'drums']
-        selected = (request.stems if request and request.stems else None)
-        if selected:
+        selected = request.stems if request else None
+        if selected is not None:
+            if not selected or len(set(selected)) != len(selected):
+                raise HTTPException(400, 'Choose at least one stem, without duplicates.')
             invalid = [s for s in selected if s not in all_names]
             if invalid:
                 raise HTTPException(400, f'Unknown stems: {", ".join(invalid)}')
             names = [n for n in all_names if n in selected]
         else:
             names = all_names
+        if not names:
+            raise HTTPException(409, 'No separated audio stems are available for this reference.')
         local = item.get('storage') == 'local'
         bridge = bridge_for(user['id'], LOCAL_CAPABILITY if local else IMPORT_CAPABILITY)
         if not bridge:
             raise HTTPException(409, 'Open the BeatMind Bridge on your computer to place stems in Ableton.')
-        record_source_use(directory, item, request.source_use, 'import-to-ableton', names)
-        if local:
-            operation = bridge.local_operation('local_reference_open',
-                                               {'reference_id': reference_id, 'action': 'ableton', 'stems': names}, timeout=60)
-        else:
-            server_url = os.getenv('SERVER_URL', 'http://localhost:8000')
-            operation = bridge.local_operation('cloud_stem_import', {
-                'reference_id': reference_id,
-                'stems': names,
-                'base_url': f'{server_url}/api/references/{reference_id}/stem-download',
-                'token': create_stem_download_token(user['id'], reference_id),
-            }, timeout=600)
+        if local and names != all_names and 'selected_stem_import_v1' not in getattr(bridge, 'capabilities', set()):
+            raise HTTPException(409, 'Update BeatMind Bridge before importing selected stems. This version would import every stem.')
 
-        async def run():
-            try:
-                result = await operation
-            except Exception as error:
-                result = {'status': 'failed', 'error': str(error)}
-            if result.get('status') == 'verified':
-                live_set = await record_placement(directory, bridge, result.get('tracks'))
-                IMPORTS[reference_id] = {**result, 'status': 'verified', 'live_set': live_set}
-            else:
-                log.warning("import-to-ableton %s failed: %s", reference_id[:8], result)
-                IMPORTS[reference_id] = {'status': 'failed', 'error': str(
-                    result.get('error') or result.get('summary') or 'Could not place stems in Ableton.')}
+        operation_id = request.operation_id or uuid.uuid4().hex
+        intent = {'reference_id': reference_id, 'stems': names,
+                  'source_use': request.source_use.model_dump()}
+        try:
+            import_lease = reference_imports.lease(directory)
+        except Busy:
+            active = reference_imports.read(directory)
+            if active.get('intent') == intent and (request.operation_id is None or active.get('operation_id') == operation_id):
+                return active
+            raise HTTPException(409, 'Another stem import is running. Wait for its result before starting another.')
 
-        IMPORTS[reference_id] = {'status': 'importing', 'stems': names}
-        task = asyncio.create_task(run())
-        TASKS.add(task)
-        task.add_done_callback(TASKS.discard)
-        return IMPORTS[reference_id]
+        try:
+            current = reference_imports.recover(directory)
+            if current['status'] == 'needs_inspection':
+                raise HTTPException(409, reference_imports.INSPECT)
+            previous = reference_imports.previous(directory, operation_id)
+            if previous is not None:
+                if previous.get('intent') != intent:
+                    raise HTTPException(409, 'This import identifier belongs to different stem choices. No changes were sent.')
+                return previous
+            record_source_use(directory, item, request.source_use, 'import-to-ableton', names)
+            started = reference_imports.save(directory, {
+                'operation_id': operation_id, 'status': 'importing', 'stems': names,
+                'intent': intent, 'started_at': datetime.now(timezone.utc).isoformat(),
+            })
+
+            async def run():
+                try:
+                    if local:
+                        result = await bridge.local_operation('local_reference_open', {
+                            'reference_id': reference_id, 'action': 'ableton', 'stems': names,
+                            'operation_id': operation_id}, timeout=60)
+                    else:
+                        server_url = os.getenv('SERVER_URL', 'http://localhost:8000')
+                        result = await bridge.local_operation('cloud_stem_import', {
+                            'reference_id': reference_id, 'stems': names, 'operation_id': operation_id,
+                            'base_url': f'{server_url}/api/references/{reference_id}/stem-download',
+                            'token': create_stem_download_token(user['id'], reference_id),
+                        }, timeout=600)
+                    if result.get('status') == 'verified':
+                        live_set = await record_placement(directory, bridge, result.get('tracks'))
+                        final = {**result, 'status': 'verified', 'live_set': live_set}
+                    elif result.get('changes_started') is False:
+                        final = {'status': 'failed', 'error': str(result.get('error') or 'Could not place stems. No music changes were sent.')}
+                    else:
+                        final = {'status': 'needs_inspection', 'error': reference_imports.INSPECT,
+                                 'details': str(result.get('error') or result.get('summary') or 'No confirmation received.')}
+                    reference_imports.save(directory, {**started, **final})
+                except (Exception, asyncio.CancelledError):
+                    reference_imports.save(directory, {**started, 'status': 'needs_inspection',
+                                                       'error': reference_imports.INSPECT})
+                finally:
+                    import_lease.close()
+
+            task = asyncio.create_task(run())
+            TASKS.add(task)
+            task.add_done_callback(TASKS.discard)
+            import_lease.transfer(task)
+            return started
+        finally:
+            if not import_lease.transferred:
+                import_lease.close()
 
     return router
 

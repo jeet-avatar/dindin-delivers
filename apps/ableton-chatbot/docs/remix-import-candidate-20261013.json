@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-13",
+  "status": "code_candidate_full_remix_not_released",
+  "scope": "Application code only. No private songs, reference audio, stems, recordings, exports or Ableton projects are included.",
+  "implemented": [
+    "Local Bridge honors selected stems instead of importing every stem",
+    "Older Bridges are explicitly blocked from selected-only imports they cannot honor",
+    "Local and cloud imports check reported track positions, counts and names",
+    "Import status and operation receipts persist on reference storage across backend workers and restarts",
+    "Browser retries retain an operation identifier; concurrent matching requests do not dispatch another import",
+    "Interrupted or ambiguous music writes require inspection, not automatic replay",
+    "Known preflight failures are distinguished from potentially partial music writes",
+    "Reference deletion cannot remove an active or unresolved import's recovery record",
+    "Browser reload displays the saved import outcome without repeating the music write"
+  ],
+  "validation": {
+    "backend_sqlite": "587 passed",
+    "bridge": "86 passed",
+    "frontend_unit_files": "22 passed",
+    "production_frontend_build": "Passed with NEXT_PUBLIC_API_URL=https://api.beatmind.io",
+    "browser": "Mocked local/cloud APIs at 1440px and 390px: consent and saved interruption survive reload without another import; not a real Ableton remix test",
+    "ci_postgres": "Not yet run for this candidate"
+  },
+  "full_release_blockers": [
+    "Reference-bound remix intent and retained/replaced layers are not yet implemented as a complete product flow",
+    "Tempo/warp and pitch changes are not implemented and verified across all imported stems",
+    "Arrangement audio-stem replacement is not implemented as a non-destructive, source-identity-checked operation",
+    "Ambiguous import outcomes stop safely but still need exact clip/file reconciliation and a user-facing recovery path",
+    "Import verification currently checks track receipts and names, not exact audio identity and full clip timing",
+    "The frontend-to-Ableton remix and complete export path has not passed real end-to-end acceptance",
+    "New Bridge source has not been packaged, signed, notarized or validated for automatic update"
+  ],
+  "deployment": "No production deployment or installer publication performed for this candidate. Do not present passing unit tests as a completed remix release."
+}
