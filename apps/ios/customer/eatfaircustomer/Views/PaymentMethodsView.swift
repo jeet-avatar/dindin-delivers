@@ -4,6 +4,7 @@ private let logger = Logger(subsystem: "com.dollorai.customer", category: "Payme
 
 import SwiftUI
 import Combine
+import Stripe
 import EatFairShared
 
 struct PaymentMethodsView: View {
@@ -299,144 +300,183 @@ struct StripeAddCardView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Card Details") {
-                    TextField("Card Number", text: $cardNumber)
-                        .keyboardType(.numberPad)
-                        .onChange(of: cardNumber) { _, newValue in
-                            cardNumber = formatCardNumber(newValue)
-                        }
-
-                    HStack {
-                        TextField("MM/YY", text: $expiryDate)
-                            .keyboardType(.numberPad)
-                            .onChange(of: expiryDate) { _, newValue in
-                                expiryDate = formatExpiryDate(newValue)
+                if StripeApplePayHandler.canMakeApplePayPayments {
+                    Section {
+                        Button(action: payWithApplePay) {
+                            HStack {
+                                Spacer()
+                                if isProcessingApplePay {
+                                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                } else {
+                                    Image(systemName: "apple.logo")
+                                    Text("Set Up with Apple Pay").fontWeight(.semibold)
+                                }
+                                Spacer()
                             }
-
-                        SecureField("CVV", text: $cvv)
-                            .keyboardType(.numberPad)
+                        }
+                        .listRowBackground(Color.black)
+                        .foregroundColor(.white)
+                        .disabled(isProcessing)
                     }
 
-                    TextField("Cardholder Name", text: $cardholderName)
-                        .textContentType(.name)
-                        .autocapitalization(.words)
+                    Section {
+                        HStack {
+                            Rectangle().fill(Theme.lxHairline).frame(height: 1)
+                            Text("OR").font(.caption).foregroundColor(Theme.lxTextMuted)
+                            Rectangle().fill(Theme.lxHairline).frame(height: 1)
+                        }
+                    }
+                    .listRowBackground(Theme.lxBg)
                 }
+
+                Section("Card Details") {
+                    FoundingCardField(params: $cardParams)
+                        .frame(height: 44)
+                }
+                .listRowBackground(Theme.lxSurface)
 
                 Section {
                     HStack {
                         Image(systemName: "lock.shield.fill")
-                            .foregroundColor(.green)
-                        Text("Your card information is securely processed by Stripe")
+                            .foregroundColor(Theme.lxSuccess)
+                        Text("Your card is sent directly to Stripe — it never touches our servers")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Theme.lxTextSecondary)
                     }
                 }
+                .listRowBackground(Theme.lxSurface)
 
                 if let error = errorMessage {
                     Section {
                         Text(error)
-                            .foregroundColor(.red)
+                            .foregroundColor(Theme.lxError)
                             .font(.caption)
                     }
+                    .listRowBackground(Theme.lxSurface)
                 }
 
                 Section {
                     Button(action: addCard) {
                         HStack {
                             Spacer()
-                            if isProcessing {
+                            if isProcessingCard {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {
                                 Text("Add Card")
-                                    .fontWeight(.semibold)
+                                    .fontWeight(.bold)
                             }
                             Spacer()
                         }
                     }
-                    .listRowBackground(isValidCard ? Color.green : Color.gray)
+                    .listRowBackground(cardParams != nil ? Theme.lxOrange : Theme.lxSurface2)
                     .foregroundColor(.white)
-                    .disabled(!isValidCard || isProcessing)
+                    .disabled(cardParams == nil || isProcessing)
                 }
             }
-            .navigationTitle("Add Card")
+            .scrollContentBackground(.hidden)
+            .background(Theme.lxBg.ignoresSafeArea())
+            .navigationTitle("Add Payment Method")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(Theme.lxOrange)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func addCard() {
+        guard let customerId = customerId, let params = cardParams else {
+            errorMessage = "Please log in to add a card"
+            return
+        }
+
+        isProcessingCard = true
+        errorMessage = nil
+
+        STPAPIClient.shared.createPaymentMethod(with: params) { paymentMethod, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    self.isProcessingCard = false
+                    self.errorMessage = error.localizedDescription
+                }
+                return
+            }
+            guard let paymentMethod = paymentMethod else {
+                DispatchQueue.main.async {
+                    self.isProcessingCard = false
+                    self.errorMessage = "Could not process your card. Please try again."
+                }
+                return
+            }
+            apiService.attachPaymentMethod(customerId: customerId, paymentMethodId: paymentMethod.stripeId) { result in
+                DispatchQueue.main.async {
+                    self.isProcessingCard = false
+                    switch result {
+                    case .success(let card):
+                        self.onCardAdded(card)
+                    case .failure(let error):
+                        let errMsg = error.localizedDescription.lowercased()
+                        if errMsg.contains("invalid") || errMsg.contains("declined") {
+                            self.errorMessage = "Card was declined. Please check card details."
+                        } else if errMsg.contains("duplicate") || errMsg.contains("exists") {
+                            self.errorMessage = "This card is already saved."
+                        } else {
+                            self.errorMessage = "Unable to add card. Please try again."
+                        }
+                    }
                 }
             }
         }
     }
 
-    private var isValidCard: Bool {
-        let cleanedNumber = cardNumber.replacingOccurrences(of: " ", with: "")
-        return cleanedNumber.count >= 15 &&
-            expiryDate.count >= 5 &&
-            cvv.count >= 3 &&
-            !cardholderName.isEmpty
-    }
-
-    private func formatCardNumber(_ input: String) -> String {
-        let cleaned = input.filter { $0.isNumber }
-        var formatted = ""
-        for (index, char) in cleaned.prefix(16).enumerated() {
-            if index > 0 && index % 4 == 0 {
-                formatted += " "
-            }
-            formatted.append(char)
-        }
-        return formatted
-    }
-
-    private func formatExpiryDate(_ input: String) -> String {
-        let cleaned = input.filter { $0.isNumber }
-        if cleaned.count >= 2 {
-            let month = String(cleaned.prefix(2))
-            let year = String(cleaned.dropFirst(2).prefix(2))
-            return year.isEmpty ? month : "\(month)/\(year)"
-        }
-        return cleaned
-    }
-
-    private func addCard() {
+    private func payWithApplePay() {
         guard let customerId = customerId else {
-            errorMessage = "Please log in to add a card"
+            errorMessage = "Please log in to continue"
             return
         }
 
-        isProcessing = true
+        isProcessingApplePay = true
         errorMessage = nil
 
-        // Parse card details
-        let cleanedNumber = cardNumber.replacingOccurrences(of: " ", with: "")
-        let expiryParts = expiryDate.split(separator: "/")
-        let expMonth = Int(expiryParts.first ?? "01") ?? 1
-        let expYear = Int(expiryParts.last ?? "25") ?? 25
-
-        // Create card via backend (which creates Stripe SetupIntent)
-        apiService.createCard(
-            customerId: customerId,
-            cardNumber: cleanedNumber,
-            expMonth: expMonth,
-            expYear: 2000 + expYear,
-            cvc: cvv,
-            cardholderName: cardholderName
-        ) { [self] result in
-            DispatchQueue.main.async {
-                self.isProcessing = false
-
-                switch result {
-                case .success(let card):
-                    self.onCardAdded(card)
-                case .failure(let error):
-                    let errMsg = error.localizedDescription.lowercased()
-                    if errMsg.contains("invalid") || errMsg.contains("declined") {
-                        self.errorMessage = "Card was declined. Please check card details."
-                    } else if errMsg.contains("duplicate") || errMsg.contains("exists") {
-                        self.errorMessage = "This card is already saved."
-                    } else {
-                        self.errorMessage = "Unable to add card. Please try again."
+        apiService.createSetupIntent(customerId: customerId) { result in
+            switch result {
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    self.isProcessingApplePay = false
+                    self.errorMessage = error.localizedDescription
+                }
+            case .success(let setup):
+                if !setup.publishableKey.isEmpty {
+                    STPAPIClient.shared.publishableKey = setup.publishableKey
+                }
+                let request = StripeApplePayHandler.makePaymentRequest(
+                    summaryItemLabel: "Dollor.ai — Save Payment Method"
+                )
+                StripeApplePayHandler.shared.handleApplePay(request: request, clientSecret: setup.clientSecret) { success, error in
+                    DispatchQueue.main.async {
+                        self.isProcessingApplePay = false
+                        if success {
+                            // Stripe already attached the resulting payment method to this
+                            // customer (the SetupIntent carries `customer`); fetch it as the
+                            // newly-added card so the UI can show it immediately.
+                            self.apiService.fetchSavedCards(customerId: customerId) { cardsResult in
+                                if case .success(let cards) = cardsResult, let newest = cards.last {
+                                    self.onCardAdded(newest)
+                                } else {
+                                    self.dismiss()
+                                }
+                            }
+                        } else if let error = error {
+                            let nsError = error as NSError
+                            // Code 2 is STPApplePayContext's user-cancelled case — not a real error.
+                            if nsError.code != 2 {
+                                self.errorMessage = error.localizedDescription
+                            }
+                        }
                     }
                 }
             }

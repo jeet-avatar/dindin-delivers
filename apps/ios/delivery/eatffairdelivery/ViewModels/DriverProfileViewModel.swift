@@ -17,6 +17,7 @@ class DriverProfileViewModel: ObservableObject {
     @Published var isEditing = false
     @Published var showError = false
     @Published var errorMessage = ""
+    @Published var isLoadingStripeLink = false
 
     // MARK: - Personal Info
     @Published var name = ""
@@ -890,6 +891,34 @@ class DriverProfileViewModel: ObservableObject {
                         logger.info("[DriverProfileViewModel] Upload failed after max retries: \(error.localizedDescription)")
                         #endif
                     }
+                }
+            }
+        }
+    }
+
+    /// Fetch a fresh Stripe-hosted onboarding/account-management link and open it in
+    /// the system browser. Not gating driving — a driver can be APPROVED and online
+    /// with no Stripe account at all; this is purely the (previously missing) entry
+    /// point for them to set payouts up whenever they choose.
+    func openStripePayoutSetup() {
+        guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else {
+            errorMessage = "Please log in again to set up payouts."
+            showError = true
+            return
+        }
+        isLoadingStripeLink = true
+        p2pService.getStripeOnboardingLink(driverId: driverId) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isLoadingStripeLink = false
+                switch result {
+                case .success(let urlString):
+                    if let url = URL(string: urlString) {
+                        UIApplication.shared.open(url)
+                    }
+                case .failure(let error):
+                    self.errorMessage = "Could not open payout setup: \(error.localizedDescription)"
+                    self.showError = true
                 }
             }
         }

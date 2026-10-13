@@ -209,6 +209,31 @@ class PaymentService {
 class StripeApplePayHandler: NSObject {
     static let shared = StripeApplePayHandler()
 
+    private static let merchantIdentifier = "merchant.com.dolloraiai"
+
+    /// Whether this device/account can actually present Apple Pay (has a usable
+    /// card in Wallet). Callers should hide the Apple Pay entry point otherwise
+    /// rather than present a sheet that immediately fails.
+    static var canMakeApplePayPayments: Bool {
+        PKPaymentAuthorizationController.canMakePayments(usingNetworks: [.visa, .masterCard, .amex, .discover])
+    }
+
+    /// Builds a PKPaymentRequest for confirming a PaymentIntent/SetupIntent via Apple
+    /// Pay. `amount` defaults to 0 for save-a-card (SetupIntent) flows — PassKit
+    /// requires a non-negative summary item even when nothing is charged yet.
+    static func makePaymentRequest(summaryItemLabel: String, amount: Decimal = 0) -> PKPaymentRequest {
+        let request = PKPaymentRequest()
+        request.merchantIdentifier = merchantIdentifier
+        request.supportedNetworks = [.visa, .masterCard, .amex, .discover]
+        request.merchantCapabilities = .threeDSecure
+        request.countryCode = "US"
+        request.currencyCode = "USD"
+        request.paymentSummaryItems = [
+            PKPaymentSummaryItem(label: summaryItemLabel, amount: NSDecimalNumber(decimal: amount))
+        ]
+        return request
+    }
+
     /// Lock for thread-safe access to payment state
     private let paymentLock = NSLock()
     private var completionHandler: ((Bool, Error?) -> Void)?

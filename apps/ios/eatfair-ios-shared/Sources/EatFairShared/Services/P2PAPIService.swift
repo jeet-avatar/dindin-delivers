@@ -7357,13 +7357,13 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Create/save a card for customer via Stripe
-    public func createCard(
+    /// Attach an already-tokenized Stripe payment method to a customer.
+    /// SECURITY: `paymentMethodId` must come from Stripe's SDK tokenizing the card
+    /// on-device (e.g. STPAPIClient.createPaymentMethod) — raw card number/CVC must
+    /// never be sent here or to any of our own backend endpoints (PCI scope).
+    public func attachPaymentMethod(
         customerId: Int,
-        cardNumber: String,
-        expMonth: Int,
-        expYear: Int,
-        cvc: String,
-        cardholderName: String,
+        paymentMethodId: String,
         completion: @escaping (Result<StripeCard, Error>) -> Void
     ) {
         guard let url = URL(string: "\(baseURL)/customers/\(customerId)/cards") else {
@@ -7379,14 +7379,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let body: [String: Any] = [
-            "card_number": cardNumber,
-            "exp_month": expMonth,
-            "exp_year": expYear,
-            "cvc": cvc,
-            "cardholder_name": cardholderName
-        ]
-
+        let body: [String: Any] = ["payment_method_id": paymentMethodId]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         secureSession.dataTask(with: request) { data, response, error in
@@ -7400,26 +7393,90 @@ public class P2PAPIService: ObservableObject {
                 return
             }
 
-            // Check HTTP status
-            if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode >= 400 {
-                    if let errorBody = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
-                        DispatchQueue.main.async {
-                            completion(.failure(P2PAPIError.serverError(errorBody.detail ?? "Card creation failed")))
-                        }
-                    } else {
-                        DispatchQueue.main.async {
-                            completion(.failure(P2PAPIError.serverError("Card creation failed")))
-                        }
-                    }
-                    return
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                let detail = (try? JSONDecoder().decode(APIErrorResponse.self, from: data))?.detail
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError(detail ?? "Card could not be saved")))
                 }
+                return
+            }
+
+            // Response is {"success": true, "card": {id, brand, last4, exp_month, exp_year}, "message": ...}
+            // — "card" has no "is_default" field, so decode the nested object manually
+            // rather than via StripeCard's Codable conformance (which requires it).
+            struct AddCardResponse: Decodable {
+                struct Card: Decodable {
+                    let id: String
+                    let brand: String
+                    let last4: String
+                    let exp_month: Int
+                    let exp_year: Int
+                }
+                let card: Card
             }
 
             DispatchQueue.main.async {
                 do {
-                    let card = try JSONDecoder().decode(StripeCard.self, from: data)
+                    let decoded = try JSONDecoder().decode(AddCardResponse.self, from: data)
+                    let card = StripeCard(
+                        id: decoded.card.id,
+                        last4: decoded.card.last4,
+                        brand: StripeCard.CardBrand(rawValue: decoded.card.brand) ?? .unknown,
+                        expiryMonth: decoded.card.exp_month,
+                        expiryYear: decoded.card.exp_year,
+                        isDefault: false
+                    )
                     completion(.success(card))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Create a Stripe SetupIntent so the client can save a payment method without
+    /// charging anything yet. Needed for Apple Pay, which confirms a PaymentIntent/
+    /// SetupIntent via STPApplePayContext rather than producing a token that can be
+    /// handed to attachPaymentMethod directly.
+    public func createSetupIntent(
+        customerId: Int,
+        completion: @escaping (Result<(clientSecret: String, publishableKey: String), Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customers/\(customerId)/stripe/setup-intent") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+            guard let data = data else {
+                DispatchQueue.main.async { completion(.failure(P2PAPIError.noData)) }
+                return
+            }
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                let detail = (try? JSONDecoder().decode(APIErrorResponse.self, from: data))?.detail
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError(detail ?? "Could not start payment setup")))
+                }
+                return
+            }
+            struct SetupIntentResponse: Decodable {
+                let client_secret: String
+                let publishable_key: String
+            }
+            DispatchQueue.main.async {
+                do {
+                    let decoded = try JSONDecoder().decode(SetupIntentResponse.self, from: data)
+                    completion(.success((clientSecret: decoded.client_secret, publishableKey: decoded.publishable_key)))
                 } catch {
                     completion(.failure(error))
                 }
@@ -13567,7 +13624,11 @@ extension P2PAPIService {
     /// Get Stripe onboarding link for driver to complete payout setup
     public func getStripeOnboardingLink(
         driverId: Int,
-        returnUrl: String = "dollor://driver/profile",
+        // Must be an https://*.dollor.ai URL — the backend validates return_url/
+        // refresh_url against an allowed-domain list to prevent open-redirect abuse
+        // and rejects a custom URL scheme like "dollor://..." with a 400 before ever
+        // creating the Stripe AccountLink.
+        returnUrl: String = "https://www.dollor.ai/driver/profile",
         completion: @escaping (Result<String, Error>) -> Void
     ) {
         var components = URLComponents(string: "\(baseURL)/drivers/\(driverId)/stripe/onboarding-link")

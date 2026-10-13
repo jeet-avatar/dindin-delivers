@@ -2133,6 +2133,13 @@ struct RideStatusCard: View {
         .sheet(isPresented: $viewModel.showBidsSheet) {
             DriverBidsSheet(viewModel: viewModel)
         }
+        // Payment method required before accepting a bid — added on top of the bids
+        // sheet since it's presented on the fly when the customer taps Accept.
+        .sheet(isPresented: $viewModel.showPaymentMethodsSheet, onDismiss: {
+            viewModel.retryAcceptBidAfterPaymentSetup()
+        }) {
+            PaymentMethodsView()
+        }
         // Chat Sheet
         .sheet(isPresented: $showChatSheet) {
             if let rideId = viewModel.activeRide?.rideId,

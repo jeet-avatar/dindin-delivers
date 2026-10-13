@@ -88,6 +88,11 @@ class RideRequestViewModel: ObservableObject {
     // Payment
     @Published var paymentIntentClientSecret: String?
     @Published var showPaymentSheet = false
+    // Gates bid acceptance on having a saved payment method — the backend now
+    // requires one (charges the customer's default payment method at accept time)
+    // and fails the whole match fast rather than silently authorizing nothing.
+    @Published var showPaymentMethodsSheet = false
+    private var bidPendingPaymentSetup: RideBid?
 
     // UI State
     @Published var currentStep: RideRequestStep = .selectPickup
@@ -601,6 +606,37 @@ class RideRequestViewModel: ObservableObject {
         // Prevent double-tap race condition
         guard !isLoading else { return }
 
+        // The backend now charges the customer's saved default payment method at
+        // accept time and fails the match if there isn't one — check first so the
+        // customer sees "add a payment method" instead of a failed-match surprise
+        // after they've already committed to a driver.
+        guard let customerId = p2pService.currentCustomerId else { return }
+        isLoading = true
+        p2pService.fetchSavedCards(customerId: customerId) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isLoading = false
+                let hasCard = (try? result.get())?.isEmpty == false
+                if hasCard {
+                    self.performAcceptBid(bid)
+                } else {
+                    self.bidPendingPaymentSetup = bid
+                    self.showPaymentMethodsSheet = true
+                }
+            }
+        }
+    }
+
+    /// Called after the payment-methods sheet confirms a card/Apple Pay was added.
+    func retryAcceptBidAfterPaymentSetup() {
+        showPaymentMethodsSheet = false
+        if let bid = bidPendingPaymentSetup {
+            bidPendingPaymentSetup = nil
+            performAcceptBid(bid)
+        }
+    }
+
+    private func performAcceptBid(_ bid: RideBid) {
         isLoading = true
         selectedBid = bid
 

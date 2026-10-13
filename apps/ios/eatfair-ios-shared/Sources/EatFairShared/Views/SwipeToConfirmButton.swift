@@ -35,6 +35,17 @@ public struct SwipeToConfirmButton: View {
         self.onConfirm = onConfirm
     }
 
+    private func complete(trackWidth: CGFloat) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            dragOffset = trackWidth
+            buttonState = .completed
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            onConfirm()
+        }
+    }
+
     public var body: some View {
         GeometryReader { geo in
             let trackWidth = geo.size.width - thumbSize
@@ -93,14 +104,7 @@ public struct SwipeToConfirmButton: View {
                         guard !isDisabled, buttonState != .completed else { return }
                         let progress = min(max(dragOffset, 0), trackWidth) / trackWidth
                         if progress >= threshold {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                dragOffset = trackWidth
-                                buttonState = .completed
-                            }
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                onConfirm()
-                            }
+                            complete(trackWidth: trackWidth)
                         } else {
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                                 dragOffset = 0
@@ -109,6 +113,13 @@ public struct SwipeToConfirmButton: View {
                         }
                     }
             )
+            // Double-tap as an explicit alternative to sliding — some users don't
+            // find the slide gesture discoverable and land on a dead button with no
+            // obvious next step; this gives them a second, equally valid way in.
+            .onTapGesture(count: 2) {
+                guard !isDisabled, buttonState != .completed else { return }
+                complete(trackWidth: trackWidth)
+            }
             .frame(height: height)
             .opacity(isDisabled ? 0.5 : 1.0)
             .allowsHitTesting(!isDisabled)

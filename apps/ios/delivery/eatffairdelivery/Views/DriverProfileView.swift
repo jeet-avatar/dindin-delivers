@@ -965,6 +965,33 @@ struct EarningsPaymentSection: View {
                 }
             }
 
+            // Set Up / Manage Payouts — not required to drive, but must be reachable.
+            // Fetches a fresh Stripe-hosted AccountLink and opens it in Safari; Stripe's
+            // AccountLink is idempotent and routes the driver to "finish onboarding" or
+            // "manage account" automatically depending on their current status, so one
+            // button correctly covers both a driver who never started and one who has.
+            Button(action: { viewModel.openStripePayoutSetup() }) {
+                HStack {
+                    Image(systemName: "banknote")
+                        .foregroundColor(Theme.lxOrange)
+                    Text("Set Up / Manage Payouts")
+                        .foregroundColor(Theme.lxText)
+                    Spacer()
+                    if viewModel.isLoadingStripeLink {
+                        ProgressView().tint(Theme.lxOrange)
+                    } else {
+                        Image(systemName: "arrow.up.right.square")
+                            .foregroundColor(Theme.lxTextMuted)
+                    }
+                }
+                .padding()
+                .background(Theme.lxSurface)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+            }
+            .disabled(viewModel.isLoadingStripeLink)
+
             // Payout History Link
             NavigationLink(destination: PayoutHistoryView()) {
                 HStack {
