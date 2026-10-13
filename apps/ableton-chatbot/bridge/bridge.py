@@ -219,7 +219,7 @@ class AbletonBridge:
                     "type": "bridge_hello",
                     "version": BRIDGE_VERSION,
                     "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
-                    "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1", "arrangement_audition_v1"]
+                    "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1", "arrangement_audition_v1", "staged_arrangement_v1"]
                                     + (["local_separation_v1"] if local_separation_available() else []),
                 }))
                 await self.local.flush()

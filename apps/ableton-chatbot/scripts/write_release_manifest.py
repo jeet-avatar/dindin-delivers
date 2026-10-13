@@ -11,7 +11,8 @@ def manifest(previous, commit, task):
     task = task.rsplit('/', 1)[-1]
     if not re.fullmatch(r'beatmind-api:\d+', task):
         raise ValueError('Expected a BeatMind task revision')
-    return {**previous, 'previous_release': previous.get('release'),
+    preserved = {key: value for key, value in previous.items() if key != 'backend_image'}
+    return {**preserved, 'previous_release': previous.get('release'),
             'release': 'beatmind-' + commit[:12], 'commit': commit,
             'frontend_commit': commit, 'backend_commit': commit, 'backend_task': task}
 

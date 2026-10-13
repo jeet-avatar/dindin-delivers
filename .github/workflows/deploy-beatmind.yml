@@ -56,6 +56,7 @@ jobs:
         env:
           PYTHON_DOTENV_DISABLED: '1'
         run: |
+          pip install torch==2.6.0+cpu torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt -r requirements-test.txt -r requirements-reference.txt -r ../bridge/requirements.txt
           DB_BACKEND=sqlite python -m pytest tests -q
           DB_BACKEND=postgres DATABASE_URL=postgresql://postgres:beatmind_ci_test_only@localhost:5432/beatmind_release_test python -m pytest tests -q

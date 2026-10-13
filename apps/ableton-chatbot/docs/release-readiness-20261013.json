@@ -1,8 +1,14 @@
 {
   "date": "2026-10-13",
-  "status": "blocked_by_unmet_release_gates",
+  "status": "web_backend_release_candidate",
   "published": false,
-  "user_confirmation": "Latest request: deploy the code with legal safeguards. Earlier instruction: keep remix and connection changes in one release. No private reference audio may be published.",
+  "user_confirmation": "Latest request: let the new code get published. Website/backend release authorized; no private reference audio may be published.",
+  "deployment_scope": {
+    "components": ["website", "backend"],
+    "bridge_installer": "Keep the currently published signed 1.3.19 installer unchanged",
+    "staged_arrangement": "Only exposed to Bridges explicitly advertising staged_arrangement_v1; blocked on existing 1.3.19 clients",
+    "full_reference_remix": "Not released or represented as complete; the gates below still apply to the full product workflow"
+  },
   "implemented_candidate_features": [
     "Connection recovery without automatic replay of interrupted music writes",
     "Durable account-scoped instruction queue and structured long briefs",
@@ -21,7 +27,8 @@
     "Terms no longer promise ownership of third-party or all AI output; privacy discloses confirmation records"
   ],
   "validation": {
-    "backend_sqlite": "575 passed after source-use guards; 3 audio library deprecation warnings",
+    "backend_sqlite": "581 passed including source-use and old-Bridge compatibility guards; 3 audio library deprecation warnings",
+    "previous_candidate_ci": "d25be7fc: 575 SQLite tests, 570 PostgreSQL tests with 5 dialect-specific skips, 21 frontend test files and production build passed; run 38373302763",
     "bridge": "78 passed",
     "frontend_unit_files": "21 passed",
     "frontend_build": "passed with Next.js 15.5.27",
@@ -41,7 +48,7 @@
     "Audit automation/device changes separately from MIDI-note fingerprints; note JSON backups do not contain per-note expression",
     "Build and notarize a fresh installer after code freeze; the earlier local 1.3.20 DMG predates these changes and must not be published",
     "Validate clean-machine setup, existing-client automatic update, signed package contents and installed extension activation",
-    "Run PostgreSQL CI and final production smoke tests only when the hold is lifted"
+    "Run final-candidate PostgreSQL CI before website/backend deployment and inspect production after rollout"
   ],
   "legal_review": {
     "complete_legal_compliance_certified": false,

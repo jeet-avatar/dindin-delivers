@@ -874,8 +874,14 @@ def _build_system(bridge_note: str) -> list[dict]:
     return [{"type": "text", "text": SYSTEM_PROMPT + bridge_note, "cache_control": {"type": "ephemeral"}}]
 
 
-def _build_tools() -> list[dict]:
+def _supports_staged_arrangement(bridge) -> bool:
+    return bridge is not None and 'staged_arrangement_v1' in getattr(bridge, 'capabilities', set())
+
+
+def _build_tools(bridge=None) -> list[dict]:
     tools = [dict(t) for t in ABLETON_TOOLS] + [dict(t) for t in chat_tools.TOOLS] + [dict(SECTION_TOOL)]
+    if not _supports_staged_arrangement(bridge):
+        tools = [tool for tool in tools if tool['name'] not in arrangement_plan.NAMES]
     tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
     return tools
 
@@ -888,6 +894,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     section_brief = None
     messages = session.messages
     bridge_note = "" if bridge else "\n\nNOTE: No Ableton bridge connected. No live music changes are possible. Server-side saved-audio discovery and comparison remain available."
+    if bridge and not _supports_staged_arrangement(bridge):
+        bridge_note += "\nStaged Arrangement planning, placement and scoped revisions are unavailable on this connected Bridge. Do not call those tools or claim those features are ready. Existing instrument, clip and sound-production tools remain available; this is not a read-only connection."
     bridge_note += getattr(session, 'reference_note', '')
     bridge_note += brief_context(messages)
     bridge_note += '\n' + getattr(session, 'project_note', '')
@@ -915,7 +923,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             model=chat_model,
             max_tokens=MAX_OUTPUT_TOKENS,
             system=_build_system(bridge_note),
-            tools=[tool for tool in _build_tools() if not planning_only or tool['name'] in DISCUSSION_TOOLS],
+            tools=[tool for tool in _build_tools(bridge) if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
         )
         ai_usage.record(session.user_id, 'chat', provider_name(), chat_model, ai_usage.anthropic_tokens(response), usage_request)
@@ -959,6 +967,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 constraint = source_error(section_brief, tu.name, tu.input)
                 if planning_only and tu.name not in DISCUSSION_TOOLS:
                     result = {"status": "failed", "summary": "Discussion only: no playback or music changes were authorized. Ask for the user's next choice.", "steps": []}
+                elif tu.name in arrangement_plan.NAMES and not _supports_staged_arrangement(bridge):
+                    result = {"status": "failed", "summary": "This Bridge does not support staged Arrangement commands. Nothing was changed. Existing instrument and clip tools remain available.", "steps": []}
                 elif tu.name == "set_song_title" and session.project:
                     title = (tu.input.get('title') or '').strip()[:70]
                     if title:
