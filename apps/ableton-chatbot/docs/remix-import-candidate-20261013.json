@@ -14,12 +14,16 @@
     "Browser reload displays the saved import outcome without repeating the music write"
   ],
   "validation": {
-    "backend_sqlite": "587 passed",
+    "backend_sqlite": "588 passed",
     "bridge": "86 passed",
     "frontend_unit_files": "22 passed",
     "production_frontend_build": "Passed with NEXT_PUBLIC_API_URL=https://api.beatmind.io",
     "browser": "Mocked local/cloud APIs at 1440px and 390px: consent and saved interruption survive reload without another import; not a real Ableton remix test",
-    "ci_postgres": "Not yet run for this candidate"
+    "ci_postgres": "583 passed, 5 database-specific skips",
+    "ci_result": "success; validation-only run, both deployment jobs skipped",
+    "ci_commit": "8a080e526d03ca1a49bd930dac72b38236415f7f",
+    "ci_url": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/38378264104",
+    "ci_environment": "Bridge window tests run under Xvfb; this is not notarized-installer or real Ableton acceptance"
   },
   "full_release_blockers": [
     "Reference-bound remix intent and retained/replaced layers are not yet implemented as a complete product flow",
