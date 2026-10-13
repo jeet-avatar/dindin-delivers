@@ -129,7 +129,8 @@ def maybe_auto_approve_driver(driver: Driver, db: Session) -> bool:
         from email_service import send_driver_approval_email
         send_driver_approval_email(
             to_email=driver.email,
-            driver_name=f"{driver.first_name} {driver.last_name}"
+            driver_name=f"{driver.first_name} {driver.last_name}",
+            driver_code=driver.driver_id
         )
     except Exception as e:
         logger.warning(f"Failed to send approval email to driver {driver.id}: {e}")
