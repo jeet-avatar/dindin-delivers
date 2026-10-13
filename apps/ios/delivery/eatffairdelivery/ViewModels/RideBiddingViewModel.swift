@@ -160,7 +160,7 @@ class RideBiddingViewModel: ObservableObject {
             self.refreshData()
         }
 
-        wsManager.connect(clientType: "driver", entityId: driverId)
+        wsManager.connect(clientType: "driver", entityId: driverId, token: SecureStorage.shared.driverAccessToken)
         wsManager.subscribe(topic: "driver:\(driverId)")
     }
 

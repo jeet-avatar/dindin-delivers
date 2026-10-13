@@ -163,16 +163,24 @@ class RideRequestViewModel: ObservableObject {
         fareBeforeTax * taxRate
     }
 
-    /// Fare before tax (driver earnings + platform fee)
-    /// Uses backend subtotal when available (includes time_adjustment + long_distance_discount).
-    /// Falls back to local recalculation only when API is unavailable.
+    /// The ride fare only (driver's portion, BEFORE platform fee / regulatory fee / tax).
+    /// Uses the backend subtotal when available (includes time_adjustment + long_distance_discount).
+    /// Falls back to local recalculation only when the API is unavailable.
     var fareBeforeTax: Double {
         if let backendSubtotal = backendSubtotal {
             return backendSubtotal
         }
-        // Fallback for local calculation only
+        // Fallback for local calculation only (fare only — fees are added separately)
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
-        return max(driverPortion, minimumFare) + platformFee
+        return max(driverPortion, minimumFare)
+    }
+
+    /// Regulatory fee (e.g. CPUC "Access for All" customer share) = whatever the backend
+    /// total includes beyond the fare + platform fee. Zero on the local fallback path.
+    var regulatoryFee: Double {
+        guard let total = backendTotal else { return 0 }
+        let remainder = total - fareBeforeTax - platformFee
+        return remainder > 0.005 ? remainder : 0
     }
 
     /// What driver receives (fare - driver's platform fee + tip)
@@ -188,14 +196,15 @@ class RideRequestViewModel: ObservableObject {
         platformFee
     }
 
-    /// Total fare before tip (includes tax)
+    /// Customer total before tip (fare + platform fee + regulatory fee + tax).
+    /// Equals the backend total when available so it matches what is actually charged.
     var subtotal: Double {
-        fareBeforeTax + taxAmount
+        estimatedFare
     }
 
-    /// Total amount customer pays
+    /// Total amount the customer pays (includes the platform fee, regulatory fee, and tip).
     var totalAmount: Double {
-        subtotal + tip
+        estimatedFare + tip
     }
 
     /// Estimated fare (used in UI before tip)
@@ -204,7 +213,8 @@ class RideRequestViewModel: ObservableObject {
         if let total = backendTotal {
             return total
         }
-        return fareBeforeTax + taxAmount
+        // Local fallback: fare + platform fee + tax (no backend regulatory fee available)
+        return fareBeforeTax + platformFee + taxAmount
     }
 
     var canRequestRide: Bool {
@@ -554,7 +564,7 @@ class RideRequestViewModel: ObservableObject {
             }
         }
 
-        wsManager.connect(clientType: "customer", entityId: customerId)
+        wsManager.connect(clientType: "customer", entityId: customerId, token: SecureStorage.shared.customerAccessToken)
         wsManager.subscribe(topic: "ride:\(rideId)")
     }
 
@@ -798,6 +808,25 @@ class RideRequestViewModel: ObservableObject {
                     // Detect driver arrived at pickup
                     if tracking.driverArrivedAt != nil && !self.driverHasArrived {
                         self.driverHasArrived = true
+                    }
+                    // Populate the matched driver's phone from the track response so the
+                    // "Call driver" action works. RideBid carries no phone, so acceptedDriver
+                    // was created with phone=nil; backfill it here once available.
+                    if let phone = tracking.driverPhone, !phone.isEmpty,
+                       let existing = self.acceptedDriver, (existing.phone ?? "").isEmpty {
+                        self.acceptedDriver = AcceptedDriverInfo(
+                            id: existing.id,
+                            name: existing.name,
+                            phone: phone,
+                            rating: existing.rating,
+                            photo_url: existing.photo_url,
+                            vehicle_make: existing.vehicle_make,
+                            vehicle_model: existing.vehicle_model,
+                            vehicle_color: existing.vehicle_color,
+                            vehicle_year: existing.vehicle_year,
+                            license_plate: existing.license_plate,
+                            vehicle_photo_url: existing.vehicle_photo_url
+                        )
                     }
 
                 case .failure(let error):
@@ -1077,7 +1106,9 @@ class RideRequestViewModel: ObservableObject {
 
                 case .failure(let error):
                     self?.isNegotiating = false
-                    self?.showErrorMessage("Unable to send your fare offer. Please try again.")
+                    self?.showErrorMessage(error.localizedDescription.isEmpty
+                        ? "Unable to send your fare offer. Please try again."
+                        : error.localizedDescription)
                     logger.error("Fare negotiation error: \(error.localizedDescription)")
                 }
             }

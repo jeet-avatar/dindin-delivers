@@ -9,7 +9,7 @@ private let logger = Logger(subsystem: "ai.dollor.shared", category: "WebSocket"
 ///
 /// Usage:
 ///   WebSocketManager.shared.onNewBid = { data in print(data) }
-///   WebSocketManager.shared.connect(clientType: "customer", entityId: 42)
+///   WebSocketManager.shared.connect(clientType: "customer", entityId: 42, token: jwt)
 ///   WebSocketManager.shared.subscribe(topic: "ride:123")
 ///
 /// The backend WebSocket endpoint is: wss://api.dollor.ai/ws/{clientType}_{entityId}
@@ -60,6 +60,19 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
             .replacingOccurrences(of: "http://", with: "ws://")
         return "\(wsBase)/ws/"
     }
+
+    /// Appends `?token=` to a WebSocket URL string. The backend's `/ws/{client_id}` route
+    /// rejects any connection with no token before ever calling `.accept()`, so every
+    /// connect/reconnect must carry one.
+    private static func appendingToken(_ token: String?, to urlString: String) -> String? {
+        guard let token, !token.isEmpty else { return urlString }
+        var components = URLComponents(string: urlString)
+        var items = components?.queryItems ?? []
+        items.append(URLQueryItem(name: "token", value: token))
+        components?.queryItems = items
+        return components?.string
+    }
+
     private static let pingInterval: TimeInterval = 30.0
     private static let initialReconnectDelay: TimeInterval = 1.0
     private static let maxReconnectDelay: TimeInterval = 30.0
@@ -72,6 +85,7 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
     private var shouldReconnect: Bool = false
     private var currentClientType: String?
     private var currentEntityId: Int?
+    private var currentToken: String?
     private let topicQueue = DispatchQueue(label: "ai.dollor.websocket.topics")
     private var _subscribedTopics: Set<String> = []
     private var subscribedTopics: Set<String> {
@@ -97,7 +111,11 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
     /// - Parameters:
     ///   - clientType: The type of client connecting (e.g., "customer", "driver").
     ///   - entityId: The entity ID for the client (customer_id or driver_id).
-    public func connect(clientType: String, entityId: Int) {
+    ///   - token: The caller's JWT access token. The backend's `/ws/{client_id}` route
+    ///     requires this as a `?token=` query param and rejects the handshake (logged as a
+    ///     flat HTTP 403, since it closes before accepting) without it — see websocket_route
+    ///     in main_new.py.
+    public func connect(clientType: String, entityId: Int, token: String?) {
         // If already connected with the same parameters, skip
         if isConnected,
            currentClientType == clientType,
@@ -111,10 +129,12 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
 
         currentClientType = clientType
         currentEntityId = entityId
+        currentToken = token
         shouldReconnect = true
 
         let urlString = "\(WebSocketManager.baseWebSocketURL)\(clientType)_\(entityId)"
-        guard let url = URL(string: urlString) else {
+        guard let authedURLString = Self.appendingToken(token, to: urlString),
+              let url = URL(string: authedURLString) else {
             logger.error("Invalid WebSocket URL: \(urlString)")
             DispatchQueue.main.async {
                 self.lastError = "Invalid WebSocket URL"
@@ -122,7 +142,7 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
             return
         }
 
-        logger.info("Connecting to WebSocket: \(urlString)")
+        logger.info("Connecting to WebSocket: \(urlString) (token: \(token == nil ? "missing" : "present"))")
 
         let configuration = URLSessionConfiguration.default
         configuration.waitsForConnectivity = true
@@ -434,7 +454,8 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
 
     private func connectInternal(clientType: String, entityId: Int) {
         let urlString = "\(WebSocketManager.baseWebSocketURL)\(clientType)_\(entityId)"
-        guard let url = URL(string: urlString) else {
+        guard let authedURLString = Self.appendingToken(currentToken, to: urlString),
+              let url = URL(string: authedURLString) else {
             logger.error("Invalid WebSocket URL on reconnect: \(urlString)")
             return
         }
