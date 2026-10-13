@@ -3,12 +3,16 @@ import Combine
 import Stripe
 import EatFairShared
 
-/// Founding Member ($100 lifetime fee-lock) screen for the driver app.
-/// Reuses the app's linked Stripe SDK to collect a card and pass `payment_method_id`
-/// to POST /api/founding/driver/join. Demo accounts bypass the charge server-side.
+private let usStates = [
+    "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY",
+    "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
+    "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
+].sorted()
+
 struct FoundingMemberView: View {
     @StateObject private var model = FoundingMemberModel(isDriver: true)
     @State private var cardParams: STPPaymentMethodParams?
+    @State private var selectedState: String = "CA"
 
     var body: some View {
         ScrollView {
@@ -22,6 +26,7 @@ struct FoundingMemberView: View {
                         .frame(maxWidth: .infinity).padding(.top, 40)
                 } else {
                     benefitsCard
+                    statePicker
                     slotsCard
 
                     if model.isMember {
@@ -48,7 +53,10 @@ struct FoundingMemberView: View {
         .preferredColorScheme(.dark)
         .navigationTitle("Founding Member")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { model.load() }
+        .onAppear { model.load(state: selectedState) }
+        .onChange(of: selectedState) { newState in
+            model.loadSlots(state: newState)
+        }
     }
 
     private var header: some View {
@@ -81,10 +89,40 @@ struct FoundingMemberView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
     }
 
+    private var statePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Your state")
+                .font(.caption)
+                .foregroundColor(Theme.lxTextSecondary)
+            Menu {
+                ForEach(usStates, id: \.self) { state in
+                    Button(state) { selectedState = state }
+                }
+            } label: {
+                HStack {
+                    Text(selectedState)
+                        .font(.headline)
+                        .foregroundColor(Theme.lxText)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption)
+                        .foregroundColor(Theme.lxTextSecondary)
+                }
+                .padding()
+                .background(Theme.lxSurface)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Theme.lxHairline, lineWidth: 1)
+                )
+            }
+        }
+    }
+
     private var slotsCard: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Slots remaining\(model.state.map { " in \($0)" } ?? "")")
+                Text("Slots remaining in \(selectedState)")
                     .font(.caption).foregroundColor(Theme.lxTextSecondary)
                 Text(model.slotsRemaining.map { "\($0)" } ?? "—")
                     .font(.title3).fontWeight(.bold)
@@ -102,14 +140,21 @@ struct FoundingMemberView: View {
     }
 
     private var memberBadge: some View {
-        Label("You're a Founding Driver", systemImage: "checkmark.seal.fill")
-            .font(.headline)
-            .foregroundColor(Theme.lxSuccess)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Theme.lxSuccess.opacity(0.12))
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxSuccess.opacity(0.4), lineWidth: 1))
+        VStack(spacing: 8) {
+            Label("You're a Founding Driver", systemImage: "checkmark.seal.fill")
+                .font(.headline)
+                .foregroundColor(Theme.lxSuccess)
+            if let st = model.memberState {
+                Text("Locked in: \(st)")
+                    .font(.caption)
+                    .foregroundColor(Theme.lxTextSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Theme.lxSuccess.opacity(0.12))
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxSuccess.opacity(0.4), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -129,12 +174,12 @@ struct FoundingMemberView: View {
                     .font(.caption).foregroundColor(Theme.lxTextSecondary)
             }
 
-            Button(action: { model.join(params: cardParams) }) {
+            Button(action: { model.join(state: selectedState, params: cardParams) }) {
                 HStack {
                     if model.isJoining {
                         ProgressView().tint(.white)
                     } else {
-                        Text("Join for $\(Int(model.feeAmount))")
+                        Text("Join for $\(Int(model.feeAmount)) · \(selectedState)")
                             .fontWeight(.bold)
                     }
                 }
@@ -146,6 +191,11 @@ struct FoundingMemberView: View {
                 .shadow(color: canJoin ? Theme.lxOrange.opacity(0.4) : .clear, radius: 10, x: 0, y: 4)
             }
             .disabled(!canJoin)
+
+            Text("Non-refundable. Your platform fee is frozen at today's rate for life.")
+                .font(.caption2)
+                .foregroundColor(Theme.lxTextSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
@@ -156,7 +206,6 @@ struct FoundingMemberView: View {
     }
 }
 
-/// SwiftUI wrapper around Stripe's card entry field (reuses the app's linked Stripe SDK).
 struct FoundingCardField: UIViewRepresentable {
     @Binding var params: STPPaymentMethodParams?
 
@@ -189,7 +238,7 @@ final class FoundingMemberModel: ObservableObject {
     @Published var isDemo = false
     @Published var slotsRemaining: Int?
     @Published var slotsTotal: Int?
-    @Published var state: String?
+    @Published var memberState: String?
     @Published var feeAmount: Double = 100
     @Published var benefitDescription: String?
     @Published var errorMessage: String?
@@ -199,10 +248,10 @@ final class FoundingMemberModel: ObservableObject {
 
     init(isDriver: Bool) { self.isDriver = isDriver }
 
-    func load() {
+    func load(state: String? = nil) {
         isLoading = true
         errorMessage = nil
-        P2PAPIService.shared.getFoundingStatus(isDriver: isDriver) { [weak self] result in
+        P2PAPIService.shared.getFoundingStatus(isDriver: isDriver, state: state) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.isLoading = false
@@ -213,7 +262,7 @@ final class FoundingMemberModel: ObservableObject {
                     self.isDemo = status.demo
                     self.slotsRemaining = status.slotsRemaining
                     self.slotsTotal = status.slotsTotal
-                    self.state = status.state
+                    self.memberState = status.state
                     self.feeAmount = status.feeAmount
                     self.benefitDescription = status.benefitDescription
                     if let key = status.publishableKey, !key.isEmpty {
@@ -226,15 +275,26 @@ final class FoundingMemberModel: ObservableObject {
         }
     }
 
-    func join(params: STPPaymentMethodParams?) {
+    func loadSlots(state: String) {
+        P2PAPIService.shared.getFoundingStatus(isDriver: isDriver, state: state) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if case .success(let status) = result {
+                    self.slotsRemaining = status.slotsRemaining
+                    self.slotsTotal = status.slotsTotal
+                }
+            }
+        }
+    }
+
+    func join(state: String, params: STPPaymentMethodParams?) {
         guard !isJoining else { return }
         isJoining = true
         errorMessage = nil
         successMessage = nil
 
-        // Demo accounts bypass the charge server-side — no card tokenization needed.
         if isDemo || params == nil {
-            callJoin(paymentMethodId: nil)
+            callJoin(state: state, paymentMethodId: nil)
             return
         }
 
@@ -251,13 +311,13 @@ final class FoundingMemberModel: ObservableObject {
                     self.errorMessage = "Could not process your card. Please try again."
                     return
                 }
-                self.callJoin(paymentMethodId: paymentMethod.stripeId)
+                self.callJoin(state: state, paymentMethodId: paymentMethod.stripeId)
             }
         }
     }
 
-    private func callJoin(paymentMethodId: String?) {
-        P2PAPIService.shared.joinFounding(isDriver: isDriver, paymentMethodId: paymentMethodId) { [weak self] result in
+    private func callJoin(state: String, paymentMethodId: String?) {
+        P2PAPIService.shared.joinFounding(isDriver: isDriver, state: state, paymentMethodId: paymentMethodId) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.isJoining = false
@@ -265,7 +325,7 @@ final class FoundingMemberModel: ObservableObject {
                 case .success(let joinResult):
                     self.isMember = joinResult.isMember
                     self.successMessage = joinResult.message ?? "Welcome, Founding Driver!"
-                    self.load()
+                    self.load(state: state)
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }

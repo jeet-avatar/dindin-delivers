@@ -7825,10 +7825,15 @@ public class P2PAPIService: ObservableObject {
     /// Customer: GET /api/founding/status · Driver: GET /api/founding/driver/status
     public func getFoundingStatus(
         isDriver: Bool,
+        state: String? = nil,
         completion: @escaping (Result<FoundingStatus, Error>) -> Void
     ) {
         let path = isDriver ? "/founding/driver/status" : "/founding/status"
-        guard let url = URL(string: "\(baseURL)\(path)") else {
+        var urlString = "\(baseURL)\(path)"
+        if let state = state, !state.isEmpty {
+            urlString += "?state=\(state)"
+        }
+        guard let url = URL(string: urlString) else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -7879,6 +7884,7 @@ public class P2PAPIService: ObservableObject {
     /// Stripe mechanism. Demo accounts bypass the charge server-side (id may be nil).
     public func joinFounding(
         isDriver: Bool,
+        state: String,
         paymentMethodId: String?,
         completion: @escaping (Result<FoundingJoinResult, Error>) -> Void
     ) {
@@ -7895,7 +7901,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        var body: [String: Any] = [:]
+        var body: [String: Any] = ["state": state]
         if let paymentMethodId = paymentMethodId {
             body["payment_method_id"] = paymentMethodId
         }
