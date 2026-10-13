@@ -153,8 +153,7 @@ const server = http.createServer((req, res) => {
       while (await removals.count()) await removals.first().click();
       await input.fill('Replace the intro bass with Bass one shot.wav, root A3, with a dotted eighth delay; repeat the intro twice.');
       await page.getByRole('button', { name: 'Send', exact: true }).click();
-      const resume = page.getByRole('button', { name: 'Send unsent instructions', exact: true });
-      await resume.click();
+      // Once uncertain entries are explicitly removed, a fresh Send proceeds once.
       await page.getByRole('button', { name: 'Review remix changes', exact: true }).click();
       await dialog.getByRole('heading', { name: 'Your requested changes' }).waitFor();
       assert.equal(rendered, false);
