@@ -21,7 +21,7 @@ const server = http.createServer((req, res) => {
   try {
     const port = await new Promise((resolve, reject) => {
       let buffer = '';
-      const timeout = setTimeout(() => reject(new Error('Fixture server did not start')), 30000);
+      const timeout = setTimeout(() => reject(new Error('Fixture server did not start')), Number(process.env.BEATMIND_TEST_STARTUP_TIMEOUT_MS || 30000));
       backend.once('error', e => { clearTimeout(timeout); reject(e); });
       backend.once('exit', code => { clearTimeout(timeout); reject(new Error(`Fixture server exited: ${code}`)); });
       backend.stdout.on('data', chunk => { buffer += chunk; if (buffer.includes('\n')) { clearTimeout(timeout); resolve(JSON.parse(buffer.split('\n')[0]).port); } });

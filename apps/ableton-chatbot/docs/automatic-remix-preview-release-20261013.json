@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-13",
+  "status": "preview_workflow_live_ableton_import_disabled",
+  "release_commit": "1d0bf301f7a3fbf044cf8e73bd34259414ac5f3c",
+  "workflow_url": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/38391292113",
+  "workflow_result": "success",
+  "published": [
+    "Automatic Remix button next to the existing guided remix flow",
+    "User-selected section order, repeats, stem levels, mutes and target tempo",
+    "Rendered audio preview, explicit playback and exact-preview approval",
+    "Aligned stem download, saved previews and revisions",
+    "Source-use attestation and owner-scoped storage"
+  ],
+  "not_published": [
+    "Automatic placement into Ableton: server and UI gated until real Live Set acceptance",
+    "Bridge 1.3.20 installer: candidate only; public installer remains 1.3.19",
+    "Private songs, stems, recordings and marketing media"
+  ],
+  "limits": [
+    "Retained-stem rearrangement, not generation of replacement instruments",
+    "Separation and time stretching may have audible artifacts",
+    "Rights attestation is not verified legal clearance",
+    "No actual Ableton import or private-song subjective listening test performed for this release"
+  ],
+  "validation": {
+    "sqlite": "611 passed",
+    "postgresql": "606 passed, 5 skipped",
+    "bridge": "92 passed",
+    "frontend": "22 test files passed; production build passed",
+    "browser": "Desktop 1440px and mobile 390px passed with import capability enabled and disabled: real synthetic-audio render, decoded non-silent playback, approval, ZIP download, reload, no Ableton commands",
+    "container_runtime": "Passed offline as non-root: cached separation, four aligned stems, two non-silent comparison previews, remix tempo and alignment, owner-scoped chat storage",
+    "local_gate_tests": "8 passed",
+    "redundant_local_build": "Compilation and static pages passed; stopped during slow build tracing. Deployment used the successful CI build artifact.",
+    "public_site_browser": "Passed at 1440px and 390px against https://www.beatmind.io: render, decoded playback, approval, ZIP, saved-preview switching and reload. API calls used an isolated synthetic local fixture, not real customer accounts or production customer data.",
+    "public_site_test_retries": "First two attempts timed out starting the local fixture. The next passed desktop but recorded a localhost ECONNRESET during mobile. A fresh complete rerun passed both widths with a longer fixture-startup allowance; no quality assertions removed.",
+    "visual_inspection": "Desktop and mobile preview screenshots inspected: controls and status fit without overlap"
+  },
+  "production": {
+    "url": "https://www.beatmind.io/dashboard",
+    "audience": "Global web/backend deployment; no account allowlist. Existing reference-access subscription permissions remain enforced.",
+    "frontend_commit": "1d0bf301f7a3fbf044cf8e73bd34259414ac5f3c",
+    "backend_commit": "1d0bf301f7a3fbf044cf8e73bd34259414ac5f3c",
+    "backend_task": "beatmind-api:137",
+    "ecs": "COMPLETED; desired 1, running 1, pending 0",
+    "api_health": "ok; Bedrock configured; two Bridges connected",
+    "automatic_remix_route_without_authentication": "401 Unauthorized, as expected",
+    "automatic_remix_import_flag": "absent; defaults disabled",
+    "cloudfront_invalidation": "I6NFY4FF97MAMLFD5SKNP6HRKY: Completed",
+    "bridge_version": "1.3.19",
+    "bridge_sha256": "cdcc0150016d2daf9c6aa8e0e0b45e875ea693a48e56096f59bf4854a627d4a0",
+    "private_music_published": false
+  }
+}
