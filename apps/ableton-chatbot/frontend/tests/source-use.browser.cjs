@@ -51,7 +51,7 @@ const server = http.createServer((req, res) => {
       });
       const page = await context.newPage();
       page.on('pageerror', e => errors.push(e.message));
-      await page.goto(`http://127.0.0.1:${server.address().port}/dashboard`);
+      await page.goto((process.env.BEATMIND_UI_URL || `http://127.0.0.1:${server.address().port}`) + '/dashboard');
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'References', exact: true }).click();
       await page.getByRole('heading', { name: 'Reference rights fixture.wav', exact: true }).waitFor();
       ready = true;
