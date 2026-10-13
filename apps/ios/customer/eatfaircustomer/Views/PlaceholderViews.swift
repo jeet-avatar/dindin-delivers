@@ -2,17 +2,17 @@ import SwiftUI
 import EatFairShared
 
 struct NotificationsView: View {
-    @AppStorage("notifications_order_updates") private var orderUpdates = true
+    @AppStorage("notifications_ride_updates") private var rideUpdates = true
     @AppStorage("notifications_promotions") private var promotions = false
-    @AppStorage("notifications_delivery_updates") private var deliveryUpdates = true
+    @AppStorage("notifications_driver_arrived") private var driverArrived = true
     @AppStorage("notifications_special_offers") private var specialOffers = false
     @State private var showPermissionAlert = false
 
     var body: some View {
         Form {
-            Section(header: Text("Order Notifications")) {
-                Toggle("Order Updates", isOn: $orderUpdates)
-                Toggle("Delivery Status", isOn: $deliveryUpdates)
+            Section(header: Text("Ride Notifications")) {
+                Toggle("Ride Status Updates", isOn: $rideUpdates)
+                Toggle("Driver Arrived", isOn: $driverArrived)
             }
 
             Section(header: Text("Marketing")) {
@@ -45,7 +45,7 @@ struct NotificationsView: View {
             Button("Settings") { openNotificationSettings() }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("Please enable notifications in Settings to receive order updates.")
+            Text("Please enable notifications in Settings to receive ride updates.")
         }
     }
 

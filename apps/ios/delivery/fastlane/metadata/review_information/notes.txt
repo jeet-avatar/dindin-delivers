@@ -2,9 +2,9 @@ DOLLOR DRIVER — CALIFORNIA RIDESHARE DRIVER APP
 App Store Review Notes
 
 === DEMO ACCOUNT (DRIVER) ===
-Email:    review.driver@dollor.ai
-Password: DollorReview2026!
-Status:   Pre-approved (no background check required for this demo account)
+Email:    demo.driver@dollor.ai
+Password: DemoDriver2025!
+Status:   Pre-approved, online, bank account verified — no document upload required
 
 === CALIFORNIA TNC LICENSE ===
 CPUC TNC Permit Application: PSG0050982

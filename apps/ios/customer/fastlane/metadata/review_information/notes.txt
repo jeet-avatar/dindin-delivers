@@ -2,8 +2,9 @@ DOLLOR — CALIFORNIA RIDESHARE APP
 App Store Review Notes
 
 === DEMO ACCOUNT (RIDER) ===
-Email:    review.rider@dollor.ai
-Password: DollorReview2026!
+Email:    demo.customer@dollor.ai
+Password: DemoCustomer2025!
+Payment:  Visa card ending 6255 is pre-saved — no card entry needed
 
 === CALIFORNIA TNC LICENSE ===
 CPUC TNC Permit Application: PSG0050982
@@ -35,8 +36,8 @@ Contact:  support@dollor.ai
    - Once both agree, the ride is confirmed and driver navigates to pickup
 
 4. PAYMENT
-   - The demo account requires a payment method to book
-   - You may add any test Visa card: 4242 4242 4242 4242, exp 12/28, CVV 123
+   - A Visa card is pre-saved on this demo account — no card entry required
+   - Tap "Find Driver" and the request will submit immediately
    - No real charges will be made in the review environment
 
 5. FOUNDING MEMBER FEE

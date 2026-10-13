@@ -29,12 +29,14 @@ struct PaymentMethodsView: View {
                         Image(systemName: "creditcard")
                             .font(.system(size: 50))
                             .foregroundColor(Theme.lxTextMuted)
-                        Text("No saved cards")
+                        Text("No payment method")
                             .font(.headline)
                             .foregroundColor(Theme.lxText)
-                        Text("Add a card to make checkout faster")
+                        Text("A card is required to book rides. Add one below to continue.")
                             .font(.subheadline)
                             .foregroundColor(Theme.lxTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
                     }
                     .padding(.top, 60)
                 } else {
@@ -56,16 +58,6 @@ struct PaymentMethodsView: View {
                                     }
                                 )
                             }
-
-                            // Cash option
-                            PaymentCardRow(
-                                icon: "banknote.fill",
-                                title: "Cash",
-                                subtitle: "Pay your driver directly after the ride",
-                                isDefault: false,
-                                onDelete: nil,
-                                onSetDefault: nil
-                            )
                         }
                         .padding()
                     }

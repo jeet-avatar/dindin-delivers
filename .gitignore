@@ -11,6 +11,12 @@ GoogleService-Info.plist
 google-services.json
 
 # ===================
+# iOS xcconfig (contain API keys — use *.xcconfig.example as templates)
+# ===================
+apps/ios/customer/Config/Debug.xcconfig
+apps/ios/customer/Config/Release.xcconfig
+
+# ===================
 # iOS
 # ===================
 *.xcuserstate
