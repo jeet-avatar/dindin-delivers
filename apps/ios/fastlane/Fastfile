@@ -151,4 +151,173 @@ platform :ios do
     driver_testflight
   end
 
+  # ==================== MANUAL SIGNING (no match) ====================
+  # Uses the App Store distribution cert + profiles already installed locally
+  # ("iPhone Distribution: Zietra Technologies inc (PRKZ4UVCD7)" + "Dollor * AppStore").
+  # Bypasses match, whose repo password is unavailable. Timestamp build number.
+
+  def build_and_upload_local(project:, workspace:, scheme:, target:, bundle_id:, profile_name:, ipa_name:)
+    setup_api_key
+    update_code_signing_settings(
+      path: project,
+      use_automatic_signing: false,
+      team_id: "PRKZ4UVCD7",
+      code_sign_identity: "iPhone Distribution",
+      profile_name: profile_name,
+      bundle_identifier: bundle_id,
+      targets: [target]
+    )
+    build_number = Time.now.strftime("%Y%m%d%H%M")
+    build_app(
+      workspace: workspace,
+      scheme: scheme,
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: ipa_name,
+      clean: true,
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number}",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: "PRKZ4UVCD7",
+        provisioningProfiles: { bundle_id => profile_name }
+      }
+    )
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      ipa: "build/#{ipa_name}"
+    )
+  end
+
+  desc "Build Customer app for TestFlight (local signing)"
+  lane :customer_testflight_local do
+    build_and_upload_local(
+      project: "customer/eatfaircustomer.xcodeproj",
+      workspace: "customer/eatfaircustomer.xcworkspace",
+      scheme: "eatfaircustomer",
+      target: "eatfaircustomer",
+      bundle_id: "com.dollorai.customer",
+      profile_name: "Dollor Customer AppStore",
+      ipa_name: "DollorCustomer.ipa"
+    )
+  end
+
+  desc "Build Restaurant app for TestFlight (local signing)"
+  lane :restaurant_testflight_local do
+    build_and_upload_local(
+      project: "restaurant/eatffairrestaurant.xcodeproj",
+      workspace: "restaurant/eatffairrestaurant.xcworkspace",
+      scheme: "eatffairrestaurant",
+      target: "eatffairrestaurant",
+      bundle_id: "com.dollorai.restaurant",
+      profile_name: "Dollor Restaurant AppStore",
+      ipa_name: "DollorRestaurant.ipa"
+    )
+  end
+
+  desc "Build Driver app for TestFlight (local signing)"
+  lane :driver_testflight_local do
+    build_and_upload_local(
+      project: "delivery/eatffairdelivery.xcodeproj",
+      workspace: "delivery/eatffairdelivery.xcworkspace",
+      scheme: "eatffairdelivery",
+      target: "eatffairdelivery",
+      bundle_id: "com.dollorai.delivery",
+      profile_name: "Dollor Driver AppStore",
+      ipa_name: "DollorDriver.ipa"
+    )
+  end
+
+  desc "Deploy all apps to TestFlight (local signing)"
+  lane :all_testflight_local do
+    customer_testflight_local
+    restaurant_testflight_local
+    driver_testflight_local
+  end
+
+  # ==================== METADATA UPLOAD ====================
+
+  desc "Upload Customer app metadata (description, keywords, review info) to App Store Connect"
+  lane :upload_customer_metadata do
+    setup_api_key
+    deliver(
+      app_identifier: "com.dollorai.customer",
+      metadata_path: "../customer/fastlane/metadata",
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      force: true,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        content_rights_contains_third_party_content: false,
+        add_id_info_uses_idfa: false
+      }
+    )
+  end
+
+  desc "Upload Driver app metadata (description, keywords, review info) to App Store Connect"
+  lane :upload_driver_metadata do
+    setup_api_key
+    deliver(
+      app_identifier: "com.dollorai.delivery",
+      metadata_path: "../delivery/fastlane/metadata",
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      force: true,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        content_rights_contains_third_party_content: false,
+        add_id_info_uses_idfa: false
+      }
+    )
+  end
+
+  desc "Upload metadata for both apps"
+  lane :upload_all_metadata do
+    upload_customer_metadata
+    upload_driver_metadata
+  end
+
+  # ==================== SUBMIT FOR REVIEW ====================
+
+  desc "Submit Customer app for App Store review (after metadata + screenshots are ready)"
+  lane :submit_customer_for_review do
+    setup_api_key
+    deliver(
+      app_identifier: "com.dollorai.customer",
+      metadata_path: "../customer/fastlane/metadata",
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      automatic_release: false,
+      force: true,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        content_rights_contains_third_party_content: false,
+        add_id_info_uses_idfa: false
+      }
+    )
+  end
+
+  desc "Submit Driver app for App Store review"
+  lane :submit_driver_for_review do
+    setup_api_key
+    deliver(
+      app_identifier: "com.dollorai.delivery",
+      metadata_path: "../delivery/fastlane/metadata",
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      automatic_release: false,
+      force: true,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        content_rights_contains_third_party_content: false,
+        add_id_info_uses_idfa: false
+      }
+    )
+  end
+
 end

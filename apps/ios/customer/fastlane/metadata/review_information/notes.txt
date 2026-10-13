@@ -1,43 +1,53 @@
-Demo Account for App Review:
-- Email: demo.customer@dollor.ai
-- Password: DemoCustomer2025!
+DOLLOR — CALIFORNIA RIDESHARE APP
+App Store Review Notes
 
-TESTING FOOD DELIVERY:
-1. Log in with demo credentials
-2. On home screen, tap "Food"
-3. Browse restaurants and add items to cart
-4. You can add from multiple restaurants (up to 3)
-5. Proceed to checkout
-6. Use Apple Pay (sandbox) or test card
-7. Order confirmation will display
+=== DEMO ACCOUNT (RIDER) ===
+Email:    review.rider@dollor.ai
+Password: DollorReview2026!
 
-TESTING RIDESHARE:
-1. Log in with demo credentials
-2. On home screen, tap "Ride"
-3. Enter pickup location (or use current location)
-4. Enter dropoff location
-5. View transparent fare breakdown
-6. Tap "Find Driver" to request ride
-7. Note: In demo mode, drivers may not be available
-
-APPLE PAY TESTING:
-- Apple Pay works in sandbox mode
-- Use any test card in Apple Wallet simulator
-
-APP OVERVIEW:
-Dollor is a matchmaking platform with two services:
-1. Food Delivery - connecting customers with restaurants and delivery drivers
-2. Rideshare - connecting riders with independent drivers
-
-We are a matchmaking service, not a delivery company or transportation network company. Drivers are independent contractors who set their own rates.
-
-KEY DIFFERENTIATORS:
-- Drivers keep 100% of delivery fees and tips
-- Transparent pricing shows exactly where money goes
-- Multi-restaurant ordering (up to 3 restaurants per order)
-- $1 flat platform fee per restaurant
-- $1-$3 tiered rideshare connection fee
-
-Developer: Zietra Technologies
+=== CALIFORNIA TNC LICENSE ===
+CPUC TNC Permit Application: PSG0050982
+Operator: Zietra Technologies, Inc.
 Location: Rancho Santa Margarita, CA 92688
-Contact: support@dollor.ai
+Contact:  support@dollor.ai
+
+=== TESTING THE RIDER APP ===
+
+1. SIGN IN
+   - Open the app and tap "Sign In"
+   - Use the demo credentials above (email + password login)
+   - Do NOT use Google or Apple Sign-In for the demo account
+
+2. REQUESTING A RIDE
+   - On the home screen, tap "Ride" or "Book a Ride"
+   - Enter a pickup address (e.g. "LAX Airport, Los Angeles CA")
+   - Enter a dropoff address (e.g. "Santa Monica Pier, Santa Monica CA")
+   - Tap "Get Fare Estimate" — an estimated fare will appear
+   - Tap "Find Driver" to submit the ride request to nearby drivers
+   - The app will show incoming bids from driver-partners
+   - You can accept a bid, or counter-offer with a different amount
+
+3. BIDDING FLOW
+   - Drivers submit fare bids that appear on the Rider's screen
+   - Rider can tap "Accept" to confirm the ride at that price
+   - Rider can tap "Counter" to propose a different fare amount
+   - Driver can accept the counter or counter back
+   - Once both agree, the ride is confirmed and driver navigates to pickup
+
+4. PAYMENT
+   - The demo account requires a payment method to book
+   - You may add any test Visa card: 4242 4242 4242 4242, exp 12/28, CVV 123
+   - No real charges will be made in the review environment
+
+5. FOUNDING MEMBER FEE
+   - The optional $100 Founding Member fee is for real-world rideshare access
+   - This is exempt from Apple IAP under App Store Review Guideline 3.1.3(a)
+   - Skip this screen by navigating directly to "Book a Ride"
+
+=== APP OVERVIEW ===
+Dollor is a California-licensed TNC (CPUC permit PSG0050982) operating an open-bidding rideshare marketplace. Riders and independent driver-partners negotiate fares in real time. The app is currently live in California only. All drivers are independent contractors under Proposition 22.
+
+Insurance: $1,000,000 primary coverage during Periods 2 & 3 (driver en route + rider in vehicle).
+Background checks: All drivers pass California DOJ + FBI criminal checks and DMV record checks.
+
+Developer: Zietra Technologies, Inc. — support@dollor.ai

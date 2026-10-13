@@ -1,1 +1,1 @@
-https://dollor.ai/support
+https://api.dollor.ai/terms

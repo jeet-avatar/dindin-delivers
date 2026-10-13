@@ -1,1 +1,1 @@
-https://dollor.ai/privacy
+https://api.dollor.ai/privacy

@@ -1,0 +1,58 @@
+DOLLOR DRIVER — CALIFORNIA RIDESHARE DRIVER APP
+App Store Review Notes
+
+=== DEMO ACCOUNT (DRIVER) ===
+Email:    review.driver@dollor.ai
+Password: DollorReview2026!
+Status:   Pre-approved (no background check required for this demo account)
+
+=== CALIFORNIA TNC LICENSE ===
+CPUC TNC Permit Application: PSG0050982
+Operator: Zietra Technologies, Inc.
+Location: Rancho Santa Margarita, CA 92688
+Contact:  drivers@dollor.ai
+
+=== TESTING THE DRIVER APP ===
+
+1. SIGN IN
+   - Open the app and tap "Driver Login"
+   - Use email + password login with the demo credentials above
+   - The demo driver account is pre-approved — no document upload required
+
+2. GOING ONLINE
+   - After sign-in, you will see the driver dashboard
+   - Tap "Go Online" to become available for ride requests
+   - The app will show your current location on the map
+
+3. RECEIVING A RIDE REQUEST
+   - When a rider submits a request nearby, you will receive a notification
+   - Tap the notification to view the ride request details (pickup, dropoff, distance)
+   - Tap "Submit Bid" to enter your fare amount
+   - The rider may accept, decline, or counter-offer
+
+4. BIDDING FLOW
+   - You submit a bid with your desired fare
+   - If the rider counters, you will see their counter-offer amount
+   - You can accept the rider's counter or propose a new amount
+   - Once both agree, the app navigates you to the pickup location
+
+5. TO TEST END-TO-END (with Rider app simultaneously):
+   - Open the Rider app (Dollor) on a second device or simulator
+   - Log in as review.rider@dollor.ai / DollorReview2026!
+   - Submit a ride request — it will appear in the Driver app for bidding
+
+6. BACKGROUND LOCATION
+   - The driver app requires location access "Always" for period 1 (waiting for rides)
+   - This is required for California CPUC TNC compliance and is disclosed in the Privacy Policy
+
+=== DRIVER REQUIREMENTS NOTE ===
+In production, drivers must complete background check verification. The demo account
+(review.driver@dollor.ai, driver ID 127) has been pre-approved for review purposes
+and does not require document uploads.
+
+=== APP OVERVIEW ===
+Dollor Driver is the companion app for driver-partners on the Dollor TNC platform.
+Drivers are independent contractors under California Proposition 22. The app enables
+open fare bidding, real-time navigation, voice assistant, and earnings tracking.
+
+Developer: Zietra Technologies, Inc. — drivers@dollor.ai

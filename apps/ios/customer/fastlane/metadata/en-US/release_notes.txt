@@ -1,18 +1,9 @@
-What's New in Version 1.0:
+Version 1.1 — California Rideshare Launch
 
-Food Delivery:
-- Order from up to 3 restaurants at once
-- Apple Pay integration for fast checkout
-- Transparent pricing showing where your money goes
-- Drivers keep 100% of tips
-
-Rideshare:
-- Book rides with independent drivers
-- Drivers set their own rates
-- $1-$3 tiered connection fee
-- 96% of fare goes to your driver
-
-Plus:
-- Real-time tracking for orders and rides
-- AI Food Assistant
-- Save addresses for quick reordering
+- Open bidding: receive competing driver bids and negotiate your fare in real-time
+- Improved Find Driver flow with inline fare estimation
+- Fixed bid back-and-forth between riders and drivers
+- Payment method required before booking (for your protection)
+- California CPUC TNC compliance updates
+- Updated Terms of Service and Privacy Policy (California law)
+- Performance and stability improvements

@@ -1,1 +1,1 @@
-food delivery,rideshare,restaurant,takeout,rides,taxi,delivery app,multi restaurant,fair delivery,driver
+rideshare,ride,California,TNC,bid,fare,driver,taxi,transportation,carpool,trip,safe ride,booking
