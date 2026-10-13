@@ -19438,6 +19438,50 @@ async def set_default_card(
         raise HTTPException(status_code=400, detail="Request failed. Please try again.")
 
 
+@app.get("/api/customers/{customer_id}/stripe/setup-intent")
+async def create_customer_setup_intent(
+    customer_id: int,
+    customer: Customer = Depends(require_customer),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a Stripe SetupIntent so the client can save a payment method (including
+    Apple Pay, which — unlike a card entered via STPPaymentCardTextField — has no
+    client-side token to hand the existing POST /cards endpoint directly; it must
+    confirm a PaymentIntent/SetupIntent via STPApplePayContext instead) without
+    charging anything yet. On confirmation Stripe attaches the resulting payment
+    method to this customer and (since we don't set `invoice_settings` here) the
+    client still calls the existing /cards/{id}/default endpoint to make it default
+    — mirrors the pattern in founding_members.py's publishable_key handoff.
+    """
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own payment methods")
+
+    try:
+        if not customer.stripe_customer_id:
+            stripe_customer = stripe.Customer.create(
+                email=customer.email,
+                name=f"{customer.first_name or ''} {customer.last_name or ''}".strip() or None,
+                metadata={"dollor_customer_id": str(customer.id)}
+            )
+            customer.stripe_customer_id = stripe_customer.id
+            db.commit()
+
+        setup_intent = stripe.SetupIntent.create(
+            customer=customer.stripe_customer_id,
+            payment_method_types=["card"],
+            usage="off_session",
+        )
+        return {
+            "success": True,
+            "client_secret": setup_intent.client_secret,
+            "publishable_key": os.getenv("STRIPE_PUBLISHABLE_KEY", ""),
+        }
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error creating setup intent for customer {customer_id}: {str(e)}")
+        raise HTTPException(status_code=400, detail="Could not start payment setup. Please try again.")
+
+
 @app.post("/api/customer/orders/{order_id}/rate-driver")
 async def rate_order_driver(
     order_id: int,
