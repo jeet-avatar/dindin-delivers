@@ -3,7 +3,7 @@ default_platform(:ios)
 
 platform :ios do
   before_all do
-    ensure_xcode_version(version: "26.2")
+    ensure_xcode_version(version: "26.3")
   end
 
   desc "Build and upload to TestFlight (Staging)"
@@ -14,9 +14,13 @@ platform :ios do
       try_repo_update_on_error: true
     )
 
-    # Increment build number
+    # Increment build number. Date-based (YYYYMMDDHHmm) to match the existing build
+    # history — App Store Connect picks the "latest" build per version by comparing
+    # CFBundleVersion as an integer, not by upload time, so a shorter numeric string
+    # (e.g. a raw Unix timestamp) can silently lose to an older but longer date-based
+    # one and never show up in TestFlight.
     increment_build_number(
-      build_number: ENV["CI_BUILD_NUMBER"] || Time.now.to_i.to_s,
+      build_number: ENV["CI_BUILD_NUMBER"] || Time.now.strftime("%Y%m%d%H%M"),
       xcodeproj: "eatffairdelivery.xcodeproj"
     )
 
