@@ -338,7 +338,10 @@ export default function DashboardPage() {
       void apiFetch(`/api/chats/${encodeURIComponent(restoreProject)}`, { signal: restoreController.signal }).then(async response => {
         if (!response.ok) throw new Error("Could not refresh this song's reference. Reload before continuing.");
         const saved = await response.json();
-        if (active) { setProject(saved.project || null); setReferenceId(saved.referenceId || null); }
+        if (active) {
+          setProject(saved.project || null); setReferenceId(saved.referenceId || null);
+          if (Array.isArray(saved.messages)) setMessages(restoredMessages(saved));
+        }
       }).catch(error => { if (active) setHistoryError(error instanceof Error ? error.message : "Song reference unavailable."); })
         .finally(() => { if (active) setHistoryReady(true); });
     } else setHistoryReady(true);
@@ -658,7 +661,7 @@ export default function DashboardPage() {
   const canDiscussWithoutBridge = project?.mode === "remix";
   useEffect(() => {
     if (!historyReady || !outbox.ready || loading || projectBusy || requestRef.current || (!bridgeConnected && !canDiscussWithoutBridge) || outbox.queue.paused) return;
-    const next = nextInstructions(outbox.queue);
+    const next = nextInstructions(outbox.queue, canDiscussWithoutBridge ? "remix" : "production");
     if (!next) return;
     const attempt = `${queueKey}:${next.ids.join(",")}`;
     if (queueAttempt.current === attempt) return;

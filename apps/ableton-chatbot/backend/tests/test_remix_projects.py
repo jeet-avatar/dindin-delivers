@@ -148,6 +148,7 @@ class RemixProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(event['type'] == 'status' for event in events))
         bridge.send_command.assert_not_awaited()
         bridge.local_operation.assert_not_awaited()
+        self.assertIn('NOT a Bridge connection or permissions problem', str(client.messages.create.call_args.kwargs['system']))
 
     async def test_stalled_provider_emits_error_and_preserves_request_without_retry(self):
         result = await self.create()

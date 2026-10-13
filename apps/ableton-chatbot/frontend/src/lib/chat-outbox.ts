@@ -43,9 +43,12 @@ export function appendInstruction(queue: InstructionQueue, text: string): Instru
     createdAt: new Date().toISOString(), state: "queued" }] };
 }
 
-export function nextInstructions(queue: InstructionQueue): { ids: string[]; text: string } | null {
+export function nextInstructions(queue: InstructionQueue, mode: "production" | "remix" = "production"): { ids: string[]; text: string } | null {
   if (queue.items.some(item => item.state !== "queued")) return null;
-  const prefix = "Read all these saved instructions together before acting. They are in chronological order; later changes override earlier conflicting choices. Inspect the current Live Set, retain completed parts, update the whole-song plan, and execute only the next appropriate step.\n\n";
+  const prefix = "Read all these saved instructions together before acting. They are in chronological order; later changes override earlier conflicting choices. " +
+    (mode === "remix"
+      ? "Discuss these choices using the saved reference and remix state. Explain the next available preview or revision step without claiming music was changed.\n\n"
+      : "Inspect the current Live Set, retain completed parts, update the whole-song plan, and execute only the next appropriate step.\n\n");
   const selected: QueuedInstruction[] = [];
   for (const item of queue.items) {
     const candidate = [...selected, item];

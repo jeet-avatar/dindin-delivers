@@ -30,7 +30,7 @@ const server = http.createServer((req, res) => {
         localStorage.setItem('beatmind_user', JSON.stringify(user));
         localStorage.setItem(`beatmind_chats_v2_${user.id}`, JSON.stringify({ activeId: 'test', chats: [{ id: 'test', title: saved.project.title, sessionId: saved.sessionId }] }));
         localStorage.setItem(`beatmind_chats_v2_${user.id}_test`, JSON.stringify(saved));
-      }, { user, saved });
+      }, { user, saved: { ...saved, messages: [{ role: 'assistant', content: 'Planning the next steps...' }] } });
       const writes = [], errors = [];
       let failNext = false;
       await context.route('**/release.json', route => route.fulfill({ contentType: 'application/json', body: '{}' }));
@@ -67,6 +67,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       const conversation = page.getByRole('region', { name: 'Song conversation' });
       await conversation.getByText('Your preview is saved.', { exact: false }).waitFor();
+      assert.equal(await conversation.getByText('Planning the next steps...', { exact: true }).count(), 0, 'Reload must recover the saved server answer');
       const box = await conversation.boundingBox();
       assert.ok(box.height >= height * .5, `Conversation has ${box.height}px of ${height}px`);
       const input = page.getByRole('textbox', { name: 'Message BeatMind' });
