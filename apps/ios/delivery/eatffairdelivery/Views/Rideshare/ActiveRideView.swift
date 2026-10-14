@@ -494,8 +494,8 @@ struct ActiveRideView: View {
                 onConfirm: {
                     let previousStatus = rideStatus
                     rideStatus = .arrivedAtPickup
+                    viewModel.showError = false
                     viewModel.driverArrived(bid)
-                    // Revert on error (driverArrived is non-blocking, but watch for showError)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                         if viewModel.showError {
                             rideStatus = previousStatus
@@ -768,6 +768,7 @@ struct ActiveRideView: View {
         noShowTimerActive = false
         let previousStatus = rideStatus
         rideStatus = .inProgress
+        viewModel.showError = false
         viewModel.startRide(bid)
         // quick-378: when the trip starts, auto-launch Apple Maps with the
         // dropoff destination so the driver gets turn-by-turn nav without
@@ -789,6 +790,7 @@ struct ActiveRideView: View {
     private func completeRide() {
         let previousStatus = rideStatus
         rideStatus = .completed
+        viewModel.showError = false
         viewModel.completeRide(bid)
         // Revert on error after API response
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

@@ -2593,6 +2593,14 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
     if auth_driver.id != ride_request.matched_driver_id:
         raise HTTPException(status_code=403, detail="Only the matched driver can complete the ride")
 
+    # Auto-advance MATCHED→IN_PROGRESS if driver somehow skipped the /start call
+    # (e.g. app went to Maps before the API round-trip completed).
+    if ride_request.status == RideRequestStatus.MATCHED:
+        ride_request.status = RideRequestStatus.IN_PROGRESS
+        if not ride_request.driver_arrived_at:
+            ride_request.driver_arrived_at = datetime.utcnow()
+        db.flush()
+
     if ride_request.status != RideRequestStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail=f"Ride must be in progress first (current: {ride_request.status.value})")
 
