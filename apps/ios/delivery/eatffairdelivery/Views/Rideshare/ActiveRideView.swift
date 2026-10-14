@@ -8,6 +8,9 @@ import EatFairShared
 struct ActiveRideView: View {
     let bid: RideBid
     @ObservedObject var viewModel: RideBiddingViewModel
+    /// Called when the driver has fully finished with this ride (done after rating,
+    /// cancelled, or no-show). Triggers dismissal of the full-screen cover.
+    var onRideDone: () -> Void = {}
     @StateObject private var locationManager = LocationManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showChat = false
@@ -28,14 +31,23 @@ struct ActiveRideView: View {
     @State private var showSOSAlert = false
     @State private var showWaybill = false
 
-    private let cancelReasons = [
-        "Passenger not at pickup",
-        "Safety concern",
-        "Vehicle issue",
-        "Personal emergency",
-        "Wrong pickup location",
-        "Other"
-    ]
+    /// Cancel reasons filtered by the current ride stage.
+    /// "Passenger not at pickup" only makes sense after the driver has arrived.
+    /// "Wrong pickup location" only makes sense before arriving (driver is en route).
+    private var cancelReasons: [String] {
+        switch rideStatus {
+        case .matched, .enRouteToPickup:
+            return ["Safety concern", "Vehicle issue", "Personal emergency", "Wrong pickup location", "Other"]
+        case .arrivedAtPickup:
+            return ["Passenger not at pickup", "Safety concern", "Vehicle issue", "Personal emergency", "Other"]
+        default:
+            return []
+        }
+    }
+
+    /// After a "Safety concern" cancel, we reuse the SOS alert to prompt 911.
+    /// This flag changes the alert text and causes it to call onRideDone() on dismiss.
+    @State private var dismissAfterSOSAlert = false
 
     enum RideStatus: String {
         case matched = "Matched"
@@ -168,7 +180,16 @@ struct ActiveRideView: View {
             ForEach(cancelReasons, id: \.self) { reason in
                 Button(reason, role: reason == "Safety concern" ? nil : .destructive) {
                     selectedCancelReason = reason
-                    viewModel.driverCancelRide(bid, reason: reason)
+                    viewModel.driverCancelRide(bid, reason: reason) { success in
+                        guard success else { return }
+                        if reason == "Safety concern" {
+                            // Show SOS prompt before dismissing; onRideDone() fires from the alert.
+                            dismissAfterSOSAlert = true
+                            showSOSAlert = true
+                        } else {
+                            onRideDone()
+                        }
+                    }
                 }
             }
             Button("Keep Ride", role: .cancel) {}
@@ -178,20 +199,36 @@ struct ActiveRideView: View {
         .alert("Mark as No-Show?", isPresented: $showNoShowAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Confirm No-Show", role: .destructive) {
-                viewModel.markPassengerNoShow(bid)
+                viewModel.markPassengerNoShow(bid) { success in
+                    if success { onRideDone() }
+                }
             }
         } message: {
             Text("The passenger will be charged a $5.00 cancellation fee. You will receive $4.00 for your wait time.")
         }
-        .alert("Emergency SOS", isPresented: $showSOSAlert) {
+        .alert(
+            dismissAfterSOSAlert ? "Ride Cancelled — Safety" : "Emergency SOS",
+            isPresented: $showSOSAlert
+        ) {
             Button("Call 911", role: .destructive) {
                 if let url = URL(string: "tel://911") {
                     UIApplication.shared.open(url)
                 }
+                if dismissAfterSOSAlert {
+                    dismissAfterSOSAlert = false
+                    onRideDone()
+                }
             }
-            Button("Cancel", role: .cancel) { }
+            Button(dismissAfterSOSAlert ? "I'm OK" : "Cancel", role: .cancel) {
+                if dismissAfterSOSAlert {
+                    dismissAfterSOSAlert = false
+                    onRideDone()
+                }
+            }
         } message: {
-            Text("This will call emergency services (911). Only use in a real emergency.")
+            Text(dismissAfterSOSAlert
+                ? "Your ride has been cancelled. Do you need emergency assistance?"
+                : "This will call emergency services (911). Only use in a real emergency.")
         }
         .onChange(of: rideStatus) { _, newStatus in
             if newStatus == .arrivedAtPickup {
@@ -490,15 +527,12 @@ struct ActiveRideView: View {
             SwipeToConfirmButton(
                 label: "Slide — I've Arrived",
                 accentColor: Theme.lxSuccess,
-                isDisabled: false,
+                isDisabled: viewModel.isLoading,
                 onConfirm: {
-                    let previousStatus = rideStatus
                     rideStatus = .arrivedAtPickup
-                    viewModel.showError = false
-                    viewModel.driverArrived(bid)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        if viewModel.showError {
-                            rideStatus = previousStatus
+                    viewModel.driverArrived(bid) { success in
+                        if !success {
+                            rideStatus = .matched
                         }
                     }
                 }
@@ -690,12 +724,13 @@ struct ActiveRideView: View {
                             .font(.subheadline)
                             .foregroundColor(Theme.lxTextSecondary)
                     }
-                    // Done — navigate back to dashboard after ride completion
+                    // Dismiss the full-screen cover — onRideDone() clears the
+                    // presentedActiveBid in the parent, collapsing the cover.
                     SwipeToConfirmButton(
                         label: "Slide to Done",
                         accentColor: Theme.lxTextMuted,
                         isDisabled: false,
-                        onConfirm: { dismiss() }
+                        onConfirm: { onRideDone() }
                     )
                     .padding(.horizontal, 24)
                     .padding(.vertical, 8)
@@ -780,30 +815,22 @@ struct ActiveRideView: View {
     }
 
     private func startRide() {
-        let previousTimerActive = noShowTimerActive
         timerCancellable?.cancel()
         noShowTimerActive = false
-        let previousStatus = rideStatus
         rideStatus = .inProgress
-        viewModel.showError = false
-        viewModel.startRide(bid)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            if viewModel.showError {
-                rideStatus = previousStatus
-                noShowTimerActive = previousTimerActive
+        viewModel.startRide(bid) { success in
+            if !success {
+                rideStatus = .arrivedAtPickup
+                noShowTimerActive = true
             }
         }
     }
 
     private func completeRide() {
-        let previousStatus = rideStatus
         rideStatus = .completed
-        viewModel.showError = false
-        viewModel.completeRide(bid)
-        // Revert on error after API response
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            if viewModel.showError {
-                rideStatus = previousStatus
+        viewModel.completeRide(bid) { success in
+            if !success {
+                rideStatus = .inProgress
             }
         }
     }

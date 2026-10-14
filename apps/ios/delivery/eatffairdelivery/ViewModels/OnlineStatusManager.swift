@@ -30,10 +30,14 @@ final class OnlineStatusManager: ObservableObject {
 
     private let p2pService = P2PAPIService.shared
     private var isRequestInFlight = false
+    /// How many times we've retried the current in-flight request after a network error.
+    private var retryCount = 0
 
     private init() {}
 
-    /// Toggle driver online/offline. Calls backend once; reverts on failure.
+    /// Toggle driver online/offline. Calls backend once; retries once on network failure.
+    /// On a 403 gate error: reverts immediately (driver not allowed online).
+    /// On a network error: keeps optimistic state and retries after 5 s.
     /// Safe to call from any ViewModel — in-flight guard prevents duplicate calls.
     func setOnlineStatus(_ online: Bool) {
         guard !isRequestInFlight else {
@@ -43,12 +47,16 @@ final class OnlineStatusManager: ObservableObject {
             return
         }
 
-        // Optimistic update
+        retryCount = 0
+        sendOnlineStatusRequest(online: online)
+    }
+
+    private func sendOnlineStatusRequest(online: Bool) {
+        // Optimistic update (idempotent — safe to re-apply on retry)
         isOnline = online
         isRequestInFlight = true
         statusError = nil
 
-        // Start/stop location tracking immediately (before API response)
         if online {
             LocationManager.shared.startTracking()
         } else {
@@ -62,10 +70,10 @@ final class OnlineStatusManager: ObservableObject {
 
                 switch result {
                 case .success:
+                    self.retryCount = 0
                     #if DEBUG
                     logger.info("[OnlineStatusManager] Status confirmed by backend: isOnline=\(online)")
                     #endif
-                    // Speak confirmation only when going online (matches original DeliveryViewModel behavior)
                     if online {
                         VoiceAssistantManager.shared.speak("You are now online and receiving orders")
                     } else {
@@ -73,22 +81,37 @@ final class OnlineStatusManager: ObservableObject {
                     }
 
                 case .failure(let error):
-                    // Revert optimistic update — never leave isOnline=true on a failed go-online.
-                    self.isOnline = !online
-                    // Revert location tracking
-                    if !online {
-                        LocationManager.shared.startTracking() // We tried to go offline but failed
+                    // Distinguish a compliance gate (403 / gateError) from a network failure.
+                    // A gate error means the driver genuinely cannot go online — revert immediately.
+                    // A network error is transient — retry once without reverting the optimistic state.
+                    let isGateError: Bool = {
+                        if let p2p = error as? P2PAPIError, case .gateError = p2p { return true }
+                        return false
+                    }()
+
+                    if isGateError || !online {
+                        // Gate error or go-offline failure: revert and surface reason.
+                        self.isOnline = !online
+                        if !online { LocationManager.shared.startTracking() }
+                        else { LocationManager.shared.stopTracking() }
+                        if online { self.statusError = error.localizedDescription }
+                        logger.error("[OnlineStatusManager] setOnlineStatus hard-failed: \(error.localizedDescription)")
+                    } else if self.retryCount < 1 {
+                        // Network error on go-online: keep optimistic state, retry after 5 s.
+                        self.retryCount += 1
+                        logger.warning("[OnlineStatusManager] go-online failed (network) — retry \(self.retryCount) in 5 s")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                            guard let self = self, self.isOnline else { return }
+                            self.sendOnlineStatusRequest(online: online)
+                        }
                     } else {
-                        LocationManager.shared.stopTracking()  // We tried to go online but failed
+                        // Two consecutive network failures — give up and revert.
+                        self.retryCount = 0
+                        self.isOnline = false
+                        LocationManager.shared.stopTracking()
+                        self.statusError = "Could not connect to server. Please check your connection and try again."
+                        logger.error("[OnlineStatusManager] go-online failed after retry: \(error.localizedDescription)")
                     }
-                    // Surface the server reason (403 background-check gate, etc.) so the UI can show it.
-                    // Do NOT speak "you're online" — we are not online.
-                    if online {
-                        self.statusError = error.localizedDescription
-                    }
-                    #if DEBUG
-                    logger.error("[OnlineStatusManager] setOnlineStatus failed: \(error.localizedDescription)")
-                    #endif
                 }
             }
         }

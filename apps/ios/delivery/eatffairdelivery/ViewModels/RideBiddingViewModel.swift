@@ -236,9 +236,15 @@ class RideBiddingViewModel: ObservableObject {
                     let previousCountered = Set(self.pendingCounterOffers.map { $0.id })
                     let newCountered = bids.filter { $0.status == "countered" && !previousCountered.contains($0.id) }
 
-                    // Detect newly accepted rides (bid was pending/countered, now accepted)
+                    // Active ride = bid accepted AND ride still live (matched or in_progress).
+                    // bid.status stays "accepted" even after completion/cancellation — so we
+                    // must also check ride_request.status to avoid stale rides persisting.
                     let previousActiveIds = Set(self.activeRides.map { $0.id })
-                    let newActiveRides = bids.filter { $0.status == "accepted" }
+                    let newActiveRides = bids.filter { bid in
+                        guard bid.status == "accepted" else { return false }
+                        let reqStatus = bid.ride_request?.status ?? ""
+                        return reqStatus == "matched" || reqStatus == "in_progress"
+                    }
                     let hasNewActive = newActiveRides.contains(where: { !previousActiveIds.contains($0.id) })
 
                     // Update state
@@ -459,8 +465,11 @@ class RideBiddingViewModel: ObservableObject {
     // MARK: - Active Ride Actions
 
     /// Mark driver arrived at pickup
-    func driverArrived(_ bid: RideBid) {
-        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+    func driverArrived(_ bid: RideBid, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else {
+            completion(false)
+            return
+        }
 
         isLoading = true
 
@@ -471,18 +480,24 @@ class RideBiddingViewModel: ObservableObject {
                 switch result {
                 case .success:
                     self?.showSuccessMessage("Customer has been notified you've arrived!")
+                    self?.refreshData()
+                    completion(true)
 
                 case .failure(let error):
                     self?.showErrorMessage("Could not mark arrival. Please swipe again.")
                     logger.error("Driver arrived notification error: \(error.localizedDescription)")
+                    completion(false)
                 }
             }
         }
     }
 
     /// Start ride (picked up passenger)
-    func startRide(_ bid: RideBid) {
-        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+    func startRide(_ bid: RideBid, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else {
+            completion(false)
+            return
+        }
 
         isLoading = true
 
@@ -494,18 +509,23 @@ class RideBiddingViewModel: ObservableObject {
                 case .success:
                     self?.showSuccessMessage("Ride started!")
                     self?.refreshData()
+                    completion(true)
 
                 case .failure(let error):
                     self?.showErrorMessage("Unable to start the ride. Please try again.")
                     logger.error("Start ride error: \(error.localizedDescription)")
+                    completion(false)
                 }
             }
         }
     }
 
     /// Complete ride (dropped off passenger)
-    func completeRide(_ bid: RideBid) {
-        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+    func completeRide(_ bid: RideBid, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else {
+            completion(false)
+            return
+        }
 
         isLoading = true
 
@@ -518,11 +538,15 @@ class RideBiddingViewModel: ObservableObject {
                     self?.completionData = response.ride_request
                     self?.showSuccessMessage("Ride completed! Earnings added.")
                     LocationManager.shared.stopDeliveryTracking()
-                    self?.refreshData()
+                    // Do NOT refreshData here — the completion screen stays open until
+                    // the driver taps "Done". clearActiveRide() is called from the view
+                    // at that point, which collapses the fullScreenCover cleanly.
+                    completion(true)
 
                 case .failure(let error):
                     self?.showErrorMessage("Unable to complete the ride. Please try again or contact support.")
                     logger.error("Complete ride error: \(error.localizedDescription)")
+                    completion(false)
                 }
             }
         }
@@ -530,8 +554,11 @@ class RideBiddingViewModel: ObservableObject {
 
     // MARK: - Driver Cancel Ride
 
-    func driverCancelRide(_ bid: RideBid, reason: String?) {
-        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+    func driverCancelRide(_ bid: RideBid, reason: String?, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else {
+            completion(false)
+            return
+        }
 
         isLoading = true
 
@@ -543,11 +570,14 @@ class RideBiddingViewModel: ObservableObject {
                 case .success:
                     self?.showSuccessMessage("Ride cancelled. The rider will be matched with another driver.")
                     LocationManager.shared.stopDeliveryTracking()
+                    self?.clearActiveRide(bid)
                     self?.refreshData()
+                    completion(true)
 
                 case .failure(let error):
                     self?.showErrorMessage("Unable to cancel ride. Please try again.")
                     logger.error("Driver cancel ride error: \(error.localizedDescription)")
+                    completion(false)
                 }
             }
         }
@@ -555,8 +585,11 @@ class RideBiddingViewModel: ObservableObject {
 
     // MARK: - No-Show
 
-    func markPassengerNoShow(_ bid: RideBid) {
-        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+    func markPassengerNoShow(_ bid: RideBid, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else {
+            completion(false)
+            return
+        }
 
         isLoading = true
 
@@ -569,11 +602,14 @@ class RideBiddingViewModel: ObservableObject {
                     let payout = response.driver_payout ?? 0
                     self?.showSuccessMessage("No-show confirmed. You earned $\(String(format: "%.2f", payout)) for your wait time.")
                     LocationManager.shared.stopDeliveryTracking()
+                    self?.clearActiveRide(bid)
                     self?.refreshData()
+                    completion(true)
 
                 case .failure(let error):
                     self?.showErrorMessage(error.localizedDescription)
                     logger.error("No-show error: \(error.localizedDescription)")
+                    completion(false)
                 }
             }
         }
@@ -594,6 +630,14 @@ class RideBiddingViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - Active Ride Lifecycle Helpers
+
+    /// Immediately removes a bid from activeRides so the full-screen cover can dismiss.
+    /// Called by the view layer when the driver explicitly completes, cancels, or no-shows.
+    func clearActiveRide(_ bid: RideBid) {
+        activeRides.removeAll { $0.id == bid.id }
     }
 
     // MARK: - Helpers

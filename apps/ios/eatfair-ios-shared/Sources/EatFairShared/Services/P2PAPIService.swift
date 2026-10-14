@@ -11152,7 +11152,7 @@ public struct AvailableRideRequestsResponse: Codable {
 }
 
 /// Shared location type for ride requests
-public struct RideLocation: Codable {
+public struct RideLocation: Codable, Equatable {
     public let address: String
     public let latitude: Double
     public let longitude: Double
@@ -11167,7 +11167,7 @@ public struct RideLocation: Codable {
 }
 
 /// Ride request available for bidding (without circular reference)
-public struct RideRequestForBidding: Identifiable, Codable {
+public struct RideRequestForBidding: Identifiable, Codable, Equatable {
     public let id: Int
     public let request_id: String
     public let customer_id: Int
@@ -11448,7 +11448,7 @@ public struct FoundingJoinResult: Decodable {
 }
 
 /// Ride bid model
-public struct RideBid: Identifiable, Codable {
+public struct RideBid: Identifiable, Codable, Equatable {
     public let id: Int
     public let bid_id: String
     public let ride_request_id: Int

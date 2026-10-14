@@ -9,6 +9,11 @@ struct RideshareDashboardView: View {
     @ObservedObject private var onlineManager = OnlineStatusManager.shared
     @State private var selectedTab: RideshareTab = .available
     @State private var showPayoutDashboard = false
+    /// The bid currently presented full-screen. Set when an active ride appears;
+    /// cleared only when the driver explicitly finishes (done/cancel/no-show).
+    /// Using local state prevents the poll-driven activeRides update from
+    /// force-dismissing the screen mid-flow.
+    @State private var presentedActiveBid: RideBid?
 
     enum RideshareTab: String, CaseIterable {
         case available = "Available"
@@ -33,51 +38,44 @@ struct RideshareDashboardView: View {
     }
 
     var body: some View {
+        mainNavigationContent
+            .alert(alertTitle, isPresented: $viewModel.showError) {
+                errorAlertButtons
+            } message: {
+                Text(viewModel.errorMessage ?? "An error occurred")
+            }
+            .alert("Success", isPresented: $viewModel.showSuccess) {
+                Button("OK", role: .cancel) {}
+                    .accessibilityLabel("Dismiss success message")
+            } message: {
+                Text(viewModel.successMessage ?? "")
+            }
+            .alert("Can't go online yet", isPresented: Binding(
+                get: { onlineManager.statusError != nil },
+                set: { if !$0 { onlineManager.statusError = nil } }
+            )) {
+                Button("OK", role: .cancel) { onlineManager.statusError = nil }
+            } message: {
+                Text(onlineManager.statusError ?? "")
+            }
+    }
+
+    private var mainNavigationContent: some View {
         NavigationView {
             ZStack {
                 Theme.lxBg.ignoresSafeArea()
-
                 VStack(spacing: 0) {
-                    // Online/Offline Toggle
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(viewModel.isOnline ? Theme.lxSuccess : Theme.lxError)
-                            .frame(width: 12, height: 12)
-
-                        Text(viewModel.isOnline ? "Online" : "Offline")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(viewModel.isOnline ? Theme.lxSuccess : Theme.lxError)
-
-                        Spacer()
-
-                        Toggle("", isOn: Binding(
-                            get: { viewModel.isOnline },
-                            set: { viewModel.setOnlineStatus($0) }
-                        ))
-                        .labelsHidden()
-                        .tint(Theme.lxSuccess)
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 10)
-                    .background(viewModel.isOnline ? Theme.lxSuccess.opacity(0.15) : Theme.lxError.opacity(0.15))
-
-                    // Tab Selector
+                    onlineToggleBar
                     tabSelector
-
-                    // Content
                     TabView(selection: $selectedTab) {
-                        // Available Requests Tab
                         AvailableRequestsContent(viewModel: viewModel, onBidSubmitted: {
                             selectedTab = .myBids
                         })
-                            .tag(RideshareTab.available)
+                        .tag(RideshareTab.available)
 
-                        // My Bids Tab
                         MyBidsContent(viewModel: viewModel)
                             .tag(RideshareTab.myBids)
 
-                        // Active Rides Tab
                         ActiveRidesContent(viewModel: viewModel)
                             .tag(RideshareTab.active)
                     }
@@ -94,7 +92,6 @@ struct RideshareDashboardView: View {
                                 .foregroundColor(Theme.lxSuccess)
                         }
                         .accessibilityLabel("View payout history")
-
                         Button(action: { viewModel.refreshData() }) {
                             Image(systemName: "arrow.clockwise")
                                 .foregroundColor(Theme.lxOrange)
@@ -106,71 +103,74 @@ struct RideshareDashboardView: View {
             .sheet(isPresented: $showPayoutDashboard) {
                 PayoutDashboardView()
             }
-            // quick-377: when the driver has a matched ride, take over the full
-            // screen with the ActiveRideView automatically. No more "go to
-            // Active tab → tap the card to find the I've-arrived button."
-            // When activeRides becomes empty (ride completed), the cover
-            // auto-dismisses back to the dashboard. Reuses existing
-            // ActiveRideView + RideBiddingViewModel — no new endpoints.
-            .fullScreenCover(isPresented: Binding(
-                get: { !viewModel.activeRides.isEmpty },
-                set: { _ in /* driver cannot dismiss — must complete ride */ }
-            )) {
-                if let activeBid = viewModel.activeRides.first {
-                    NavigationStack {
-                        ActiveRideView(bid: activeBid, viewModel: viewModel)
-                    }
-                    .interactiveDismissDisabled(true)
+            // Full-screen active ride cover. Driven by presentedActiveBid (not
+            // activeRides directly) so that a poll-driven activeRides update cannot
+            // force-dismiss the screen while the driver is mid-flow (rating, etc.).
+            // The cover is set by the .onChange below when a ride first appears,
+            // and cleared only when the driver explicitly finishes via onRideDone.
+            .fullScreenCover(item: $presentedActiveBid) { activeBid in
+                NavigationStack {
+                    ActiveRideView(
+                        bid: activeBid,
+                        viewModel: viewModel,
+                        onRideDone: {
+                            viewModel.clearActiveRide(activeBid)
+                            presentedActiveBid = nil
+                            viewModel.refreshData()
+                        }
+                    )
                 }
+                .interactiveDismissDisabled(true)
             }
-            .onAppear {
-                viewModel.refreshData()
+            .onAppear { viewModel.refreshData() }
+            .onChange(of: viewModel.activeRides) { _, newRides in
+                // Present when a ride appears for the first time; never close from here.
+                if presentedActiveBid == nil, let first = newRides.first {
+                    presentedActiveBid = first
+                }
             }
             .onChange(of: viewModel.hasNewAcceptedRide) { _, isNew in
-                if isNew {
-                    // quick-377: clear the flag — the fullScreenCover above
-                    // already auto-presents based on activeRides. Tab switch
-                    // is no longer needed since the active ride view takes
-                    // over the screen entirely.
-                    viewModel.hasNewAcceptedRide = false
-                }
-            }
-            .alert(alertTitle, isPresented: $viewModel.showError) {
-                if isBlockingError {
-                    Button("View Active Work") {
-                        // Navigate to active tab
-                        withAnimation {
-                            selectedTab = .active
-                        }
-                    }
-                    .accessibilityLabel("View your active work")
-                    Button("OK", role: .cancel) {}
-                        .accessibilityLabel("Dismiss error")
-                } else {
-                    Button("OK", role: .cancel) {}
-                        .accessibilityLabel("Dismiss error")
-                }
-            } message: {
-                Text(viewModel.errorMessage ?? "An error occurred")
-            }
-            .alert("Success", isPresented: $viewModel.showSuccess) {
-                Button("OK", role: .cancel) {}
-                    .accessibilityLabel("Dismiss success message")
-            } message: {
-                Text(viewModel.successMessage ?? "")
-            }
-            // Go-online gate (e.g. background check not yet approved). Reason comes from the
-            // backend 403 `detail` via OnlineStatusManager.statusError.
-            .alert("Can't go online yet", isPresented: Binding(
-                get: { onlineManager.statusError != nil },
-                set: { if !$0 { onlineManager.statusError = nil } }
-            )) {
-                Button("OK", role: .cancel) { onlineManager.statusError = nil }
-            } message: {
-                Text(onlineManager.statusError ?? "")
+                if isNew { viewModel.hasNewAcceptedRide = false }
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var onlineToggleBar: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(viewModel.isOnline ? Theme.lxSuccess : Theme.lxError)
+                .frame(width: 12, height: 12)
+            Text(viewModel.isOnline ? "Online" : "Offline")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(viewModel.isOnline ? Theme.lxSuccess : Theme.lxError)
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { viewModel.isOnline },
+                set: { viewModel.setOnlineStatus($0) }
+            ))
+            .labelsHidden()
+            .tint(Theme.lxSuccess)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(viewModel.isOnline ? Theme.lxSuccess.opacity(0.15) : Theme.lxError.opacity(0.15))
+    }
+
+    @ViewBuilder
+    private var errorAlertButtons: some View {
+        if isBlockingError {
+            Button("View Active Work") {
+                withAnimation { selectedTab = .active }
+            }
+            .accessibilityLabel("View your active work")
+            Button("OK", role: .cancel) {}
+                .accessibilityLabel("Dismiss error")
+        } else {
+            Button("OK", role: .cancel) {}
+                .accessibilityLabel("Dismiss error")
+        }
     }
 
     // MARK: - Tab Selector
