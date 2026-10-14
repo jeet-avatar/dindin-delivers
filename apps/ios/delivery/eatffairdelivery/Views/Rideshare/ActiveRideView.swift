@@ -801,7 +801,13 @@ struct ActiveRideView: View {
     private func startNoShowTimer() {
         guard !noShowTimerActive else { return }
         noShowTimerActive = true
-        noShowTimerSeconds = 300
+
+        // Resume from the actual elapsed wait time using the backend timestamp.
+        // If the driver arrived 3 minutes ago they only need to wait 2 more minutes.
+        // Fall back to the full 5-minute window when the timestamp is unavailable.
+        let noShowWindowSeconds = 300
+        let elapsed = elapsedSecondsSinceArrival()
+        noShowTimerSeconds = max(0, noShowWindowSeconds - elapsed)
 
         timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
@@ -812,6 +818,14 @@ struct ActiveRideView: View {
                     timerCancellable?.cancel()
                 }
             }
+    }
+
+    private func elapsedSecondsSinceArrival() -> Int {
+        guard let arrivedAt = bid.ride_request?.driver_arrived_at else { return 0 }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = formatter.date(from: arrivedAt) else { return 0 }
+        return max(0, Int(Date().timeIntervalSince(date)))
     }
 
     private func startRide() {

@@ -76,7 +76,7 @@ struct RideshareDashboardView: View {
                         MyBidsContent(viewModel: viewModel)
                             .tag(RideshareTab.myBids)
 
-                        ActiveRidesContent(viewModel: viewModel)
+                        ActiveRidesContent(viewModel: viewModel, presentedActiveBid: $presentedActiveBid)
                             .tag(RideshareTab.active)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
@@ -129,9 +129,7 @@ struct RideshareDashboardView: View {
                     presentedActiveBid = first
                 }
             }
-            .onChange(of: viewModel.hasNewAcceptedRide) { _, isNew in
-                if isNew { viewModel.hasNewAcceptedRide = false }
-            }
+
         }
         .preferredColorScheme(.dark)
     }
@@ -393,12 +391,18 @@ struct MyBidsContent: View {
     @State private var selectedBid: RideBid?
     @State private var showCounterOfferSheet = false
 
+    /// True when there are bids worth showing (pending or countered).
+    /// Accepted bids live in the Active tab so they don't count here.
+    private var hasVisibleBids: Bool {
+        !viewModel.pendingBids.isEmpty || !viewModel.counteredBids.isEmpty
+    }
+
     var body: some View {
         Group {
-            if viewModel.myBids.isEmpty {
-                emptyStateView
-            } else {
+            if hasVisibleBids {
                 bidsList
+            } else {
+                emptyStateView
             }
         }
         .sheet(isPresented: $showCounterOfferSheet) {
@@ -406,6 +410,16 @@ struct MyBidsContent: View {
                 CounterOfferResponseSheet(bid: bid, viewModel: viewModel) {
                     showCounterOfferSheet = false
                 }
+            }
+        }
+        // Wire the ViewModel's auto-detected counter-offer to the local sheet.
+        // When a new counter-offer arrives mid-poll, the VM sets selectedCounterOffer
+        // and flips showCounterOfferSheet — we observe that and mirror it here.
+        .onChange(of: viewModel.showCounterOfferSheet) { _, isShowing in
+            if isShowing, let offer = viewModel.selectedCounterOffer {
+                selectedBid = offer
+                showCounterOfferSheet = true
+                viewModel.showCounterOfferSheet = false
             }
         }
     }
@@ -498,6 +512,10 @@ struct MyBidsContent: View {
 
 struct ActiveRidesContent: View {
     @ObservedObject var viewModel: RideBiddingViewModel
+    /// Bound to the parent's presentedActiveBid so tapping a card reopens the
+    /// full-screen cover instead of pushing a separate NavigationLink destination
+    /// (which would receive no onRideDone callback and be unable to dismiss cleanly).
+    @Binding var presentedActiveBid: RideBid?
 
     var body: some View {
         Group {
@@ -544,9 +562,15 @@ struct ActiveRidesContent: View {
         ScrollView {
             LazyVStack(spacing: 16) {
                 ForEach(viewModel.activeRides) { bid in
-                    NavigationLink(destination: ActiveRideView(bid: bid, viewModel: viewModel)) {
+                    // Use a plain button that sets presentedActiveBid, which triggers
+                    // the parent's fullScreenCover (with onRideDone wired correctly).
+                    // A NavigationLink here gets no onRideDone and can't dismiss the cover.
+                    Button {
+                        presentedActiveBid = bid
+                    } label: {
                         ActiveRideCard(bid: bid)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding()

@@ -22,9 +22,6 @@ class RideBiddingViewModel: ObservableObject {
     /// Active/matched rides
     @Published var activeRides: [RideBid] = []
 
-    /// Signals that a bid was newly accepted — triggers auto-navigation to Active tab
-    @Published var hasNewAcceptedRide: Bool = false
-
     /// Loading states
     @Published var isLoading = false
     @Published var isSubmittingBid = false
@@ -253,12 +250,6 @@ class RideBiddingViewModel: ObservableObject {
                     self.activeRides = newActiveRides
                     self.pollingFailureCount = 0  // Reset on success
                     self.showConnectionWarning = false
-
-                    // Auto-navigate to Active tab when a bid is newly accepted
-                    if hasNewActive && !self.hasNewAcceptedRide {
-                        self.hasNewAcceptedRide = true
-                        logger.info("[AutoNav] New accepted ride detected — triggering tab switch")
-                    }
 
                     // Auto-show counter-offer sheet for new counter-offers
                     if let firstNew = newCountered.first, !self.showCounterOfferSheet {
