@@ -16,12 +16,6 @@ struct ProfileView: View {
     @State private var isDeletingAccount = false
     @State private var deleteError: String?
 
-    // Debug seeder state (DEBUG builds only)
-    #if DEBUG
-    @State private var isSeeding = false
-    @State private var seedingMessage: String?
-    #endif
-
     private let availableLanguages = ["English", "Spanish", "French", "Chinese", "Hindi"]
 
     // Use P2P backend data via AuthViewModel
@@ -207,114 +201,6 @@ struct ProfileView: View {
                         .padding(.horizontal)
                         .padding(.top, 10)
 
-                        // Debug Section - Only in DEBUG builds
-                        #if DEBUG
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("DEVELOPER TOOLS")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(Theme.lxOrange)
-                                .padding(.leading, 20)
-                                .padding(.bottom, 10)
-
-                            VStack(spacing: 0) {
-                                // Seed Showcase Orders
-                                Button(action: {
-                                    isSeeding = true
-                                    seedingMessage = nil
-                                    DatabaseSeeder.shared.seedShowcaseOrders()
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                        isSeeding = false
-                                        seedingMessage = "Successfully seeded 10 showcase orders!"
-                                    }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "ladybug.fill")
-                                            .foregroundColor(Theme.lxOrange)
-                                            .font(.title3)
-                                            .frame(width: 30)
-
-                                        VStack(alignment: .leading) {
-                                            Text("Seed Showcase Orders")
-                                                .font(.body)
-                                                .foregroundColor(Theme.lxText)
-                                            Text("Creates 10 orders with promotions")
-                                                .font(.caption)
-                                                .foregroundColor(Theme.lxTextMuted)
-                                        }
-
-                                        Spacer()
-
-                                        if isSeeding {
-                                            ProgressView()
-                                                .tint(Theme.lxOrange)
-                                        } else {
-                                            Image(systemName: "chevron.right")
-                                                .foregroundColor(Theme.lxTextMuted)
-                                                .font(.caption)
-                                        }
-                                    }
-                                    .padding()
-                                }
-                                .disabled(isSeeding)
-
-                                Divider().overlay(Theme.lxHairline)
-
-                                // Cleanup Showcase Data
-                                Button(action: {
-                                    isSeeding = true
-                                    seedingMessage = nil
-                                    DatabaseSeeder.shared.cleanupTestData()
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                                        isSeeding = false
-                                        seedingMessage = "Showcase data cleaned up!"
-                                    }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "trash.circle.fill")
-                                            .foregroundColor(Theme.lxError)
-                                            .font(.title3)
-                                            .frame(width: 30)
-
-                                        VStack(alignment: .leading) {
-                                            Text("Cleanup Showcase Data")
-                                                .font(.body)
-                                                .foregroundColor(Theme.lxText)
-                                            Text("Removes test orders")
-                                                .font(.caption)
-                                                .foregroundColor(Theme.lxTextMuted)
-                                        }
-
-                                        Spacer()
-
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(Theme.lxTextMuted)
-                                            .font(.caption)
-                                    }
-                                    .padding()
-                                }
-                                .disabled(isSeeding)
-                            }
-                            .background(Theme.lxSurface)
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Theme.lxHairline, lineWidth: 1)
-                            )
-
-                            // Seeding status message
-                            if let message = seedingMessage {
-                                Text(message)
-                                    .font(.caption)
-                                    .foregroundColor(message.contains("Error") ? Theme.lxError : Theme.lxSuccess)
-                                    .padding(.horizontal, 20)
-                                    .padding(.top, 8)
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 10)
-                        #endif
-
                         // Delete Account Button (Apple App Store Guideline 5.1.1)
                         Button(action: {
                             showDeleteAccountAlert = true
@@ -363,7 +249,7 @@ struct ProfileView: View {
                     showDeleteConfirmation = true
                 }
             } message: {
-                Text("This will permanently delete your account, including all your order history, saved addresses, and payment methods. This action cannot be undone.")
+                Text("This will permanently delete your account, including all your ride history, saved addresses, and payment methods. This action cannot be undone.")
             }
             .alert("Final Confirmation", isPresented: $showDeleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
@@ -421,8 +307,7 @@ struct ProfileView: View {
             "p2p_customer_access_token",
             "p2p_access_token",
             "saved_addresses",
-            "favorites",
-            "cart_items"
+            "favorites"
         ]
         for key in customerKeys {
             UserDefaults.standard.removeObject(forKey: key)

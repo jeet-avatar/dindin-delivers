@@ -935,7 +935,7 @@ class RideRequestViewModel: ObservableObject {
         switch status.lowercased() {
         case "open", "bidding", "preparing", "waiting_for_driver":
             currentStep = .waitingForDriver
-        case "matched", "accepted", "driver_assigned", "out_for_delivery", "driver_arrived":
+        case "matched", "accepted", "driver_assigned", "driver_arrived":
             currentStep = .driverEnRoute
         case "picked_up", "in_progress":
             currentStep = .rideInProgress
