@@ -555,12 +555,29 @@ struct ActiveRideView: View {
             }
 
         case .inProgress:
-            SwipeToConfirmButton(
-                label: "Slide to Complete Ride",
-                accentColor: Theme.lxOrange,
-                isDisabled: viewModel.isLoading,
-                onConfirm: completeRide
-            )
+            VStack(spacing: 10) {
+                Button(action: openNavigation) {
+                    HStack {
+                        Image(systemName: "map.fill")
+                        Text("Navigate to Dropoff")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Theme.lxOrange)
+                    .frame(maxWidth: .infinity)
+                    .padding(12)
+                    .background(Theme.lxOrange.opacity(0.12))
+                    .cornerRadius(12)
+                }
+
+                SwipeToConfirmButton(
+                    label: "Slide to Complete Ride",
+                    accentColor: Theme.lxOrange,
+                    isDisabled: viewModel.isLoading,
+                    onConfirm: completeRide
+                )
+                .padding(.horizontal, 0)
+            }
             .padding(.horizontal, 24)
             .padding(.vertical, 8)
 
@@ -770,19 +787,10 @@ struct ActiveRideView: View {
         rideStatus = .inProgress
         viewModel.showError = false
         viewModel.startRide(bid)
-        // quick-378: when the trip starts, auto-launch Apple Maps with the
-        // dropoff destination so the driver gets turn-by-turn nav without
-        // hunting for a button. Matches Uber/DoorDash pattern.
-        openNavigation()
-        // Revert on error after API response
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             if viewModel.showError {
                 rideStatus = previousStatus
                 noShowTimerActive = previousTimerActive
-                // Do NOT call startNoShowTimer() — the timer was already cancelled
-                // before this attempt. Restoring the flag alone is sufficient to
-                // reflect pre-attempt state. A fresh timer start only happens via
-                // the normal startNoShowTimer() call path (on successful arrival).
             }
         }
     }
