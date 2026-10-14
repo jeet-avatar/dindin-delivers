@@ -37,7 +37,8 @@ async function main() {
     });
     const page = await context.newPage();
     await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard');
-    await page.getByText('Done step 89').first().waitFor({ timeout: 15000 }).catch(async e => { await page.screenshot({ path: process.env.SHOT || '/dev/null' }); console.log((await page.locator('body').innerText()).slice(0, 1500)); throw e; });
+    await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
+    await page.getByText('Done step 89').first().waitFor({ timeout: 15000 }).catch(async e => { await page.screenshot({ path: process.env.SHOT || '/tmp/beatmind-chat-storage-failure.png' }); console.log((await page.locator('body').innerText()).slice(0, 1500)); throw e; });
     await page.getByPlaceholder('Message BeatMind...').fill('draft that must save');
     await page.waitForTimeout(1500);
     const body = await page.locator('body').innerText();

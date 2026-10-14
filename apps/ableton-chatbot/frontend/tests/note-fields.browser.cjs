@@ -33,6 +33,7 @@ async function main() {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard');
+    await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
     await page.getByText('Nudged the clap.').first().waitFor({ timeout: 15000 });
     await page.getByText('Technical history', { exact: false }).first().click().catch(() => {});
     await page.waitForTimeout(1500);

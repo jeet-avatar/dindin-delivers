@@ -37,7 +37,7 @@ async function main() {
       }, { id });
       await context.route('**/api/**', async route => {
         const path = new URL(route.request().url()).pathname;
-        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/studio-usage.cjs') });
         const reply = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
         if (path === '/api/auth/me') return reply({ id: 987654, email: 'fixture@example.invalid', subscribed: true });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
@@ -47,7 +47,7 @@ async function main() {
           project = { ...project, ...route.request().postDataJSON() };
           return reply({ project, referenceId: null });
         }
-        if (path === '/api/references') return reply({ references: [], available: true, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true } });
+        if (path === '/api/references') return reply({ references: [], available: true, cloud_separation: { available: true }, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true } });
         if (path === '/api/recordings') { initialRead = true; return reply({ recordings: available ? [recording] : [] }); }
         if (path === `/api/recordings/${id}/audio`) return route.fulfill({ contentType: 'audio/wav', body: wave() });
         if (path === `/api/recordings/${id}/decision`) {
@@ -66,6 +66,7 @@ async function main() {
       const page = await context.newPage(), errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard');
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByText('A linked recording is not available yet.', { exact: true }).waitFor();
       assert.equal(initialRead, true);
       await page.waitForTimeout(100);
@@ -78,13 +79,14 @@ async function main() {
       assert.equal(decisions, 1);
       assert.equal(chats.length, 0, 'Accept must not submit a chat request');
       assert.equal(await page.locator('audio').evaluate(audio => audio.paused), true);
-      for (const name of ['Home', 'BeatMind']) {
+      for (const name of ['Dashboard', 'BeatMind']) {
         await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name, exact: true }).click();
       }
       await page.locator('audio').waitFor();
       await page.waitForTimeout(500);
       assert.equal(await page.evaluate(() => window.__plays), 1, 'Accepted audio must not replay on remount');
-      await page.reload({ waitUntil: 'networkidle' });
+      await page.reload();
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Keep it and move on', exact: true }).waitFor();
       assert.equal(await page.evaluate(() => window.__plays), 0, 'Reload must preserve approval without replaying');
       await page.getByRole('button', { name: 'Keep it and move on', exact: true }).click();
@@ -95,14 +97,15 @@ async function main() {
       await page.getByText('Which part would you like next?', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'New song', exact: true }).click();
       await page.getByRole('heading', { name: 'How would you like to start?' }).waitFor();
-      await page.getByRole('button', { name: 'Upload a reference track', exact: true }).click();
+      await page.getByRole('button', { name: /^Upload a reference track/ }).click();
       await page.getByLabel('Reference audio file').waitFor();
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
-      await page.getByRole('button', { name: 'Start from an idea', exact: true }).click();
+      await page.getByRole('button', { name: /^Start from an idea/ }).click();
       await page.getByText('Which part would you like next?', { exact: true }).waitFor();
       assert.equal(chats.length, 2);
-      assert.equal(chats[1].planning_only, true);
-      assert.match(chats[1].message, /without a reference/);
+      assert.equal(chats[1].planning_only, false);
+      assert.equal(chats[1].reference_id, null);
+      assert.match(chats[1].message, /start from my own idea.*start building the first sound/);
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-guided-workflow-${width}.png` });

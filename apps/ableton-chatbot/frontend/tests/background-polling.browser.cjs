@@ -16,7 +16,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     });
     await page.route('**/api/**', route => {
       const path = new URL(route.request().url()).pathname;
-      if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+      if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/studio-usage.cjs') });
       const reply = (body, status = 200, headers = {}) => route.fulfill({ status, headers, contentType: 'application/json', body: JSON.stringify(body) });
       if (path in counts) counts[path]++;
       if (path === '/api/auth/me') return reply({ id: 987660, subscribed: true });
@@ -25,7 +25,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       if (path === '/api/recordings') return reply({ recordings: [] });
       if (path === '/api/references') {
         if (limited) return reply({ detail: 'Too many requests' }, 429, { 'Retry-After': '12', 'Access-Control-Expose-Headers': 'Retry-After' });
-        return reply({ references: [], available: true, processing: { busy: false }, max_bytes: 262144000, min_seconds: 5, max_seconds: 600 });
+        return reply({ references: [], available: true, cloud_separation: { available: true }, processing: { busy: false }, max_bytes: 262144000, min_seconds: 5, max_seconds: 600 });
       }
       throw Error('Unexpected API request ' + path);
     });

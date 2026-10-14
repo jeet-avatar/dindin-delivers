@@ -20,7 +20,7 @@ async function main() {
       });
       await context.route('**/api/**', async route => {
         const req = route.request(), path = new URL(req.url()).pathname;
-        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/usage.cjs') });
         const body = req.postData() ? req.postDataJSON() : {};
         calls.push({ path, method: req.method(), body });
         const reply = data => route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
@@ -43,13 +43,14 @@ async function main() {
       const page = await context.newPage();
       page.on('pageerror', e => errors.push(e.message));
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard');
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       if (width < 640) await page.getByRole('button', { name: 'Saved songs', exact: true }).click();
       await page.getByRole('button', { name: 'Open saved song: Interrupted bass', exact: true }).click();
       await page.getByRole('heading', { name: 'Request interrupted', exact: true }).waitFor();
       await page.getByText('Ableton Track 1', { exact: true }).waitFor();
       await page.getByText('Ableton Track 2', { exact: true }).waitFor();
       assert.equal(await page.getByRole('heading', { name: 'Changes checked', exact: true }).count(), 0);
-      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'Home', exact: true }).click();
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'Dashboard', exact: true }).click();
       await page.getByRole('button', { name: 'Build a deep house groove with warm bass', exact: true }).click();
       await page.getByRole('heading', { name: 'How would you like to start?', exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path === '/api/chats' && c.method === 'POST').length, 1);
@@ -60,6 +61,7 @@ async function main() {
       assert.equal(calls.find(c => c.path === '/api/chat/stream').body.session_id, 'fresh-song');
       assert.equal(await page.getByRole('heading', { name: 'Changes checked', exact: true }).count(), 0);
       await page.reload();
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('heading', { name: 'Request interrupted', exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path === '/api/chat/stream').length, 1, 'Reload must never retry music');
       assert.deepEqual(errors, []);

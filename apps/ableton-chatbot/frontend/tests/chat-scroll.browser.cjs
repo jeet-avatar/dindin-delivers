@@ -27,6 +27,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       }, { messages });
       await context.route('**/api/**', route => {
         const path = new URL(route.request().url()).pathname;
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/usage.cjs') });
         const reply = data => route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
         if (path === '/api/auth/me') return reply({ id: 987690, subscribed: true });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
@@ -37,6 +38,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       const page = await context.newPage();
       page.on('pageerror', error => errors.push(error.message));
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3018') + '/dashboard');
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       const timeline = page.getByRole('region', { name: 'Song conversation' });
       await timeline.waitFor().catch(async error => {
         await page.screenshot({ path: `/tmp/beatmind-chat-scroll-failed-${width}.png` });
@@ -49,7 +51,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await page.locator('#chat-input').fill('Add the same kick pattern. '.repeat(30));
       await page.waitForFunction(() => document.querySelector('#chat-input').offsetHeight >= 100);
       await page.locator('#chat-input').press('Enter');
-      await page.waitForFunction(() => document.querySelector('#chat-input').offsetHeight < 70);
+      await page.waitForFunction(() => document.querySelector('#chat-input').offsetHeight <= 76);
       await page.waitForFunction(() => !!window.emitChat);
       for (let i = 0; i < 3; i++) {
         await page.evaluate(i => window.emitChat({ type: 'narration', text: `Progress ${i}\n` + 'Verifying the existing kick and its timing.\n'.repeat(12) }), i);

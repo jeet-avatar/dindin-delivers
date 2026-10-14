@@ -19,25 +19,28 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       });
       await context.route('**/api/**', async route => {
         const path = new URL(route.request().url()).pathname;
-        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/studio-usage.cjs') });
         const reply = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
         if (path === '/api/auth/me') return reply({ id: 987662, subscribed: true });
         if (path === '/api/chats') return reply({ chats: [] });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
         if (path === '/api/recordings') return reply({ recordings: [] });
-        if (path === '/api/references') {
-          if (route.request().method() === 'POST') {
+        if (path.endsWith('/import-status')) return reply({ status: 'idle' });
+        if (path === '/api/references/cloud') return reply({ reference: { ...item(), status: 'awaiting_upload' }, upload: { url: 'https://uploads.example.invalid/audio', fields: {} } }, 201);
+        if (path.endsWith('/cloud-start')) {
             if (loseConfirmation) { uploads++; return route.abort('failed'); }
             uploads++; await held;
             return reply(item(), 202);
-          }
+        }
+        if (path === '/api/references') {
           if (failedPoll) return reply({ detail: 'Service unavailable' }, 503);
-          return reply({ references: [item()], available: true, processing: { busy: state === 'processing' }, max_bytes: 262144000, min_seconds: 5, max_seconds: 600 });
+          return reply({ references: [item()], available: true, cloud_separation: { available: true }, processing: { busy: state === 'processing' }, max_bytes: 262144000, min_seconds: 5, max_seconds: 600 });
         }
         if (path.includes('/audio/')) return reply({}, 404);
         throw Error('Unexpected request ' + path);
       });
       const page = await context.newPage(), errors = [];
+      await context.route('https://uploads.example.invalid/**', route => route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*' } }));
       page.on('pageerror', e => errors.push(e.message));
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard');
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'References', exact: true }).click();

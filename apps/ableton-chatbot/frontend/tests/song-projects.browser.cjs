@@ -35,7 +35,8 @@ async function main() {
         if (path === '/api/auth/me') return reply({ id: 987655, email: 'songs@example.invalid', subscribed: true });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
         if (path === '/api/recordings') return reply({ recordings: [] });
-        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+        if (path.endsWith('/import-status')) return reply({ status: 'idle' });
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/studio-usage.cjs') });
         if (path === '/api/chats') {
           if (request.method() === 'POST') {
             const id = `song-${Object.keys(songs).length + 1}`;
@@ -54,10 +55,12 @@ async function main() {
           }
           return reply(song);
         }
+        if (path === '/api/references/cloud') return reply({ reference: { ...ref(), status: 'awaiting_upload' }, upload: { url: 'https://uploads.example.invalid/audio', fields: {} } }, 201);
+        if (path.endsWith('/cloud-start')) { uploaded = true; return reply(ref()); }
         if (path === '/api/references') {
           if (request.method() === 'POST') { uploaded = true; return reply(ref()); }
           const oldReference = { ...ref(), id: 'd'.repeat(32), name: 'QA - Earlier reference.wav' };
-          return reply({ available: true, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true }, references: uploaded ? [oldReference, ref()] : [oldReference] });
+          return reply({ available: true, cloud_separation: { available: true }, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true }, references: uploaded ? [oldReference, ref()] : [oldReference] });
         }
         if (path.includes('/audio/')) return route.fulfill({ contentType: 'audio/wav', body: wave() });
         if (path.endsWith('/listen-whole')) { assert.equal(body.consent, true); listened = true; return reply(ref().listening); }
@@ -81,13 +84,15 @@ async function main() {
         throw Error('Unexpected route: ' + path);
       });
       const page = await context.newPage();
+      await context.route('https://uploads.example.invalid/**', route => route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*' } }));
       page.on('pageerror', e => errors.push(e.message));
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard');
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'New song', exact: true }).click();
       await page.getByLabel('Song name').fill('Minimal reference study');
       await page.getByLabel('Song name').press('Tab');
       await page.waitForFunction(() => document.querySelector('input[aria-label="Song name"]')?.disabled === false);
-      await page.getByRole('button', { name: 'Upload a reference track', exact: true }).click();
+      await page.getByRole('button', { name: /^Upload a reference track/ }).click();
       await page.getByRole('heading', { name: 'Upload your reference track', exact: true }).waitFor();
       assert.equal(await page.getByText('QA - Earlier reference.wav', { exact: true }).count(), 0);
       assert.equal(await page.locator('audio').count(), 0, 'New song must not load old audio');
@@ -98,12 +103,13 @@ async function main() {
       assert.equal(await page.locator('audio').count(), 0, 'Opening the library must not select a reference');
       await page.getByRole('button', { name: 'Hide saved references', exact: true }).click();
       const fileChooser = page.waitForEvent('filechooser');
-      await page.getByLabel('Reference audio file').click();
+      await page.getByRole('button', { name: 'Choose file', exact: true }).click();
       await (await fileChooser).setFiles({ name: 'Original reference.wav', mimeType: 'audio/wav', buffer: wave() });
       assert.equal(await page.getByRole('button', { name: 'Upload and analyze', exact: true }).isDisabled(), true);
       await page.getByLabel('I have permission to upload and analyze this audio.').check();
       await page.getByRole('button', { name: 'Upload and analyze', exact: true }).click();
-      await page.getByText('Would you like me to listen to this track? What stands out to you?', { exact: true }).waitFor();
+      await page.getByText('Stems are ready', { exact: true }).waitFor();
+      await page.getByText('Advanced: review stems, timing, listening and template', { exact: true }).click();
       assert.equal(songs['song-1'].referenceId, refId, 'Only the uploaded file becomes this song reference');
       await page.getByRole('heading', { name: 'Original reference.wav', exact: true }).waitFor();
       assert.equal(listened, false);
@@ -115,7 +121,7 @@ async function main() {
       assert.equal(listened, false, 'Validation must never send audio without consent');
       await page.getByLabel(/Send this whole track and my intent to OpenAI/).check();
       await listen.click();
-      await page.getByRole('button', { name: 'Discuss what I like', exact: true }).click();
+      await page.getByRole('button', { name: 'Discuss this reference in chat (nothing changes in Ableton)', exact: true }).click();
       await page.getByText('What do you like most about the groove?', { exact: true }).waitFor();
       const chat = calls.find(c => c.path === '/api/chat/stream');
       assert.equal(chat.body.reference_id, refId);
@@ -129,7 +135,7 @@ async function main() {
       assert.equal(await page.getByText('QA - Earlier reference.wav', { exact: true }).count(), 0);
       assert.equal(await page.locator('audio').count(), 0);
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
-      await page.getByRole('button', { name: 'Upload a reference track', exact: true }).click();
+      await page.getByRole('button', { name: /^Upload a reference track/ }).click();
       await page.getByRole('heading', { name: 'Upload your reference track', exact: true }).waitFor();
       assert.equal(songs['song-2'].referenceId, null);
       assert.equal(await page.locator('audio').count(), 0);
@@ -142,16 +148,17 @@ async function main() {
       await page.getByRole('region', { name: 'Saved songs', exact: true }).getByRole('button', { name: 'Open saved song: Minimal reference study', exact: true }).click();
       await page.getByText('What do you like most about the groove?', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'Reference review', exact: true }).click();
-      await page.getByRole('button', { name: 'Discuss what I like', exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Discuss this reference in chat (nothing changes in Ableton)', exact: true }).waitFor();
       await page.reload();
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Reference review', exact: true }).click();
-      await page.getByRole('button', { name: 'Discuss what I like', exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Discuss this reference in chat (nothing changes in Ableton)', exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path.endsWith('/listen-whole')).length, 1, 'Restoring history must not send audio again');
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Upload reference', exact: true }).click();
       await page.getByLabel('Reference audio file').waitFor();
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
-      await page.getByRole('button', { name: 'Choose Live Set', exact: true }).click();
+      await page.getByRole('button', { name: 'Start a new set', exact: true }).click();
       assert.equal(await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).isDisabled(), true);
       const openNew = page.getByRole('button', { name: '2. Open new Live Set', exact: true });
       assert.equal(await openNew.isDisabled(), true, 'A new set needs the open set saved or closed first');

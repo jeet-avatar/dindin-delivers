@@ -263,7 +263,7 @@ export default function DashboardPage() {
   const [authStatus, setAuthStatus] = useState("Checking sign-in");
   const [planReason, setPlanReason] = useState<string | null>(null);
   const [planIntent, setPlanIntent] = useState<PlanIntent | null>(null);
-  const { usage, reload: reloadUsage } = useUsage(user?.id);
+  const { usage, error: usageError, loading: usageLoading, reload: reloadUsage } = useUsage(user?.id);
 
   // Back from Stripe Checkout: the webhook can land a few seconds after the redirect.
   const [justSubscribed, setJustSubscribed] = useState(false);
@@ -1539,11 +1539,15 @@ export default function DashboardPage() {
 
         {/* Content area */}
         <div className={`flex-1 min-h-0 flex flex-col ${nav === "beatmind" ? "overflow-hidden" : "overflow-y-auto"}`}>
+          {usageError && <div role="alert" className="shrink-0 flex flex-wrap items-center gap-3 px-4 py-3 text-sm" style={{ background: "var(--error-bg)", color: "var(--error-text)" }}>
+            <span>{usageError}</span>
+            <button type="button" disabled={usageLoading} onClick={() => void reloadUsage()} className="underline disabled:opacity-50">Retry plan access</button>
+          </div>}
           {nav === "dashboard" && renderDashboard()}
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
-          {nav === "references" && (!usage ? <p className="p-6" role="status">Checking reference access...</p> : !hasReferenceAccess(usage.plan) ? <div className="p-6"><ReferenceUpgrade onUpgrade={() => void openBilling()} /></div> : <References cloudHQAllowed={hasCloudHQAccess(usage.plan)} onUpgrade={() => void openBilling()} key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")} bridgeConnected={bridgeConnected} bridgeLiveSet={bridgeLiveSet} abletonSet={abletonSet}
+          {nav === "references" && (!usage ? !usageError && <p className="p-6" role="status">Checking reference access...</p> : !hasReferenceAccess(usage.plan) ? <div className="p-6"><ReferenceUpgrade onUpgrade={() => void openBilling()} /></div> : <References cloudHQAllowed={hasCloudHQAccess(usage.plan)} onUpgrade={() => void openBilling()} key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")} bridgeConnected={bridgeConnected} bridgeLiveSet={bridgeLiveSet} abletonSet={abletonSet}
             onSelect={async id => {
               if (!project) { setReferenceId(id); return; }
               setProjectBusy(true);

@@ -97,7 +97,8 @@ async function main() {
       });
       await page.goto(base + '/dashboard');
       await page.getByRole('button', { name: 'References', exact: true }).click();
-      await page.getByRole('button', { name: /Reference bass fixture/ }).click();
+      await page.getByRole('button', { name: 'Reference bass fixture.wav ready', exact: true }).click();
+      await page.getByText('Advanced: review stems, timing, listening and template', { exact: true }).click();
       await page.getByRole('tab', { name: '5. Compare' }).click();
       const panel = page.getByRole('region', { name: 'Sound comparison' });
       await panel.getByRole('combobox', { name: /Ableton recording/ }).selectOption(recordingId);
@@ -140,6 +141,7 @@ async function main() {
       await assertPlaybackProgress(chatComparison.getByLabel('B - Ableton recording (RMS matched)', { exact: true }));
       await page.locator('#chat-input').fill('Keep the low end and soften the attack.');
       await page.reload();
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByText('The saved A/B comparison is ready.').waitFor();
       assert.equal(await page.locator('#chat-input').inputValue(), 'Keep the low end and soften the attack.');
       await assertPlaybackProgress(page.getByRole('region', { name: 'Chat sound comparison' }).getByLabel('A - Reference (RMS matched)', { exact: true }));

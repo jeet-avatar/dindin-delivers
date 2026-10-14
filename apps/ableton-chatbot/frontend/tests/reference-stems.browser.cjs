@@ -28,7 +28,7 @@ function wave() {
       }, { id, project });
       await context.route('**/api/**', async route => {
         const req = route.request(), path = new URL(req.url()).pathname;
-        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/usage.cjs') });
         const body = req.postData() ? req.postDataJSON() : {};
         calls.push({ path, method: req.method(), body });
         const reply = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
@@ -37,6 +37,7 @@ function wave() {
         if (path.startsWith('/api/chats/')) return reply({ project, referenceId: id, sessionId: 'stems-song', messages: [] });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
         if (path === '/api/recordings') return reply({ recordings: [] });
+        if (path.endsWith('/import-status')) return reply({ status: 'idle' });
         if (path === '/api/references') return failPoll ? reply({ detail: 'Unavailable' }, 503) : reply({ references: [ref()], available: true, max_bytes: 262144000, min_seconds: 5, max_seconds: 600, audio_listening: { available: true } });
         if (path.includes('/audio/')) {
           if (path.endsWith('/drums') && failAudio) { failAudio = false; return reply({ detail: 'Audio unavailable' }, 404); }
@@ -57,6 +58,7 @@ function wave() {
       const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
       const open = async () => {
         await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'References', exact: true }).click();
+        await page.getByText('Advanced: review stems, timing, listening and template', { exact: true }).click();
         await page.getByRole('tab', { name: '1. Stems', exact: true }).click();
       };
       const section = () => page.getByRole('region', { name: 'Stem review', exact: true });

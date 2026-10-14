@@ -27,7 +27,7 @@ async function main() {
       }, { id, project });
       await context.route('**/api/**', async route => {
         const req = route.request(), path = new URL(req.url()).pathname;
-        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/usage.cjs') });
         const body = req.postData() && req.headers()['content-type']?.includes('application/json') ? req.postDataJSON() : {};
         const reply = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
         calls.push({ path, method: req.method(), body });
@@ -36,6 +36,7 @@ async function main() {
         if (path.startsWith('/api/chats/')) return reply({ project, referenceId: id, sessionId: 'listen-song', messages: [] });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
         if (path === '/api/recordings') return reply({ recordings: [] });
+        if (path.endsWith('/import-status')) return reply({ status: 'idle' });
         if (path === '/api/live-set') {
           assert.deepEqual(body, { operation: 'activate' });
           return reply({ status: 'observed', summary: 'Ableton brought forward. No set was changed.' });
@@ -74,6 +75,7 @@ async function main() {
       page.on('pageerror', e => errors.push(e.message));
       const open = async () => {
         await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'References', exact: true }).click();
+        await page.getByText('Advanced: review stems, timing, listening and template', { exact: true }).click();
         await page.getByRole('tab', { name: '3. Listening', exact: true }).click();
       };
       const send = () => page.getByRole('button', { name: 'Send listening request', exact: true });
@@ -186,8 +188,8 @@ async function main() {
       await page.getByRole('button', { name: 'Save stem review', exact: true }).click();
       await page.getByRole('alert').filter({ hasText: 'A choice is required for:' }).waitFor();
       for (const stem of ['drums', 'bass', 'vocals', 'other']) {
-        await page.getByLabel('Reference audio layer').selectOption(stem);
-        const audio = page.getByLabel(`${stem} audio`, { exact: true }); await audio.waitFor();
+        await page.getByRole('button', { name: `Audition ${stem}`, exact: true }).click();
+        const audio = page.getByLabel(`${stem} stem player`, { exact: true }); await audio.waitFor();
         await audio.evaluate(async el => { await el.play(); el.pause(); });
         await page.getByLabel(`${stem} reference decision`, { exact: true }).selectOption(stem === 'vocals' ? 'ignore' : 'keep');
       }
@@ -229,6 +231,8 @@ async function main() {
       await page.getByText('Let us choose your first original kick.', { exact: true }).waitFor();
       const chat = calls.find(c => c.path === '/api/chat/stream');
       assert.equal(chat.body.reference_id, id); assert.equal(chat.body.planning_only, true);
+      assert.equal(calls.some(c => c.path.endsWith('/import-to-ableton') || c.path.endsWith('/local-open')), false,
+        'Planning in chat must not import reference audio');
       assert.equal(calls.filter(c => c.path === '/api/live-set').length, 1, 'Navigation/download never repeat activation');
       assert.equal(calls.filter(c => c.path.endsWith('/template/suggest')).length, 0, 'Manual planning needs no paid suggestion');
       assert.deepEqual(errors, []);

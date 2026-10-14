@@ -24,12 +24,13 @@ async function main() {
       }, { oldId, project });
       await context.route('**/api/**', async route => {
         const req = route.request(), path = new URL(req.url()).pathname;
-        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/studio-usage.cjs') });
         const reply = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
         calls.push({ path, method: req.method() });
         if (path === '/api/auth/me') return reply({ id: 987657, subscribed: true });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
         if (path === '/api/recordings') return reply({ recordings: [] });
+        if (path.endsWith('/import-status')) return reply({ status: 'idle' });
         if (path === '/api/chats') return reply({ chats: [] });
         if (path === '/api/chats/replacement-song') return reply({ project, referenceId: attached });
         if (path.endsWith('/project')) {
@@ -38,17 +39,19 @@ async function main() {
           if ('reference_id' in body) attached = body.reference_id;
           return reply({ project, referenceId: attached });
         }
-        if (path === '/api/references') {
-          if (req.method() === 'POST') {
+        if (path === '/api/references/cloud') {
             if (busyOnUpload) {
-              busyOnUpload = false; processingBusy = true;
-              return reply({ detail: { code: 'reference_processing_busy', message: 'Another reference operation is running.' } }, 409);
+              busyOnUpload = false;
+              return reply({ detail: 'Cloud is busy. Retry this upload later.' }, 409);
             }
             if (delayUpload) await delayedUpload;
             if (rejectUpload) { rejectUpload = false; return reply({ detail: 'Upload service unavailable' }, 503); }
-            uploaded = true; return reply(newRef, 202);
-          }
+            return reply({ reference: { ...newRef, status: 'awaiting_upload' }, upload: { url: 'https://uploads.example.invalid/audio', fields: {} } }, 201);
+        }
+        if (path.endsWith('/cloud-start')) { uploaded = true; return reply(newRef, 202); }
+        if (path === '/api/references') {
           return reply({ references: uploaded ? [oldRef, newRef] : [oldRef], available: true,
+            cloud_separation: { available: true },
             processing: { busy: processingBusy },
             max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true } });
         }
@@ -56,12 +59,13 @@ async function main() {
         throw Error('Unexpected API request: ' + path);
       });
       const page = await context.newPage();
+      await context.route('https://uploads.example.invalid/**', route => route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*' } }));
       page.on('pageerror', e => errors.push(e.message));
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard');
       const references = () => page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'References', exact: true }).click();
       await references();
       await page.getByRole('heading', { name: oldRef.name, exact: true }).waitFor();
-      await page.getByRole('button', { name: 'Discuss what I like', exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Discuss this reference in chat (nothing changes in Ableton)', exact: true }).waitFor();
       // Only UI size validation is simulated; the backend suite streams an actual >50 MB body.
       async function choose(name, megabytes) {
         await page.getByLabel('Reference audio file').evaluate((input, { name, megabytes }) => {
@@ -76,9 +80,9 @@ async function main() {
       await page.getByRole('alert').filter({ hasText: 'Too large.wav was not uploaded' }).waitFor();
       assert.equal(attached, null);
       assert.equal(await page.getByRole('heading', { name: oldRef.name, exact: true }).count(), 0);
-      assert.equal(await page.getByRole('button', { name: 'Discuss what I like', exact: true }).count(), 0);
+      assert.equal(await page.getByRole('button', { name: 'Discuss this reference in chat (nothing changes in Ableton)', exact: true }).count(), 0);
       assert.equal(await page.locator('audio').count(), 0);
-      assert.equal(calls.filter(c => c.path === '/api/references' && c.method === 'POST').length, 0);
+      assert.equal(calls.filter(c => c.path === '/api/references/cloud' && c.method === 'POST').length, 0);
       await page.evaluate(oldId => {
         for (const key of Object.keys(localStorage)) {
           if (!key.startsWith('beatmind_chat')) continue;
@@ -101,18 +105,14 @@ async function main() {
       assert.equal(await page.getByRole('heading', { name: oldRef.name, exact: true }).count(), 0);
       busyOnUpload = true;
       await submit.click();
-      await page.getByRole('button', { name: 'Waiting for processing', exact: true }).waitFor();
-      assert.equal(await page.getByRole('button', { name: 'Waiting for processing', exact: true }).isDisabled(), true);
-      await page.getByText(/Your selected file has not been uploaded or queued/).waitFor();
-      assert.deepEqual(await page.locator('section').filter({ has: page.getByRole('heading', { name: 'Your song reference', exact: true }) }).getByRole('alert').allTextContents(), [], 'A busy worker is a waiting state, not a stale failure');
+      await page.getByRole('alert').filter({ hasText: 'Cloud is busy' }).waitFor();
       assert.equal(await consent.isChecked(), true);
       assert.equal(await page.getByLabel('Reference audio file').evaluate(input => input.files[0].name), 'My replacement.wav');
       assert.equal(attached, null);
-      const postsWhileBusy = calls.filter(c => c.path === '/api/references' && c.method === 'POST').length;
+      const postsWhileBusy = calls.filter(c => c.path === '/api/references/cloud' && c.method === 'POST').length;
       await page.waitForTimeout(4500);
-      assert.equal(calls.filter(c => c.path === '/api/references' && c.method === 'POST').length, postsWhileBusy, 'Do not automatically re-upload');
+      assert.equal(calls.filter(c => c.path === '/api/references/cloud' && c.method === 'POST').length, postsWhileBusy, 'Do not automatically re-upload');
       processingBusy = false;
-      await page.getByText('Processing is available. Your selected file is ready to upload.', { exact: true }).waitFor();
       assert.equal(await submit.isEnabled(), true);
       assert.equal(await page.locator('audio').count(), 0);
       await page.screenshot({ path: `/tmp/beatmind-reference-available-${width}.png` });
@@ -124,15 +124,17 @@ async function main() {
       await page.getByRole('button', { name: 'Attach uploaded reference', exact: true }).click();
       await page.getByRole('heading', { name: newRef.name, exact: true }).waitFor();
       assert.equal(attached, newId);
-      assert.equal(calls.filter(c => c.path === '/api/references' && c.method === 'POST').length, 3, 'Attachment retry must not upload twice');
+      assert.equal(calls.filter(c => c.path === '/api/references/cloud' && c.method === 'POST').length, 3, 'Attachment retry must not upload twice');
+      assert.equal(calls.filter(c => c.path.endsWith('/cloud-start')).length, 1, 'Attachment retry must not separate twice');
       assert.equal(await page.getByRole('heading', { name: oldRef.name, exact: true }).count(), 0);
-      assert.equal(await page.getByRole('button', { name: 'Discuss what I like', exact: true }).count(), 0, 'Old listening approval must not transfer');
+      await page.getByText('Advanced: review stems, timing, listening and template', { exact: true }).click();
+      await page.getByText('No listening notes saved. Audio-sharing permission and a listening brief are required for AI analysis.', { exact: true }).waitFor();
       await choose('Leaving upload.wav', 60);
       await consent.check();
       delayUpload = true;
-      const started = page.waitForRequest(r => r.url().endsWith('/api/references') && r.method() === 'POST');
+      const started = page.waitForRequest(r => r.url().endsWith('/api/references/cloud') && r.method() === 'POST');
       await submit.click(); await started;
-      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'Home', exact: true }).click();
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'Dashboard', exact: true }).click();
       releaseUpload();
       await references();
       await page.getByRole('heading', { name: 'Upload your reference track', exact: true }).waitFor();
@@ -141,7 +143,7 @@ async function main() {
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-reference-replacement-${width}.png` });
-      console.log(`PASS ${width}px: selected QA detached, oversize rejection and reload stay empty, >50MB selection, failed upload isolation, busy worker preserves file/consent, polling enables manual retry without duplicate upload, attachment retry, late result canceled on navigation`);
+      console.log(`PASS ${width}px: reference detached, oversize rejection, >50MB selection, failed/busy cloud preserves file and consent, manual retry, attachment retry without reupload, late result canceled on navigation`);
       await context.close();
     }
   } finally { await browser.close(); }

@@ -227,6 +227,7 @@ export default function References({ onUse, onRemix, chatBusy, selectedId, onSel
   // Hitting the upload limit should show what can be deleted, not leave the list hidden.
   useEffect(() => { if (error.includes("Delete an older reference")) setShowSaved(true); }, [error]);
   const [stage, setStage] = useState(guided ? "listening" : "stems");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const pollDelay = useRef(4000);
   useEffect(() => {
     if (stage !== "stems") document.querySelectorAll<HTMLAudioElement>('audio[aria-label$="stem player"]').forEach(audio => audio.pause());
@@ -372,14 +373,25 @@ export default function References({ onUse, onRemix, chatBusy, selectedId, onSel
     try {
       if (cloudAvailable) {
         // BeatMind Cloud: the file goes straight to S3, then a GPU job separates it.
-        const created = await apiFetch("/api/references/cloud", { method: "POST", body: JSON.stringify({ name: file.name, bytes: file.size, rights }) });
-        const form = await created.json();
+        const created = await apiFetch("/api/references/cloud", { method: "POST", signal: controller.signal,
+          body: JSON.stringify({ name: file.name, bytes: file.size, rights }) }).catch(() => {
+            throw new UploadConfirmationError("Upload setup could not be confirmed. Check saved references before starting another upload.");
+          });
+        const form = await created.json().catch(() => {
+          throw new UploadConfirmationError("Upload setup could not be read. Check saved references before starting another upload.");
+        });
         if (!created.ok) throw new Error(typeof form.detail === "string" ? form.detail : "BeatMind Cloud could not accept this file.");
+        setObservedJobId(form.reference.id);
+        setItems(previous => [form.reference, ...previous.filter(item => item.id !== form.reference.id)]);
         await uploadToCloud(form.upload, file, controller.signal, progress => {
           if (!controller.signal.aborted) setTransfer({ ...progress, startedAt });
         });
-        const started = await apiFetch(`/api/references/${form.reference.id}/cloud-start`, { method: "POST", body: "{}" });
-        const data = await started.json();
+        const started = await apiFetch(`/api/references/${form.reference.id}/cloud-start`, { method: "POST", body: "{}", signal: controller.signal }).catch(() => {
+          throw new UploadConfirmationError("Your file was uploaded, but processing confirmation was lost. Check saved references; do not upload another copy.");
+        });
+        const data = await started.json().catch(() => {
+          throw new UploadConfirmationError("Your file was uploaded, but the processing response could not be read. Check saved references before retrying.");
+        });
         if (!started.ok) throw new Error(typeof data.detail === "string" ? data.detail : "The GPU separation could not start.");
         setUploadedReference(data.id);
         setTransfer(null); setCheckedAt(Date.now()); setObservedJobId(data.id);
@@ -440,7 +452,10 @@ export default function References({ onUse, onRemix, chatBusy, selectedId, onSel
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     {pollError && <p role="status" className="text-sm text-amber-200">{pollError}</p>}
     {transfer && file ? <ReferenceStatus reference={{ name: file.name, status: "uploading", created_at: new Date(transfer.startedAt).toISOString() }} checkedAt={checkedAt} transfer={transfer} startedAt={transfer.startedAt} />
-      : item && <ReferenceStatus reference={item} checkedAt={checkedAt} pollError={pollError} onDelete={() => void remove(item.id)} onListen={() => { setStage("stems"); audioSection.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />}
+      : item && <ReferenceStatus reference={item} checkedAt={checkedAt} pollError={pollError} onDelete={() => void remove(item.id)} onListen={() => {
+        setStage("stems"); setAdvancedOpen(true);
+        requestAnimationFrame(() => audioSection.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      }} />}
     {observedJob && !transfer && <ReferenceStatus reference={observedJob} checkedAt={checkedAt} pollError={pollError} onDelete={() => void remove(observedJob.id)} onOpen={() => { if (!busy && !chatBusy) void select(observedJob.id); }} />}
     {processingBusy && !transfer && <p role="status" className="text-sm break-words text-amber-200">
       {activeReference ? "Reference processing is in progress." : "Another reference operation is running."}
@@ -528,9 +543,9 @@ export default function References({ onUse, onRemix, chatBusy, selectedId, onSel
               Discuss this reference in chat (nothing changes in Ableton)
             </button>
           </div>
-          <details className="text-sm">
+          <details className="text-sm" open={advancedOpen} onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
             <summary className="cursor-pointer text-neutral-400">Advanced: review stems, timing, listening and template</summary>
-            <div className="mt-3 space-y-4">
+            <div ref={audioSection} className="mt-3 space-y-4">
               <ReferenceWorkflow stage={stage} onStage={setStage} review={item.stem_review} timing={item.timing} listening={item.listening} listeningBusy={item.listening_busy}
                 template={item.template} onOpenChat={onOpenChat} />
               {item.timing && item.stem_review && (["stems", "timing"] as const).map(mode => <div key={mode} hidden={stage!==mode}>
@@ -547,7 +562,7 @@ export default function References({ onUse, onRemix, chatBusy, selectedId, onSel
                 : <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} stems={audioStems(item.report)} />)}
               <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
                 <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}
-                  refresh={refresh} onUse={() => setPendingImport({ id: item.id, name: item.name })} chatBusy={chatBusy || importing} onApproved={onTemplateApproved}
+                  refresh={refresh} onUse={() => onUse(item.id)} chatBusy={chatBusy || importing} onApproved={onTemplateApproved}
                   onSaved={template => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, template } : reference))}
                   onCompare={() => setStage("compare")} /> :
                 <p role="status" className="text-sm text-amber-200">Stem review and timing confirmation required.</p>}</div>

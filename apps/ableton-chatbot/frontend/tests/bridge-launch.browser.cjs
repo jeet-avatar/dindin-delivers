@@ -18,7 +18,7 @@ async function main() {
       });
       await context.route('**/api/**', async route => {
         const path = new URL(route.request().url()).pathname;
-        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
+        if (path === '/api/stripe/usage') return route.fulfill({ json: require('./fixtures/usage.cjs') });
         if (path === '/api/live-set') {
           assert.equal(route.request().method(), 'POST');
           assert.deepEqual(route.request().postDataJSON(), { operation: 'activate' });
@@ -52,7 +52,7 @@ async function main() {
       state = 'connected'; releaseFirst();
       await label('Bridge connected');
       await noInstaller();
-      for (const name of ['Home', 'Downloads', 'BeatMind']) {
+      for (const name of ['Dashboard', 'Downloads', 'BeatMind']) {
         await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name, exact: true }).click();
         await label('Bridge connected');
         await noInstaller();

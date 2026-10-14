@@ -22,7 +22,7 @@ export function uploadToCloud(form: CloudForm, file: File, signal: AbortSignal, 
       else reject(new Error(xhr.status === 400 && xhr.responseText.includes("EntityTooLarge")
         ? "The file is larger than BeatMind Cloud accepts." : "BeatMind Cloud did not accept the upload. Try again."));
     };
-    xhr.onerror = () => { cleanup(); reject(new UploadConfirmationError("The upload connection was lost. Try again.")); };
+    xhr.onerror = () => { cleanup(); reject(new UploadConfirmationError("The upload connection was lost. Check saved references before uploading again.")); };
     xhr.onabort = () => { cleanup(); reject(new DOMException("Upload cancelled", "AbortError")); };
     signal.addEventListener("abort", abort, { once: true });
     xhr.send(body);

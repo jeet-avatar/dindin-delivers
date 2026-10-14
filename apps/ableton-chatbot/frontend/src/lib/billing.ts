@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, type User } from "./auth";
 
 export type Interval = "month" | "year";
@@ -237,10 +237,35 @@ export async function setCancellation(cancel: boolean): Promise<SubscriptionStat
 
 export function useUsage(refreshKey?: unknown) {
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const request = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
-    const response = await apiFetch("/api/stripe/usage");
-    if (response.ok) setUsage(await response.json());
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setLoading(true); setError("");
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const response = await apiFetch("/api/stripe/usage", { signal: controller.signal });
+      if (!response.ok) throw new Error(response.status === 401
+        ? "Sign in again to check your plan access."
+        : "Could not check your plan access. Your saved songs and references are unchanged.");
+      const data = await response.json();
+      if (!data?.plan || typeof data.plan.source !== "string") throw new Error("Plan access could not be confirmed. Please retry.");
+      if (request.current === controller && !controller.signal.aborted) setUsage(data);
+    } catch (cause) {
+      if (request.current === controller) setError(controller.signal.aborted
+        ? "Checking your plan access timed out. Please retry."
+        : cause instanceof Error ? cause.message : "Could not check your plan access. Please retry.");
+    } finally {
+      clearTimeout(timeout);
+      if (request.current === controller) { request.current = null; setLoading(false); }
+    }
   }, []);
-  useEffect(() => { void load().catch(() => undefined); }, [load, refreshKey]);
-  return { usage, reload: load };
+  useEffect(() => {
+    void load();
+    return () => { const previous = request.current; request.current = null; previous?.abort(); };
+  }, [load, refreshKey]);
+  return { usage, error, loading, reload: load };
 }
