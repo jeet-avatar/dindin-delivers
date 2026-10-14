@@ -2509,6 +2509,10 @@ async def start_ride(request_id: int, request: Request, auth_driver: Driver = De
     if ride_request.status != RideRequestStatus.MATCHED:
         raise HTTPException(status_code=400, detail=f"Ride must be matched first (current: {ride_request.status.value})")
 
+    # Auto-set driver_arrived_at if the /arrived call was missed (e.g. silent API failure)
+    if not ride_request.driver_arrived_at:
+        ride_request.driver_arrived_at = datetime.utcnow()
+
     ride_request.status = RideRequestStatus.IN_PROGRESS
 
     # In-app notification: ride started
@@ -3838,7 +3842,7 @@ async def admin_cleanup_stale_rides(
 
 # Configurable timeouts
 RIDE_BIDDING_EXPIRY_MINUTES = 5       # OPEN/BIDDING rides auto-expire after bidding window closes
-RIDE_MATCHED_TIMEOUT_MINUTES = 10     # MATCHED rides auto-cancel if driver doesn't start within 10 min
+RIDE_MATCHED_TIMEOUT_MINUTES = 30     # MATCHED rides auto-cancel if driver doesn't arrive within 30 min
 RIDE_IN_PROGRESS_TIMEOUT_HOURS = 2    # IN_PROGRESS rides flagged/cancelled if not completed in 2 hours
 RIDE_CLEANUP_CHECK_INTERVAL_SECONDS = 60  # Check every 60 seconds
 

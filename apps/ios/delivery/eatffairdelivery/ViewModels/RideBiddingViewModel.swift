@@ -473,7 +473,7 @@ class RideBiddingViewModel: ObservableObject {
                     self?.showSuccessMessage("Customer has been notified you've arrived!")
 
                 case .failure(let error):
-                    // Non-blocking — still allow local state change
+                    self?.showErrorMessage("Could not mark arrival. Please swipe again.")
                     logger.error("Driver arrived notification error: \(error.localizedDescription)")
                 }
             }
