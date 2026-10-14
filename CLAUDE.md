@@ -331,7 +331,7 @@ pytest tests/ -v
 | Platform | App | Build | Bundle/Package | Notes |
 |----------|-----|-------|----------------|-------|
 | iOS | Customer | 202610131918 | `com.dollorai.customer` | TestFlight VALID — 2026-10-13 |
-| iOS | Driver | 202610132349 | `com.dollorai.delivery` | TestFlight processing — 2026-10-13 (cancel reason stage filter + SOS flow) |
+| iOS | Driver | 202610140024 | `com.dollorai.delivery` | TestFlight processing — 2026-10-14 (5 flow bugs fixed: counter-offer popup, active tab nav, empty state, no-show timer, dead code) |
 | Android | Customer | vC=43 | `ai.dollor.customer` | Firebase — 2026-06-06 |
 | Android | Driver | vC=39 | `ai.dollor.driver` | Firebase — 2026-06-06 |
 | Android | Partner | vC=38 | `ai.dollor.partner` | Firebase — 2026-06-06 |
