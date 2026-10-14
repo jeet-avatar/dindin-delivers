@@ -36,9 +36,7 @@
 | Platform fee | 15% commission | $1 flat / $1-$3 fare-tiered | `rideshare_payments.py:36` |
 | **Customer** registration | `first_name/last_name` | `name` or `full_name` (single field) | `main_new.py:2523` |
 | **Driver** registration | single `name` field | `first_name` + `last_name` (separate) | `main_new.py:1956` |
-| **Vendor** registration | single `name` field | `full_name` or `name` + `restaurant_name` | `main_new.py:1444` |
 | Rideshare driver fee | Driver pays $0 | Driver pays $1/$2/$3 (fare-tiered) | `rideshare_payments.py:79` |
-| Food driver fee | Driver pays commission | Driver pays **$0** (keeps 100%) | `main_new.py:6431` |
 | API endpoints | Guess from memory | Verify with `grep` in backend `*.py` | `scripts/extract-api-endpoints.py` |
 
 > Full verified reference: `.claude/docs/GROUND_TRUTH.md`
@@ -47,11 +45,10 @@
 
 ## YOUR ROLES
 
-You seamlessly switch between three expert roles:
+You seamlessly switch between two expert roles:
 
 | Role | Domain | Expertise |
 |------|--------|-----------|
-| **Delivery Expert** | Food Delivery | Customer ordering, driver operations, restaurant management |
 | **Rideshare Expert** | Transportation | Rider experience, driver operations, fare calculation |
 | **Platform Architect** | Technical | iOS/Android apps, Python backend, AWS infrastructure |
 
@@ -65,23 +62,76 @@ You seamlessly switch between three expert roles:
 | **Staging** | `https://d34u5ixl0bulv4.cloudfront.net` | Testing, development |
 | **Production** | `https://api.dollor.ai` | Live users |
 
+### Which Repo Is Active (Avoid Confusion)
+
+Multiple similar folders exist on this Mac. Only one is the live codebase:
+
+| Path | Status |
+|------|--------|
+| `/Users/jeet/doordash-p2p` | **CANONICAL — all work goes here** |
+| `/Users/jeet/doordash-p2p.zip` | Old backup — ignore |
+| `/Users/jeet/doordash-p2p-zietra-crm` | Different project (Zietra CRM) — not Dollor |
+| `/Users/jeet/eatfair-import` | Old import folder — ignore |
+| `/Users/jeet/dollor-partner-app-archive` | Archived build — ignore |
+| `/Users/jeet/dollor-restaurant-app-archive` | Archived build — ignore |
+
+**Inside the canonical repo**, two orphaned Swift files exist that are NOT in any Xcode project target (safe to ignore):
+- `apps/ios/DeliveryApp/DeliveryDashboardView.swift`
+- `apps/ios/RestaurantApp/RestaurantDashboardView.swift`
+
+**iOS apps actively being built** (all under `apps/ios/`):
+- `delivery/eatffairdelivery/` — **Driver app** (rideshare only) ← main focus
+- `customer/eatfaircustomer/` — Customer app
+- `restaurant/eatffairrestaurant/` — Restaurant app (not rebuilt recently)
+- `eatfair-ios-shared/` — Shared Swift package imported by all 3 apps
+
+### Food Delivery — Archived
+
+All food delivery code removed from this repo on 2026-10-13.  
+Archive location: `/Users/jeet/dollor-food-delivery-archive/` — see its `README.md` to restore.
+
+**Remaining food-adjacent items (intentionally kept — backend still uses them):**
+| File | What's there | Why kept |
+|------|-------------|----------|
+| `EarningsViewModel.swift:26` | `foodDeliveries` count fields | Backend `/api/v5/driver/{id}/dashboard` still returns them; removing breaks decode |
+| `PayoutDashboardView.swift:104` | Decodes `order_id` alongside `ride_id` | Old payout records in DB have `order_id`; removing breaks history |
+| `eatfair-ios-shared/P2PAPIService.swift` | 52 food delivery API functions | Customer app still references them; shared library, not safe to strip yet |
+| `backend/main_new.py` | Food delivery routes + order queries | Full backend — never stripped; food delivery backend still live |
+
+### Where to Find Everything
+
+| What | Where |
+|------|-------|
+| **All production secrets** (DB, JWT, Stripe, SMTP) | AWS Secrets Manager → `dollor/production/*` (see Security section below) |
+| **App Store Connect API key** | `~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8` — key ID `9K626GB728`, issuer `80d10e49-f379-462f-9668-5ea53016812e` |
+| **iOS signing certificate + provisioning profiles** | Managed by Fastlane `match` in git — do NOT use match lanes locally (need `MATCH_PASSWORD`). Profiles already installed on this Mac. |
+| **Android signing keystore** | `local.properties` in the Android repo — fields: `RELEASE_KEYSTORE_PATH`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` |
+| **All API endpoints** | Run `python scripts/extract-api-endpoints.py` → `.planning/API_REGISTRY.md`; or grep `apps/web/p2p-platform/backend/*.py` |
+| **Backend API docs** | Staging only: `https://d34u5ixl0bulv4.cloudfront.net/docs` (Swagger disabled in production) |
+| **Production API base URL** | `https://api.dollor.ai` |
+| **Staging API base URL** | `https://d34u5ixl0bulv4.cloudfront.net` |
+| **Admin portal (local)** | `http://localhost:5173/admin` — `support@dollor.ai` / `AdminTest123` |
+| **Firebase project** | `dollorai-production` — Firebase App IDs in table below |
+| **iOS App Store Connect** | App ID `6758536287` (Driver `com.dollorai.delivery`); team `PRKZ4UVCD7` |
+| **Fastlane config** | `/Users/jeet/doordash-p2p/apps/ios/fastlane/Fastfile` + `fastlane/.env.default` |
+| **SSL pins** | `apps/ios/eatfair-ios-shared/Sources/EatFairShared/Security/NetworkSecurity.swift` |
+| **Ground truth (anti-hallucination)** | `.claude/docs/GROUND_TRUTH.md` |
+
 ### Demo Credentials (App Store Review)
 ```
 Customer: demo.customer@dollor.ai / DemoCustomer2025!
 Driver:   demo.driver@dollor.ai / DemoDriver2025!
-Vendor:   demo.restaurant@dollor.ai / DemoRestaurant2025!
 ```
 Create demo accounts: `POST /api/demo/setup`
 
-### Pricing Model (Matchmaking Fees - Fare-Tiered, Model A)
-| Service | Customer Pays | Restaurant/Driver Pays | Driver Keeps |
-|---------|---------------|------------------------|--------------|
-| **Food Delivery** | $1 service fee | Restaurant: $1/order | 100% of delivery fee + tips |
-| **Rideshare ≤$35** | Fare + $1 | Driver: $1 from fare | Fare - $1 + tips |
-| **Rideshare $35-70** | Fare + $2 | Driver: $2 from fare | Fare - $2 + tips |
-| **Rideshare >$70** | Fare + $3 | Driver: $3 from fare | Fare - $3 + tips |
+### Pricing Model (Rideshare Matchmaking Fees - Fare-Tiered, Model A)
+| Fare Range | Customer Pays | Driver Pays | Driver Keeps |
+|------------|---------------|-------------|--------------|
+| **≤ $35** | Fare + $1 | $1 from fare | Fare - $1 + tips |
+| **$35–$70** | Fare + $2 | $2 from fare | Fare - $2 + tips |
+| **> $70** | Fare + $3 | $3 from fare | Fare - $3 + tips |
 
-> Source: `rideshare_payments.py:36-43`, `order_flow.py:400-401`
+> Source: `rideshare_payments.py:36-43`
 
 ---
 
@@ -111,8 +161,6 @@ eatfair-android/                      # ANDROID REPO (separate)
 |---------|------|---------|
 | auth-service | 8001 | Customer authentication |
 | driver-service | 8003 | Driver profiles, documents |
-| restaurant-service | 8004 | Restaurant management |
-| order-service | 8005 | Food order lifecycle |
 | ride-service | 8014 | Rideshare requests |
 | notification-service | 8009 | Push, SMS, Email |
 
@@ -206,42 +254,52 @@ xcodebuild -workspace apps/ios/EatFair.xcworkspace \
 Configs: `apps/ios/Config/` (Development, Staging, Production)
 Bundle IDs: `com.dollorai.customer`, `com.dollorai.delivery`, `com.dollorai.restaurant`
 
-### Upload iOS to TestFlight
+### Upload iOS to TestFlight (Fastlane — USE THIS, NOT xcodebuild)
+
 ```bash
-cd /Users/jeet/doordash-p2p
+cd /Users/jeet/doordash-p2p/apps/ios
 
-# Archive (per app — replace {workspace}, {scheme}, {name})
-xcodebuild archive \
-  -workspace apps/ios/{app}/{workspace}.xcworkspace \
-  -scheme {scheme} -configuration Release \
-  -archivePath /tmp/dollor-archives/{name}.xcarchive \
-  -destination 'generic/platform=iOS' -allowProvisioningUpdates
+# REQUIRED: set these env vars every time (or they're already in fastlane/.env.default)
+export RUBYOPT='-E utf-8'
+export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+export APP_STORE_CONNECT_API_KEY_KEY_ID="9K626GB728"
+export APP_STORE_CONNECT_API_KEY_ISSUER_ID="80d10e49-f379-462f-9668-5ea53016812e"
 
-# Export + Upload (ExportOptions.plist has destination:upload — does BOTH)
-xcodebuild -exportArchive \
-  -archivePath /tmp/dollor-archives/{name}.xcarchive \
-  -exportOptionsPlist apps/ios/{app}/ExportOptions.plist \
-  -exportPath /tmp/dollor-ipas/{name} \
-  -allowProvisioningUpdates \
-  -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8 \
-  -authenticationKeyID 9K626GB728 \
-  -authenticationKeyIssuerID 80d10e49-f379-462f-9668-5ea53016812e
+# Build + upload each app
+bundle exec fastlane customer_testflight_local   # Customer
+bundle exec fastlane driver_testflight_local     # Driver
+
+# Both at once
+bundle exec fastlane all_testflight_local
 ```
 
+**Why env vars are required:** `setup_api_key` in the Fastfile only loads the API key when `APP_STORE_CONNECT_API_KEY_KEY_ID` is set. Without it, fastlane falls back to Apple ID / password auth which fails in non-interactive shell.
+
+**These are already saved to `fastlane/.env.default`** — fastlane auto-loads `.env.default`, so you only need to export PATH and RUBYOPT manually if running from a fresh shell.
+
+**Build number:** Auto-generated as `YYYYMMDDHHmm` (e.g. `202610132240`). Check `apps/ios/build/` for the latest `.ipa` timestamp.
+
 **App values:**
-| App | Workspace Dir | Workspace | Scheme |
-|-----|---------------|-----------|--------|
-| Customer | `customer` | `eatfaircustomer` | `eatfaircustomer` |
-| Driver | `delivery` | `eatffairdelivery` | `eatffairdelivery` |
-| Restaurant | `restaurant` | `eatffairrestaurant` | `eatffairrestaurant` |
+| App | Fastlane Lane | Bundle ID | IPA output | App Store ID |
+|-----|--------------|-----------|------------|--------------|
+| Customer | `customer_testflight_local` | `com.dollorai.customer` | `build/DollorCustomer.ipa` | `6758230264` |
+| Driver | `driver_testflight_local` | `com.dollorai.delivery` | `build/DollorDriver.ipa` | `6758536287` |
+
+**If `bundle` command not found:**
+```bash
+export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+gem install bundler:4.0.3
+bundle install
+```
 
 **Key facts:**
 - Team ID: `PRKZ4UVCD7`
-- API Key: `9K626GB728`, Issuer: `80d10e49-f379-462f-9668-5ea53016812e`
-- Key path: `~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8`
-- Fastlane is configured but needs `MATCH_PASSWORD` — use xcodebuild automatic signing as workaround
-- Do NOT use separate `xcrun altool --upload-app` — the `-exportArchive` step handles upload when ExportOptions has `destination: upload`
-- **Post-build rule:** After every iOS archive+upload to TestFlight, notify `jeetnair.in@gmail.com` as an internal tester in App Store Connect
+- App Store Connect API Key ID: `9K626GB728`
+- Issuer ID: `80d10e49-f379-462f-9668-5ea53016812e`
+- Key file: `~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8`
+- Fastlane uses lane `driver_testflight_local` (NOT `driver_beta` — that doesn't exist)
+- Do NOT use `match` lanes — they require `MATCH_PASSWORD` and pull from git; local lanes skip match entirely
+- **Post-build rule:** After upload, check App Store Connect → TestFlight for the new build (takes ~5 min to process)
 
 ### Anti-Hallucination Check
 ```bash
@@ -268,16 +326,43 @@ pytest tests/ -v
 ./gradlew :app:testDebugUnitTest
 ```
 
-### Current Build Versions (Jun 5, 2026)
+### Current Build Versions
 
-| Platform | App | Build | Version | Bundle/Package | TestFlight/Firebase |
-|----------|-----|-------|---------|----------------|---------------------|
-| iOS | Customer | 1132 | 1.1 | `com.dollorai.customer` | Uploaded + distributed to TestFlight groups 2026-06-06 (quick-363: payment-intent legacy UserDefaults key mirroring) |
-| iOS | Driver | 238 | 1.1 | `com.dollorai.delivery` | Uploaded + distributed 2026-06-06 (quick-363 shared fix) |
-| iOS | Restaurant | 227 | 1.1 | `com.dollorai.restaurant` | Uploaded + distributed to `External Testers` 2026-06-06 (quick-363 shared fix; jeetnair.in@gmail.com newly added as tester) |
-| Android | Customer | vC=43 | 1.0.40 | `ai.dollor.customer` | Distributed 2026-06-06 (quick-361 defensive parity) |
-| Android | Driver | vC=39 | 1.0.36 | `ai.dollor.driver` | Distributed 2026-06-06 (quick-361 defensive parity) |
-| Android | Partner | vC=38 | 1.0.35 | `ai.dollor.partner` | Distributed 2026-06-06 (quick-361 defensive parity) |
+| Platform | App | Build | Bundle/Package | Notes |
+|----------|-----|-------|----------------|-------|
+| iOS | Customer | 202610131918 | `com.dollorai.customer` | TestFlight VALID — 2026-10-13 |
+| iOS | Driver | 202610132349 | `com.dollorai.delivery` | TestFlight processing — 2026-10-13 (cancel reason stage filter + SOS flow) |
+| Android | Customer | vC=43 | `ai.dollor.customer` | Firebase — 2026-06-06 |
+| Android | Driver | vC=39 | `ai.dollor.driver` | Firebase — 2026-06-06 |
+| Android | Partner | vC=38 | `ai.dollor.partner` | Firebase — 2026-06-06 |
+
+### Check TestFlight Build Status (without Apple ID)
+
+```bash
+# Generate JWT and query App Store Connect API using fastlane's bundled jwt gem
+GEM_LIB="/opt/homebrew/Cellar/fastlane/2.230.0_1/libexec/gems/jwt-2.10.2/lib"
+TOKEN=$(/usr/bin/ruby -I "$GEM_LIB" -e "
+require 'jwt'; require 'openssl'
+key_id = '9K626GB728'; issuer_id = '80d10e49-f379-462f-9668-5ea53016812e'
+private_key = OpenSSL::PKey::EC.new(File.read(File.expand_path('~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8')))
+payload = { iss: issuer_id, iat: Time.now.to_i, exp: Time.now.to_i+1200, aud: 'appstoreconnect-v1' }
+puts JWT.encode(payload, private_key, 'ES256', { kid: key_id })
+" 2>/dev/null)
+
+# Check Driver builds (app ID 6758536287)
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://api.appstoreconnect.apple.com/v1/builds?filter%5Bapp%5D=6758536287&sort=-uploadedDate&limit=5&fields%5Bbuilds%5D=version,processingState,uploadedDate" \
+  | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for b in data.get('data', []):
+    a = b['attributes']
+    print(f\"{a.get('version')} | {a.get('processingState')} | {a.get('uploadedDate')}\")
+"
+
+# processingState values: PROCESSING → VALID (ready for testers) | INVALID (rejected)
+# Customer app ID: 6758230264
+```
 
 ### Production Deployment Status (Feb 23, 2026)
 - **Backend**: All security fixes deployed to staging (smoke tested 12/12 pass) → production. CI/CD run `22328867724` succeeded.
@@ -294,7 +379,7 @@ pytest tests/ -v
 ### Post-Security Auth Regression (Feb 22-23, 2026 — FULLY RESOLVED)
 - **`requestRide()` missing auth header** (FIXED): `P2PAPIService.swift:5039` was the ONLY ride method without `Authorization: Bearer` header. After Phase 02 global auth middleware deployed, `/api/rides/request` returned 401 → app showed "Unable to request ride". Fixed in commit `f867a81a`.
 - **Full audit completed** (Quick Task 18): Found **18 additional methods** missing auth headers across all 3 iOS apps. Fixed in commit `b27315f7`. Breakdown: 10 vendorToken, 4 driverToken, 3 customerToken, 2 mixed. Auth header count: 140 → 158.
-- **Critical methods fixed**: FCM token save (all 3 apps), driver location updates, driver online status, order tracking, delivery decisions, KOT print, menu verification, analytics.
+- **Critical methods fixed**: FCM token save (all apps), driver location updates, driver online status, ride tracking, analytics.
 - **Pattern rule**: After adding global auth middleware, audit ALL client API methods for missing auth headers — not just the ones flagged in API verification.
 
 ### iOS VAPT Audit (Feb 23, 2026 — FULLY RESOLVED)
@@ -492,11 +577,10 @@ Password: AdminTest123
 Routes:
 - /admin              Dashboard
 - /admin/invoices     Invoice Management
-- /admin/orders       Order Management
-- /admin/accounting   Vendor Payouts, Platform Revenue
+- /admin/accounting   Platform Revenue
 ```
 
 ---
 
-*Last Updated: February 23, 2026*
+*Last Updated: October 13, 2026*
 *Token Count: ~1000*
