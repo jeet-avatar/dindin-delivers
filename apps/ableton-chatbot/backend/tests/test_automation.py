@@ -349,3 +349,58 @@ class OrchestrationTests(unittest.IsolatedAsyncioTestCase):
         actions, execute = await self.run_actions(["create_midi_track", "create_audio_track"], plan={"parts": []})
         self.assertEqual([a["result"]["status"] for a in actions], ["verified", "failed"])
         execute.assert_awaited_once()
+
+
+class SavedRackReuseTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.handlers = {}
+        self.rack = SimpleNamespace(name="My Kit.adg", is_loadable=True, children=[])
+        folder = SimpleNamespace(name="Drum Racks", children=[self.rack])
+        self.track = SimpleNamespace(devices=[], has_midi_input=True)
+        self.song = SimpleNamespace(tracks=[self.track], view=SimpleNamespace(selected_track=None))
+        self.handler = SimpleNamespace(song=self.song, osc_server=SimpleNamespace(
+            add_handler=lambda address, callback: self.handlers.update({address: callback})))
+        self.loaded = []
+
+        def load(item):
+            self.loaded.append(item)
+            self.handler.song.view.selected_track.devices.append(SimpleNamespace(
+                name="My Kit", class_name="DrumGroupDevice", type=1, parameters=[], can_have_chains=False))
+
+        browser = SimpleNamespace(user_library=SimpleNamespace(children=[folder]), load_item=load)
+        extension.register(self.handler, SimpleNamespace(browser=browser))
+        self.data = {"track": 0, "kind": "instrument", "category": "user_library",
+                     "folders": ["Drum Racks", "My Kit.adg"]}
+
+    async def send(self, address, args, query, timeout):
+        return {"status": "ok", "address": address, "args": self.handlers[address](args)}
+
+    async def test_saved_rack_loads_and_verifies_in_two_different_songs(self):
+        with patch("automation.asyncio.sleep", new=AsyncMock()):
+            for _ in range(2):
+                self.handler.song = SimpleNamespace(tracks=[SimpleNamespace(devices=[], has_midi_input=True)],
+                                                    view=SimpleNamespace(selected_track=None))
+                result = await execute_automation("load_library_item", self.data, self.send)
+                self.assertEqual(result["status"], "verified", result)
+                self.assertEqual(result["devices"][0]["class_name"], "DrumGroupDevice")
+                self.assertIsNone(self.handler.song.view.selected_track)
+        self.assertEqual(self.loaded, [self.rack, self.rack])
+
+    async def test_missing_saved_rack_does_not_load_a_fallback(self):
+        result = await execute_automation("load_library_item", {**self.data, "folders": ["Missing.adg"]}, self.send)
+        self.assertEqual(result["status"], "failed", result)
+        self.assertEqual(self.loaded, [])
+
+    async def test_existing_instrument_is_preserved(self):
+        existing = SimpleNamespace(name="Existing", type=1)
+        self.track.devices.append(existing)
+        result = await execute_automation("load_library_item", self.data, self.send)
+        self.assertEqual(result["status"], "failed", result)
+        self.assertEqual(self.track.devices, [existing])
+        self.assertEqual(self.loaded, [])
+
+    async def test_audio_track_is_rejected_without_loading(self):
+        self.track.has_midi_input = False
+        result = await execute_automation("load_library_item", self.data, self.send)
+        self.assertEqual(result["status"], "failed", result)
+        self.assertEqual(self.loaded, [])

@@ -885,6 +885,7 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   audition_part only records one track.
 
 ### Effects and polish (per part)
+- Saved Drum Racks are reusable across songs: browse get_library_catalog(category="user_library") and follow the exact folders, then load_library_item(kind="instrument", category="user_library") onto an empty MIDI track in the current Live Set. Never substitute the factory kit for a saved custom rack. Inspect get_track_device_tree after loading to discover populated pad notes before writing MIDI. If the rack exists only in another Live Set, ask the user to save it as an Ableton .adg preset in User Library first; do not claim it was transferred or saved automatically. If a prior source brief conflicts with an explicit request to reuse a saved rack, update that brief to source_mode="discover" before loading.
 - Built-in Ableton devices by default. Offer third-party plugins only when list_browser (plugins) shows them installed
   AND the user said yes to using their own plugins; say that a set using them needs those plugins to open cleanly.
 - After a part's dry sound is accepted and the user wants polish (or chooses "Shape tone or effects"): call

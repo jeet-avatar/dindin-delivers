@@ -10,9 +10,9 @@ TARGET = {"track": {"type": "integer", "minimum": 0}, "path": PATH}
 PAGING = {"offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 32}}
 AUTOMATION_TOOLS = []
 for name, operation, description, properties, required in [
-    ("load_library_item", "load_item", "Load an exact discovered browser path, including plug-ins. No filename fallback. Use an empty track for plug-ins and never replace existing instruments. Verifies the appended device chain and type.",
+    ("load_library_item", "load_item", "Load an exact discovered browser path, including saved Drum Rack presets from user_library, in any song. No filename fallback. Use an empty track for plug-ins and never replace existing instruments. Verifies the appended device chain and type.",
      {"track": {"type": "integer", "minimum": 0}, "kind": {"type": "string", "enum": ["instrument", "effect"]},
-      "category": {"type": "string", "enum": ["instruments", "audio_effects", "midi_effects", "plugins", "drums", "sounds"]},
+      "category": {"type": "string", "enum": ["instruments", "audio_effects", "midi_effects", "plugins", "drums", "sounds", "user_library"]},
       "folders": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 300}, "minItems": 1, "maxItems": 12}},
      ["track", "kind", "category", "folders"]),
     ("get_library_catalog", "catalog", "Browse the ACTUAL instrument, effect, plug-in and preset folders. Follow next_offset and folder entries to discover all choices. Never claim one page is a complete library.",

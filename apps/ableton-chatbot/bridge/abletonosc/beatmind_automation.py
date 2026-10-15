@@ -435,7 +435,7 @@ def register(handler, app):
 
     def load_item(data):
         category = data["category"]
-        if category not in {"instruments", "audio_effects", "midi_effects", "plugins", "drums", "sounds"}:
+        if category not in {"instruments", "audio_effects", "midi_effects", "plugins", "drums", "sounds", "user_library"}:
             raise ValueError("Unsupported source category")
         if ((category in {"instruments", "drums", "sounds"} and data["kind"] != "instrument")
                 or (category in {"audio_effects", "midi_effects"} and data["kind"] != "effect")):
@@ -446,8 +446,8 @@ def register(handler, app):
             raise ValueError("This is an audio track. Choose a MIDI track before loading an instrument; no track was created.")
         if data["kind"] == "instrument" and any(device.type == 1 for device in before):
             raise ValueError("An instrument already exists on this track. No replacement was attempted.")
-        if category == "plugins" and before:
-            raise ValueError("Load a plug-in onto an empty track first; its device type cannot be verified before loading.")
+        if category in {"plugins", "user_library"} and before:
+            raise ValueError("Load a plug-in or User Library preset onto an empty track first; its device type cannot be verified before loading.")
         item = getattr(app.browser, category)
         for name in data["folders"]:
             matches = [child for child in item.children if child.name == name]

@@ -41,7 +41,7 @@ def rejected_sign_in(error):
     return status in (401, 403) or code == 4001
 
 # AbletonOSC defaults
-BRIDGE_VERSION = "1.3.20"
+BRIDGE_VERSION = "1.3.21"
 BACKGROUND_TASKS = set()
 OSC_HOST = "127.0.0.1"
 OSC_SEND_PORT = 11000

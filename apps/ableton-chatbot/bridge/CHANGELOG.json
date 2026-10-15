@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.3.21",
+    "date": "2026-10-15",
+    "notes": [
+      "Saved User Library Drum Rack presets can be loaded by exact browser path in any song on an empty MIDI track.",
+      "Existing instruments are preserved; save your work and restart Live after the integration update."
+    ]
+  },
+  {
     "version": "1.3.20",
     "date": "2026-10-13",
     "notes": [
