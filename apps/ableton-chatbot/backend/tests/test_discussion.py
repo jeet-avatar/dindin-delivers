@@ -6,9 +6,12 @@ import main
 
 
 class DiscussionTests(unittest.IsolatedAsyncioTestCase):
-    async def run_tool(self, name):
+    async def run_tool(self, name, *, planning_only=True, remix=False):
         session = main.ChatSession("discussion", 123)
-        session.planning_only = True
+        session.planning_only = planning_only
+        session.discussion_only = planning_only
+        if remix:
+            session.project = {'mode': 'remix', 'remix': {'source_name': 'fixture'}}
         session.messages = [{"role": "user", "content": "What should we do next?"}]
         call = SimpleNamespace(type="tool_use", name=name, id="test", input={})
         client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(side_effect=[
@@ -18,9 +21,13 @@ class DiscussionTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(main, "claude_client", client), patch.object(main, "_execute_tool", AsyncMock(return_value={"status": "observed"})) as execute:
             _, actions = await main._run_claude_loop(session, None)
         offered = {tool['name'] for tool in client.messages.create.call_args.kwargs['tools']}
-        self.assertNotIn('audition_part', offered)
-        self.assertNotIn('create_audio_track', offered)
-        self.assertNotIn('fire_scene', offered)
+        for tool in ('audition_part', 'create_audio_track', 'fire_scene'):
+            if planning_only:
+                self.assertNotIn(tool, offered)
+            else:
+                self.assertIn(tool, offered)
+        if remix and planning_only:
+            self.assertNotIn('propose_remix_changes', offered)
         return execute, actions
 
     async def test_discussion_blocks_model_playback_even_if_requested_by_model(self):
@@ -34,6 +41,19 @@ class DiscussionTests(unittest.IsolatedAsyncioTestCase):
     async def test_discussion_allows_read_only_inspection(self):
         execute, actions = await self.run_tool('get_session_state')
         execute.assert_awaited_once_with('get_session_state', {}, None)
+        self.assertEqual(actions[0]['result']['status'], 'observed')
+
+    async def test_explicit_remix_discussion_cannot_save_or_discard_edits(self):
+        for name in ('propose_remix_changes', 'discard_remix_changes', 'set_song_title'):
+            with self.subTest(name=name):
+                execute, actions = await self.run_tool(name, remix=True)
+                execute.assert_not_awaited()
+                self.assertEqual(actions[0]['result']['status'], 'failed')
+                self.assertIn('select Action', actions[0]['result']['summary'])
+
+    async def test_action_has_production_tools_and_executes_without_discussion_gate(self):
+        execute, actions = await self.run_tool('set_device_control', planning_only=False)
+        execute.assert_awaited_once()
         self.assertEqual(actions[0]['result']['status'], 'observed')
 
     def test_ordinary_requests_are_not_silently_changed_to_discussion(self):

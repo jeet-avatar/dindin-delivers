@@ -157,7 +157,7 @@ class RemixProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(event['type'] == 'status' for event in events))
         bridge.send_command.assert_not_awaited()
         bridge.local_operation.assert_not_awaited()
-        self.assertIn('NOT a Bridge connection or permissions problem', str(client.messages.create.call_args.kwargs['system']))
+        self.assertIn('not a Bridge permission failure', str(client.messages.create.call_args.kwargs['system']))
 
     async def test_native_instrument_edits_require_connected_linked_matching_set(self):
         result = await self.create()

@@ -767,7 +767,7 @@ async def produce_chat(req, session, bridge, emit=None):
             or (session.project.get('starting_point') == 'reference' and not reference_id)
         ):
             session.project['starting_point'] = 'idea'
-        native_remix = bool((session.project or {}).get('remix') and req.remix_edit_target == 'ableton')
+        native_remix = bool((session.project or {}).get('remix') and req.remix_edit_target == 'ableton' and not req.planning_only)
         session.remix_edit_target = 'ableton' if native_remix else 'preview'
         if native_remix:
             if not bridge:
@@ -779,11 +779,14 @@ async def produce_chat(req, session, bridge, emit=None):
         else:
             session.reference_note = song_projects.reference_note(reference_id, session.user_id, session.project)
             session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
+        if session.project_note and not req.planning_only and not (session.project or {}).get('remix'):
+            raise HTTPException(409, session.project_note + ' Action could not start. Nothing was changed.')
+        session.discussion_only = req.planning_only
         session.planning_only = req.planning_only or bool(session.project_note)
         session.pending_review = False
         session.current_track_names = []
         session.current_recordings = []
-        if bridge and not (session.planning_only and (session.project or {}).get('remix') and not native_remix):
+        if bridge and not req.planning_only and not (session.planning_only and (session.project or {}).get('remix') and not native_remix):
             await stack.enter_async_context(bridge.lock)
             if session.project and not session.planning_only:
                 live = await bridge.local_operation('live_set', {'operation': 'inspect'})
@@ -965,11 +968,15 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     bridge_note += brief_context(messages)
     bridge_note += '\n' + getattr(session, 'project_note', '')
     planning_only = getattr(session, 'planning_only', False)
-    if planning_only:
-        bridge_note += "\nThis turn is discussion only. Recommend the best next step and explain why, with up to two concrete alternatives grounded in discovered sources and the current project. Ask one focused question only when necessary. Do not play, audition, change music or create a production plan; only read-only discovery is available."
-        if (session.project or {}).get('remix') and getattr(session, 'remix_edit_target', 'preview') == 'preview':
-            bridge_note += "\nAbleton was not automatically inspected for this remix discussion. Use the saved source and remix state; do not claim current Ableton state is verified."
-            bridge_note += "\nThe restriction on direct audio/Ableton writes is NOT a Bridge connection or permissions problem. Correct earlier messages that blamed the Bridge. EXCEPTION to discussion-only: when the user requests a remix edit, use get_remix_edit_state then propose_remix_changes to save a validated recipe draft. Do not merely describe how to edit it manually. Preserve all choices the user did not request to change. Uploaded sampled instruments, sample replacement and native effects are supported as listed in the edit state; inspect actual samples and source stems first. Ask for sample upload or tonal root note when missing. Never invent installed plugins, sample IDs or isolated drums. The user confirms the exact changes and renders via Review remix changes / Open Automatic Remix; no audio changes before that confirmation. Discard pending changes only when explicitly asked. Unsupported requests must be explained, not substituted with level changes or claimed complete. If ambiguous, ask one focused question. Never claim a draft is rendered or approved."
+    discussion_only = getattr(session, 'discussion_only', planning_only and not (session.project or {}).get('remix'))
+    allowed_planning_tools = DISCUSSION_TOOLS
+    if discussion_only:
+        allowed_planning_tools = DISCUSSION_TOOLS - (remix_chat.NAMES - {'get_remix_edit_state'}) - {'set_song_title'}
+        bridge_note += "\nThe user selected Discuss. Answer questions and explain options using read-only discovery. No automatic Live Set inspection was performed; verify through read-only tools before claiming current Ableton state. Do not play, audition, change music, save remix edits or create a production plan. Action mode is required for changes. Ask one focused question only when necessary."
+    elif planning_only and (session.project or {}).get('remix'):
+        bridge_note += "\nThe user selected Action targeting the saved remix preview. Ableton was not automatically inspected; do not claim its current state is verified. This is not a Bridge permission failure. For a requested remix edit, use get_remix_edit_state then propose_remix_changes to save a validated recipe draft. Do not merely give manual instructions. Preserve unrequested choices. Inspect actual samples and source stems; ask for a missing sample or tonal root note. Never invent plugins, sample IDs or isolated drums. The user confirms and renders through Review remix changes / Open Automatic Remix before audio changes. Never claim a draft is rendered or approved."
+    else:
+        bridge_note += "\nThe user selected Action. Execute concrete music instructions with the available tools, inspection and verification. Do not substitute manual Ableton instructions or discussion for an executable request. Answer genuine questions without unnecessary edits. If a prerequisite is missing, identify the specific blocker and next step; never claim work was completed."
     if bridge and session.project and not session.project.get('live_set'):
         bridge_note += "\nUNLINKED SONG: Confirm which Live Set belongs to this song before music changes. Existing clips may be the user's current work: never ignore, replace or delete them, and never start a new set to continue an existing song. Use the Choose Live Set workflow."
     if bridge and (not session.project or session.project.get('live_set')):
@@ -995,7 +1002,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             max_tokens=MAX_OUTPUT_TOKENS,
             system=_build_system(bridge_note),
             tools=[tool for tool in _build_tools(bridge)
-                   if (not planning_only or tool['name'] in DISCUSSION_TOOLS)
+                   if (not planning_only or tool['name'] in allowed_planning_tools)
                    and (tool['name'] not in remix_chat.NAMES or ((session.project or {}).get('mode') == 'remix'
                         and getattr(session, 'remix_edit_target', 'preview') == 'preview'))],
             messages=bounded_history(messages),
@@ -1041,8 +1048,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 constraint = source_error(section_brief, tu.name, tu.input)
                 if getattr(session, 'remix_edit_target', 'preview') == 'ableton' and tu.name in remix_chat.NAMES:
                     result = {"status": "failed", "summary": "This request targets Ableton instruments, not the saved remix preview. No preview choices were changed.", "steps": []}
-                elif planning_only and tu.name not in DISCUSSION_TOOLS:
-                    result = {"status": "failed", "summary": "Discussion only: no playback or music changes were authorized. Ask for the user's next choice.", "steps": []}
+                elif planning_only and tu.name not in allowed_planning_tools:
+                    result = {"status": "failed", "summary": "Discussion only: select Action to change music." if discussion_only else "This action targets a remix preview. Use the preview confirmation workflow, or select Ableton instruments to edit the linked set.", "steps": []}
                 elif tu.name in arrangement_plan.NAMES and not _supports_staged_arrangement(bridge):
                     result = {"status": "failed", "summary": "This Bridge does not support staged Arrangement commands. Nothing was changed. Existing instrument and clip tools remain available.", "steps": []}
                 elif tu.name == "set_song_title" and session.project:

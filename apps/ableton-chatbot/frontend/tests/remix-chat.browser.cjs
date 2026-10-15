@@ -115,7 +115,7 @@ const server = http.createServer((req, res) => {
       const input = page.getByRole('textbox', { name: 'Message BeatMind' });
       assert.ok((await input.boundingBox()).height >= 70);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-      assert.equal(await page.getByLabel('Song settings', { exact: true }).count(), 0, 'Keep the original visible controls');
+      assert.equal(await page.getByLabel('Song settings', { exact: true }).getAttribute('open'), null, 'Secondary controls stay collapsed');
       await page.getByRole('button', { name: 'Open Ableton', exact: true }).waitFor();
       assert.equal(await page.getByRole('link', { name: 'Open BeatMind Bridge' }).isVisible(), true);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -129,6 +129,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole('button', { name: 'Send', exact: true }).click();
       await conversation.getByText('90 seconds.', { exact: false }).first().waitFor();
       assert.equal(await page.getByRole('button', { name: 'Stop production' }).count(), 0);
+      await page.getByLabel('Song settings', { exact: true }).locator('summary').click();
       await page.getByRole('button', { name: 'Open Automatic Remix', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: 'Automatic Remix' });
       await dialog.getByRole('button', { name: 'Preview approved', exact: true }).waitFor();
@@ -168,15 +169,15 @@ const server = http.createServer((req, res) => {
       assert.equal(writes.filter(item => item.pathname.endsWith('/automatic-remixes')).length, 1);
       assert.equal(writes.filter(item => item.pathname === '/api/chat/stream').length, 3);
       await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-      const nativeTarget = page.getByRole('radio', { name: 'Ableton instruments', exact: true });
+      const mode = page.getByRole('combobox', { name: 'Command mode', exact: true });
       if (width > 400) {
-        await nativeTarget.check();
+        await mode.selectOption('ableton');
         await input.fill('Set my own synth cutoff to 1500 Hz in Ableton.');
         await page.getByRole('button', { name: 'Send', exact: true }).click();
         await conversation.getByText('Instrument control read back in your linked Ableton set.', { exact: true }).waitFor();
         assert.equal(writes.at(-1).body.remix_edit_target, 'ableton');
-        await page.getByRole('radio', { name: 'Remix preview', exact: true }).check();
-      } else assert.equal(await nativeTarget.isDisabled(), true);
+        await mode.selectOption('preview');
+      } else assert.equal(await mode.locator('option[value="ableton"]').isDisabled(), true);
       assert.deepEqual(errors, []);
       await context.close();
       console.log(`PASS remix chat ${width}x${height}: original controls, readable composer, recovered replies, exact preview, chat draft, explicit render confirmation, no Ableton writes`);

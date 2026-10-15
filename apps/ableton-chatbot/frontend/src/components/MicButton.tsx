@@ -66,7 +66,7 @@ export default function MicButton({ value, onChange, disabled, onError }: {
   return (
     <button type="button" onClick={toggle} disabled={disabled && !listening} aria-pressed={listening}
       aria-label={listening ? "Stop voice input" : "Speak your message"} title={listening ? "Stop listening" : "Speak your message"}
-      className="w-12 h-12 flex-shrink-0 rounded-xl border flex items-center justify-center disabled:opacity-40"
+      className="w-10 h-10 flex-shrink-0 rounded-lg border flex items-center justify-center disabled:opacity-40"
       style={{ borderColor: "var(--accent)", color: listening ? "var(--on-accent)" : "var(--accent)", background: listening ? "var(--accent)" : "transparent" }}>
       {listening ? (
         <span className="block w-3.5 h-3.5 rounded-sm bg-current animate-pulse" aria-hidden="true" />

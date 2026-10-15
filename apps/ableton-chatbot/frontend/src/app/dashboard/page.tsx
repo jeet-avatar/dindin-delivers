@@ -3,7 +3,7 @@
 import { streamHealth } from "@/lib/stream-health";
 import { appendInstruction, nextInstructions, outboxKey, readQueue, settleInstructions } from "@/lib/chat-outbox";
 import { useChatOutbox } from "@/lib/use-chat-outbox";
-import { Trash2, Paperclip, WandSparkles } from "lucide-react";
+import { Trash2, Paperclip, WandSparkles, History, Settings2 } from "lucide-react";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -31,7 +31,6 @@ import BridgeLaunch from "@/components/BridgeLaunch";
 import UpdateBanner from "@/components/UpdateBanner";
 import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
-import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { STARTER_TEMPLATE_URL } from "@/lib/site";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BRIDGE_MAC_DOWNLOAD } from "@/lib/guide";
@@ -136,6 +135,8 @@ interface Message {
 type Nav = "dashboard" | "beatmind" | "mixmind" | "downloads" | "account" | "recordings" | "references";
 interface SavedChat {
   messages: Message[]; sessionId: string | null; input: string;
+  remixEditTarget?: "preview" | "ableton";
+  chatMode?: "action" | "discuss";
   running?: boolean; runningId?: string;
   project?: SongProject | null; referenceId?: string | null;
 }
@@ -255,9 +256,9 @@ export default function DashboardPage() {
   const [projectBusy, setProjectBusy] = useState(false);
   const [remixOpen, setRemixOpen] = useState(false);
   const [remixEditTarget, setRemixEditTarget] = useState<"preview" | "ableton">("preview");
+  const [chatMode, setChatMode] = useState<"action" | "discuss">("action");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chatId, setChatId] = useState("");
-  useEffect(() => { setRemixEditTarget("preview"); }, [chatId]);
   const [chats, setChats] = useState<ChatEntry[]>([]);
   const [serverChats, setServerChats] = useState<ChatEntry[]>([]);
   const [authStatus, setAuthStatus] = useState("Checking sign-in");
@@ -328,6 +329,8 @@ export default function DashboardPage() {
       const raw = localStorage.getItem(`${prefix}_${id}`) || localStorage.getItem(`beatmind_chat_v1_${u.id}`);
       if (raw) {
         const saved = JSON.parse(raw);
+        setRemixEditTarget(saved.remixEditTarget === "ableton" ? "ableton" : "preview");
+        setChatMode(saved.chatMode === "discuss" ? "discuss" : "action");
         if (Array.isArray(saved.messages)) setMessages(restoredMessages(saved));
         if (typeof saved.sessionId === "string") setSessionId(saved.sessionId);
         if (typeof saved.input === "string") setInput(saved.input);
@@ -365,14 +368,14 @@ export default function DashboardPage() {
     if (!historyReady || !user || !chatId) return;
     try {
       // Recordings retain full command evidence; keep browser history within storage limits.
-      const savedChats = writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: loading,
+      const savedChats = writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, remixEditTarget, chatMode, running: loading,
         runningId: loading ? messages.at(-1)?.id : undefined });
       // Draft saves must not trigger another render of an unchanged chat list.
       setChats(previous => previous.length === savedChats.length && previous.every((chat, index) =>
         chat.id === savedChats[index].id && chat.title === savedChats[index].title && chat.sessionId === savedChats[index].sessionId
       ) ? previous : savedChats);
     } catch { setHistoryError("Chat history could not be saved in this browser. Keep this tab open until the request finishes."); }
-  }, [historyReady, user, messages, sessionId, input, loading, chatId, project, referenceId, outbox.queue]);
+  }, [historyReady, user, messages, sessionId, input, loading, chatId, project, referenceId, remixEditTarget, chatMode, outbox.queue]);
 
   useEffect(() => {
     if (!user?.id || loading) return;
@@ -389,17 +392,21 @@ export default function DashboardPage() {
     if (!user || !historyReady || loading || requestRef.current) return;
     setHistoryReady(false);
     try {
-      writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
+      writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, remixEditTarget, chatMode, running: false });
       const response = await apiFetch(`/api/chats/${encodeURIComponent(id)}`);
       if (!response.ok) throw new Error("Saved conversation could not be loaded. Your current chat is unchanged.");
       const data = await response.json();
       const localId = chats.find(chat => chat.sessionId === id)?.id || `server-${id}`;
       const cached = JSON.parse(localStorage.getItem(`beatmind_chats_v2_${user.id}_${localId}`) || "null");
       const saved: SavedChat = { messages: data.messages, sessionId: data.sessionId,
+        remixEditTarget: cached?.remixEditTarget === "ableton" ? "ableton" : "preview",
+        chatMode: cached?.chatMode === "discuss" ? "discuss" : "action",
         input: typeof cached?.input === "string" ? cached.input : "", project: data.project, referenceId: data.referenceId };
       setChats(writeChat(user.id, localId, saved));
       document.querySelectorAll("audio").forEach(audio => audio.pause());
       setChatId(localId); setMessages(restoredMessages(saved)); setSessionId(saved.sessionId); setInput(saved.input);
+      setRemixEditTarget(saved.remixEditTarget || "preview");
+      setChatMode(saved.chatMode || "action");
       setProject(saved.project || null); setReferenceId(saved.referenceId || null); setNav("beatmind"); setHistoryOpen(false);
       setHistoryError("");
     } catch (e) { setHistoryError(e instanceof Error ? e.message : "Saved conversation unavailable."); }
@@ -409,7 +416,7 @@ export default function DashboardPage() {
   const openChat = (targetId?: string) => {
     if (!user || !historyReady || loading || requestRef.current) return;
     try {
-      writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
+      writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, remixEditTarget, chatMode, running: false });
       const id = targetId || crypto.randomUUID();
       const raw = targetId ? localStorage.getItem(`beatmind_chats_v2_${user.id}_${id}`) : null;
       if (targetId && !raw) throw new Error("Saved conversation is unavailable.");
@@ -418,6 +425,8 @@ export default function DashboardPage() {
       setChats(writeChat(user.id, id, next));
       document.querySelectorAll("audio").forEach(audio => audio.pause());
       setChatId(id); setMessages(next.messages); setSessionId(next.sessionId); setInput(next.input);
+      setRemixEditTarget(next.remixEditTarget === "ableton" ? "ableton" : "preview");
+      setChatMode(next.chatMode === "discuss" ? "discuss" : "action");
       setProject(next.project || null); setReferenceId(next.referenceId || null); setHistoryOpen(false);
       setHistoryError(""); setNav("beatmind");
       inputRef.current?.focus();
@@ -429,7 +438,7 @@ export default function DashboardPage() {
   const createProject = useCallback(async (fresh = false) => {
     if (!user) throw new Error("Sign in before starting a song.");
     if (!fresh && sessionId) return sessionId;
-    writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
+    writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, remixEditTarget, chatMode, running: false });
     const response = await apiFetch("/api/chats", { method: "POST" });
     if (response.status === 402) {
       const body = await response.json().catch(() => ({}));
@@ -449,9 +458,11 @@ export default function DashboardPage() {
     setChats(writeChat(user.id, id, snapshot));
     document.querySelectorAll("audio").forEach(audio => audio.pause());
     setChatId(id); setSessionId(data.sessionId); setMessages([]); setInput("");
+    setRemixEditTarget("preview");
+    setChatMode("action");
     setProject(data.project); setReferenceId(null); setHistoryError(""); setHistoryOpen(false); setNav("beatmind");
     return data.sessionId as string;
-  }, [user, sessionId, chatId, messages, input, project, referenceId]);
+  }, [user, sessionId, chatId, messages, input, project, referenceId, remixEditTarget, chatMode]);
 
   async function newSong(prompt?: string) {
     if (projectBusy || loading || !historyReady) return;
@@ -467,7 +478,7 @@ export default function DashboardPage() {
       void openServerChat(result.sessionId);
       return;
     }
-    writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
+    writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, remixEditTarget, chatMode, running: false });
     const id = `server-${result.sessionId}`;
     const draft = "Review my saved remix plan. Ask me about the retained source layers and replacement sounds one step at a time. Do not change Ableton.";
     const snapshot: SavedChat = { messages: [], sessionId: result.sessionId, input: draft,
@@ -475,6 +486,8 @@ export default function DashboardPage() {
     setChats(writeChat(user.id, id, snapshot));
     document.querySelectorAll("audio").forEach(audio => audio.pause());
     setChatId(id); setSessionId(result.sessionId); setMessages([]); setInput(draft);
+    setRemixEditTarget("preview");
+    setChatMode("action");
     setProject(result.project); setReferenceId(result.referenceId); setHistoryError(""); setHistoryOpen(false); setNav("beatmind");
   }
 
@@ -508,14 +521,14 @@ export default function DashboardPage() {
     try {
       const id = await updateProject({ starting_point });
       if (starting_point === "reference") setNav("references");
-      else await sendMessage("I want to start from my own idea. Pick a genre and tempo for me and start building the first sound.", id, null, false);
+      else { setChatMode("action"); await sendMessage("I want to start from my own idea. Pick a genre and tempo for me and start building the first sound.", id, null, false); }
     } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save your choice."); }
     finally { setProjectBusy(false); }
   }
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
-  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, selectedReference?: string | null, planningOnly = false, queuedIds: string[] = [], remixTarget = remixEditTarget) => {
+  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, selectedReference?: string | null, planningOnly = chatMode === "discuss", queuedIds: string[] = [], remixTarget = remixEditTarget) => {
     const text = (messageOverride ?? input).trim();
     if (!text || !historyReady || loading || requestRef.current) return;
     try {
@@ -650,27 +663,28 @@ export default function DashboardPage() {
         }));
       } catch { setHistoryError("Could not save delivery status. Inspect the conversation before sending saved instructions again."); }
     }
-  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject, selectedModel, outbox.update, remixEditTarget]);
+  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject, selectedModel, outbox.update, remixEditTarget, chatMode]);
 
   function saveInstruction() {
     if (!historyReady || !input.trim()) return;
     try {
-      outbox.update(queue => appendInstruction(queue, input, project?.mode === "remix" ? remixEditTarget : undefined));
+      outbox.update(queue => appendInstruction(queue, input, project?.mode === "remix" ? remixEditTarget : undefined, chatMode === "discuss"));
       setInput("");
     } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save this instruction. Your draft is unchanged."); }
   }
 
   const activeRemixTarget = outbox.queue.items.length ? outbox.queue.items[0].remixTarget || "preview" : remixEditTarget;
-  const canDiscussWithoutBridge = project?.mode === "remix" && activeRemixTarget === "preview";
+  const nextIsDiscussion = outbox.queue.items.length ? outbox.queue.items[0].planningOnly === true : chatMode === "discuss";
+  const canDiscussWithoutBridge = nextIsDiscussion || (project?.mode === "remix" && activeRemixTarget === "preview");
   useEffect(() => {
     if (!historyReady || !outbox.ready || loading || projectBusy || requestRef.current || (!bridgeConnected && !canDiscussWithoutBridge) || outbox.queue.paused) return;
-    const next = nextInstructions(outbox.queue, canDiscussWithoutBridge ? "remix" : "production");
+    const next = nextInstructions(outbox.queue, project?.mode === "remix" ? "remix" : "production");
     if (!next) return;
     const attempt = `${queueKey}:${next.ids.join(",")}`;
     if (queueAttempt.current === attempt) return;
     queueAttempt.current = attempt;
-    void sendMessage(next.text, undefined, undefined, false, next.ids, next.remixTarget || "preview");
-  }, [historyReady, outbox.ready, outbox.queue, loading, projectBusy, bridgeConnected, canDiscussWithoutBridge, queueKey, sendMessage]);
+    void sendMessage(next.text, undefined, undefined, next.planningOnly, next.ids, next.remixTarget || "preview");
+  }, [historyReady, outbox.ready, outbox.queue, loading, projectBusy, bridgeConnected, canDiscussWithoutBridge, queueKey, sendMessage, project?.mode]);
 
   // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
   const openBilling = async () => {
@@ -749,7 +763,7 @@ export default function DashboardPage() {
                   </button>}
                 {i === messages.length - 1 && !!msg.choices?.length && <div className="mt-3 flex flex-wrap gap-2">
                   {msg.choices.map(choice => <button key={choice.label} type="button" disabled={loading || !historyReady}
-                    onClick={() => void sendRef.current(choice.message, undefined, undefined, true)}
+                    onClick={() => void sendRef.current(choice.message)}
                     className="rounded border px-3 py-2 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>{choice.label}</button>)}
                 </div>}
                 <ChatComparisons actions={msg.toolCalls || []} />
@@ -1047,8 +1061,14 @@ export default function DashboardPage() {
         {recordings.error && <p role="alert" className="text-xs text-red-300">{recordings.error}</p>}
       </ChatTimeline>
 
-      <div className="px-3 sm:px-6 py-3 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-        <div className="max-h-[18dvh] overflow-y-auto">
+      <div aria-label="Message composer" className="px-3 sm:px-6 py-2 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+        {(project || referenceInAbleton) && <details className="relative text-xs" aria-label="Reference actions"
+          onKeyDown={event => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}
+          onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}>
+          <summary className="inline-flex cursor-pointer items-center gap-2 py-2" title="Reference actions"><Paperclip size={14} />Reference options</summary>
+          <div className="absolute bottom-full left-0 z-20 w-72 max-w-[calc(100vw-6rem)] max-h-[40dvh] overflow-y-auto rounded border p-3 shadow-lg"
+            style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}
+            onClick={event => { if ((event.target as HTMLElement).closest("button:not(:disabled)")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>
         {referenceInAbleton && !input && (
           <div className="mb-3">
             <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
@@ -1085,7 +1105,7 @@ export default function DashboardPage() {
               </button>
             )}
             {referenceId && nav !== "references" && (
-              <button type="button" disabled={loading} onClick={() => void sendMessage("Let's discuss my reference track.")}
+              <button type="button" disabled={loading} onClick={() => { setChatMode("discuss"); void sendMessage("Let's discuss my reference track.", undefined, undefined, true); }}
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border disabled:opacity-40"
                 style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -1094,13 +1114,15 @@ export default function DashboardPage() {
             )}
           </div>
         )}
-        </div>
-        {!!outbox.queue.items.length && <details aria-label="Saved instructions" className="mb-2 text-sm" open={outbox.queue.paused || undefined}>
+          </div>
+        </details>}
+        {!!outbox.queue.items.length && <details aria-label="Saved instructions" className="mb-2 max-h-[18dvh] overflow-y-auto text-sm" open={outbox.queue.paused || undefined}>
           <summary className="cursor-pointer">{outbox.queue.paused ? "Saved instructions paused" : "Saved instructions"} ({outbox.queue.items.length})</summary>
           <ol className="max-h-40 overflow-y-auto">
             {outbox.queue.items.map(item => <li key={item.id} className="flex items-start gap-2 py-2">
               <div className="min-w-0 flex-1">
                 <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{item.state === "queued" ? "Not sent" : item.state === "sending" ? "Sending" : "Delivery uncertain; inspect chat and Ableton"}</span>
+                <span className="ml-2 text-xs">{item.planningOnly ? "Discuss" : "Action"}</span>
                 {project?.remix && <span className="ml-2 text-xs" style={{ color: "var(--text-secondary)" }}>{item.remixTarget === "ableton" ? "Ableton instruments" : "Remix preview"}</span>}
                 <p className="whitespace-pre-wrap break-words">{item.text}</p>
               </div>
@@ -1114,22 +1136,38 @@ export default function DashboardPage() {
               catch { setHistoryError("Could not resume saved instructions."); } }} className="mt-2 underline disabled:opacity-40">Send unsent instructions</button>}
           <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>Saved in this browser for this song. Uncertain requests are never sent again automatically.</p>
         </details>}
-        <div className="flex gap-3 items-end">
+        <div className="flex flex-col gap-2">
           <label htmlFor="chat-input" className="sr-only">Message BeatMind</label>
           <textarea
             id="chat-input" ref={inputRef} value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); saveInstruction(); } }}
-            placeholder={referenceInAbleton ? "Tell BeatMind what to build, e.g. a drum groove like the reference" : "Message BeatMind..."}
+            placeholder="Message BeatMind..."
             rows={2}
-            className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-base leading-relaxed outline-none focus:ring-2 focus:ring-[var(--accent)]"
-            style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            className="w-full min-w-0 resize-none rounded-lg px-3 py-2 text-base leading-relaxed outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)", maxHeight: "min(144px, 18dvh)" }}
           />
+          <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Command mode" disabled={!historyReady}
+            value={chatMode === "discuss" ? "discuss" : project?.remix ? remixEditTarget : "action"}
+            onChange={event => {
+              const mode = event.target.value;
+              setChatMode(mode === "discuss" ? "discuss" : "action");
+              if (mode === "preview" || mode === "ableton") setRemixEditTarget(mode);
+            }} className="mr-auto h-10 min-w-35 max-w-60 flex-1 rounded border px-2 text-sm disabled:opacity-40"
+            style={{ color: "var(--text-primary)", background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+            {project?.remix ? <>
+              <option value="preview">Action: preview</option>
+              <option value="ableton" disabled={!project.live_set}>Action: Ableton</option>
+            </> : <option value="action">Action</option>}
+            <option value="discuss">Discuss</option>
+          </select>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
           <MicButton value={input} onChange={setInput} onError={setMicError} />
           {loading && (
             <button type="button" onClick={() => requestRef.current?.abort()}
               aria-label="Stop production" title="Stop production"
-              className="w-12 h-12 flex-shrink-0 rounded-lg border flex items-center justify-center"
+              className="w-10 h-10 flex-shrink-0 rounded-lg border flex items-center justify-center"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
               <span className="block w-4 h-4 bg-current" aria-hidden="true" />
             </button>
@@ -1137,17 +1175,18 @@ export default function DashboardPage() {
           <button type="button" onClick={saveInstruction} disabled={!input.trim() || !historyReady || !outbox.ready}
             aria-label="Send"
             title="Send"
-            className="px-4 py-3 rounded-xl transition-opacity disabled:opacity-30 flex items-center justify-center"
+            className="w-10 h-10 shrink-0 rounded-lg transition-opacity disabled:opacity-30 flex items-center justify-center"
             style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
             <SendIcon />
           </button>
+          </div>
+          </div>
         </div>
         {micError && <p role="alert" className="text-xs mt-2 text-center" style={{ color: "var(--warning)" }}>{micError}</p>}
-        <p className="text-xs mt-2 text-center" style={{ color: "var(--text-secondary)" }}>
-          {outbox.queue.items.length ? outbox.queue.paused ? "Review the saved instructions before continuing."
-            : !bridgeConnected && !canDiscussWithoutBridge ? "Waiting for the Bridge to reconnect. Instructions are saved."
-            : "Saved instructions will be read together after the current response." : bridgeStatusLabel[bridgeStatus]}
-        </p>
+        {!!outbox.queue.items.length && (outbox.queue.paused || (!bridgeConnected && !canDiscussWithoutBridge)) && <p className="text-xs mt-2 text-center" style={{ color: "var(--text-secondary)" }}>
+          {outbox.queue.paused ? "Review the saved instructions before continuing."
+            : "Waiting for the Bridge to reconnect. Instructions are saved."}
+        </p>}
       </div>
     </div>
   );
@@ -1493,10 +1532,10 @@ export default function DashboardPage() {
         <UpdateBanner />
         <div className={nav === "beatmind" ? "shrink-0 max-h-[35dvh] overflow-y-auto" : "shrink-0"}>
         <div className="shrink-0 border-b px-3 sm:px-6" style={{ borderColor: "var(--border)" }}>
-          <BridgeLaunch status={bridgeStatus} version={bridgeVersion} onRetry={refreshBridge} ableton={ableton} />
+          <BridgeLaunch status={bridgeStatus} version={bridgeVersion} onRetry={refreshBridge} ableton={ableton} compact={nav === "beatmind"} />
         </div>
-        {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
-          <button type="button" className="sm:hidden h-10 px-2 text-sm" onClick={() => setHistoryOpen(true)}>Saved songs</button>
+        {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-2 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
+          <button type="button" aria-label="Saved songs" title="Saved songs" className="sm:hidden w-9 h-10 shrink-0 flex items-center justify-center" onClick={() => setHistoryOpen(true)}><History size={18} /></button>
           {project ? <input key={`${chatId}-${project.title}`} aria-label="Song name" defaultValue={project.title} maxLength={70}
             disabled={!historyReady || loading || projectBusy} onBlur={async event => {
               const title = event.target.value.trim();
@@ -1504,12 +1543,14 @@ export default function DashboardPage() {
               setProjectBusy(true);
               try { await updateProject({ title }); } catch (error) { setHistoryError(error instanceof Error ? error.message : "Name could not be saved."); }
               finally { setProjectBusy(false); }
-            }} className="order-first basis-full sm:order-none sm:basis-auto min-w-0 flex-1 w-32 h-10 bg-transparent border-b px-1 text-sm" style={{ borderColor: "var(--border)" }} /> :
+            }} className="min-w-0 flex-1 w-32 h-10 bg-transparent border-b px-1 text-sm" style={{ borderColor: "var(--border)" }} /> :
             <p className="min-w-0 flex-1 text-sm break-words">{chats.find(chat => chat.id === chatId)?.title || "New song"}</p>}
           <button type="button" onClick={() => void newSong()} disabled={!historyReady || loading || projectBusy}
             className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
             style={{ background: "var(--accent)", color: "var(--on-accent)" }}>New song</button>
-          <div className="w-full flex flex-wrap items-center gap-3 text-xs" aria-label="Ableton set">{abletonSet}</div>
+          <details key={chatId} className="w-full text-xs" aria-label="Song settings">
+          <summary className="cursor-pointer py-1 inline-flex items-center gap-2"><Settings2 size={14} />Song settings</summary>
+          <div className="w-full flex flex-wrap items-center gap-3 py-2 text-xs" aria-label="Ableton set">{abletonSet}</div>
           {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
             {usage?.model_access && usage.model_access.length > 1 ? (
               <select aria-label="AI model" value={selectedModel} onChange={e => setSelectedModel(e.target.value as ModelTier)}
@@ -1526,14 +1567,8 @@ export default function DashboardPage() {
             {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
             {project?.remix && <button type="button" disabled={loading || projectBusy} onClick={() => setRemixOpen(true)}
               className="inline-flex items-center gap-1.5 disabled:opacity-50"><WandSparkles size={14} />Open Automatic Remix</button>}
-            {project?.remix && <fieldset aria-label="Remix command target" className="flex flex-wrap items-center gap-3" disabled={loading || projectBusy || !!outbox.queue.items.length}>
-              <label className="inline-flex items-center gap-1.5"><input type="radio" name="remix-target" checked={activeRemixTarget === "preview"}
-                onChange={() => setRemixEditTarget("preview")} />Remix preview</label>
-              <label className="inline-flex items-center gap-1.5" title={!project.live_set ? "Use this set to link your Ableton project first" : !bridgeConnected ? "Connect your Bridge to edit Ableton instruments" : "Edit instruments in the linked Ableton set"}>
-                <input type="radio" name="remix-target" checked={activeRemixTarget === "ableton"} disabled={!project.live_set || !bridgeConnected}
-                  onChange={() => setRemixEditTarget("ableton")} />Ableton instruments</label>
-            </fieldset>}
           </div>}
+          </details>
         </div>}
         </div>
 
@@ -1556,6 +1591,7 @@ export default function DashboardPage() {
             }} onRemix={openRemix} chatBusy={loading || projectBusy || !historyReady} onUse={(id, template) => {
             setReferenceId(id);
             setNav("beatmind");
+            setChatMode(template ? "action" : "discuss");
             void sendMessage(template
               ? "Let's choose the first sound for my reference-inspired track."
               : "Let's talk about what I like in this reference and what I'd change.", undefined, id, !template);

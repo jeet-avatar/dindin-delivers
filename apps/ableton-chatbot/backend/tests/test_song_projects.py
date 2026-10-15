@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 import main
+import billing
 import recordings
 import song_projects
 
@@ -27,6 +28,9 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(main.sessions.clear)
         self.addCleanup(main.bridges.clear)
         self.user = {'id': 42, 'subscription_status': 'active', 'plan_tier': 'studio', 'plan': 'studio', 'included_tracks': 80}
+        # Song accounting persists outside chat storage; isolate this fixture too.
+        with billing.db() as conn:
+            conn.execute('DELETE FROM song_usage WHERE user_id=?', (self.user['id'],))
         self.song = await main.create_song_project(self.user)
         self.id = self.song['sessionId']
 
@@ -82,6 +86,40 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(session.planning_only)
         self.assertEqual(result['tool_calls'][0]['result']['status'], 'failed')
         self.assertNotIn('create_midi_track', {t['name'] for t in client.messages.create.call_args.kwargs['tools']})
+
+    async def test_action_mode_does_not_inherit_previous_discussion(self):
+        with patch.object(main, 'claude_client', object()), \
+                patch.object(main, '_run_claude_loop', AsyncMock(return_value=('Fixture response', []))):
+            for discuss in (True, False):
+                request = main.ChatRequest(message='Check the next step', session_id=self.id, planning_only=discuss)
+                session, bridge = main.prepare_chat(request, self.user)
+                await main.produce_chat(request, session, bridge)
+                self.assertEqual(session.discussion_only, discuss)
+                self.assertEqual(session.planning_only, discuss)
+
+    async def test_discuss_does_not_require_a_responsive_live_set(self):
+        bridge = self.bridge()
+        bridge.send_command.side_effect = TimeoutError
+        bridge.local_operation.side_effect = TimeoutError
+        request = main.ChatRequest(message='What makes a groove swing?', session_id=self.id, planning_only=True)
+        with patch.object(main, 'claude_client', object()), \
+                patch.object(main, '_run_claude_loop', AsyncMock(return_value=('Fixture response', []))):
+            session, connected = main.prepare_chat(request, self.user)
+            await main.produce_chat(request, session, connected)
+        bridge.send_command.assert_not_awaited()
+        bridge.local_operation.assert_not_awaited()
+
+    async def test_action_reports_missing_prerequisite_instead_of_silent_discussion(self):
+        request = main.ChatRequest(message='Build from the reference', session_id=self.id)
+        with patch.object(main, 'claude_client', object()), \
+                patch.object(main.song_projects, 'planning_reason', return_value='The reference is not ready.'), \
+                patch.object(main, '_run_claude_loop', AsyncMock()) as model:
+            session, bridge = main.prepare_chat(request, self.user)
+            with self.assertRaises(main.HTTPException) as error:
+                await main.produce_chat(request, session, bridge)
+            self.assertEqual(error.exception.status_code, 409)
+            self.assertIn('Action could not start', error.exception.detail)
+            model.assert_not_awaited()
 
     def bridge(self, title='My Song', ready=True):
         bridge = SimpleNamespace(user_id=42, lock=asyncio.Lock(),

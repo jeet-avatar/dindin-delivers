@@ -92,7 +92,7 @@ async function main() {
       await page.getByRole('button', { name: 'Keep it and move on', exact: true }).click();
       await page.waitForFunction(() => !document.querySelector('button[aria-label="Stop production"]'));
       assert.equal(chats.length, 1);
-      assert.equal(chats[0].planning_only, true);
+      assert.equal(chats[0].planning_only, false, 'Next-step choices must honor the visible Action mode');
       assert.equal(chats[0].message, 'Keep Kick as it is. Which part should we choose next?');
       await page.getByText('Which part would you like next?', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'New song', exact: true }).click();
@@ -109,7 +109,7 @@ async function main() {
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-guided-workflow-${width}.png` });
-      console.log(`PASS ${width}px: preview once, acceptance pauses without chat, remount silent, explicit next choice discussion-only, reference/idea routes`);
+      console.log(`PASS ${width}px: preview once, acceptance pauses without chat, remount silent, explicit next choice honors Action mode, reference/idea routes`);
       await context.close();
     }
   } finally { await browser.close(); }
