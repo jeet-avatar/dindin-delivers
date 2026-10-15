@@ -5,8 +5,11 @@ import hashlib
 import logging
 import threading
 import time
+import ipaddress
+import socket
 from datetime import datetime
 from typing import Optional
+from urllib.parse import urlparse
 import requests
 from sqlalchemy.orm import Session as DBSession
 
@@ -101,6 +104,40 @@ def build_webhook_payload(
     }
 
 
+_PRIVATE_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),  # AWS metadata & link-local
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _validate_webhook_url(url: str) -> bool:
+    """Return True only for HTTPS URLs that resolve to public IPs (SSRF guard)."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            logger.warning("Webhook URL rejected: scheme must be https, got %s", parsed.scheme)
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        # Resolve to IP(s) and check each is public
+        addr_infos = socket.getaddrinfo(hostname, None)
+        for info in addr_infos:
+            ip = ipaddress.ip_address(info[4][0])
+            if any(ip in net for net in _PRIVATE_NETWORKS):
+                logger.warning("Webhook URL rejected: %s resolves to private IP %s", url, ip)
+                return False
+        return True
+    except Exception as exc:
+        logger.warning("Webhook URL validation error for %s: %s", url, exc)
+        return False
+
+
 def _send_webhook(url: str, payload_json: str, signature: str) -> bool:
     """Send webhook with retries.
 
@@ -181,6 +218,11 @@ def dispatch_webhooks(event: InsuranceEvent, db: DBSession) -> None:
         for webhook in webhooks:
             # Filter by event_types if configured
             if webhook.event_types and event.event_type not in webhook.event_types:
+                continue
+
+            # M5: SSRF guard — validate URL before dispatching
+            if not _validate_webhook_url(webhook.callback_url):
+                logger.error("Skipping webhook id=%s: invalid callback_url", webhook.id)
                 continue
 
             # Sign and dispatch

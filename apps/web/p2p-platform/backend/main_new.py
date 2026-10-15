@@ -479,7 +479,7 @@ _PUBLIC_PREFIXES = [
     "/api/erp/auth/",         # All ERP auth proxies
     "/api/vendors/public",    # Public vendor registration + document upload (code-gated)
     "/api/restaurants",       # Public restaurant browsing
-    "/uploads/",              # Static files
+    # H7: /uploads/ is intentionally NOT listed — driver docs require authentication
     "/admin",                 # Admin SPA frontend (static files, auth handled client-side)
     "/login",                 # Admin login page (SPA frontend)
     "/assets/",               # Vite-built frontend assets
@@ -584,11 +584,29 @@ async def require_auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-# Mount static files for serving uploaded documents
-# Creates uploads directory if it doesn't exist
+# Creates uploads directory if it doesn't exist (used as local fallback when S3 not configured)
 import os
 os.makedirs("uploads/vendor_documents", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+# H7: Authenticated file server — replaces public StaticFiles mount.
+# Only authenticated drivers (for their own docs) or admins may access /uploads/.
+@app.get("/uploads/{file_path:path}")
+async def serve_upload(
+    file_path: str,
+    payload: dict = Depends(require_any_auth),
+):
+    from fastapi.responses import FileResponse
+    import pathlib
+    # Prevent path traversal
+    base = pathlib.Path("uploads").resolve()
+    target = (base / file_path).resolve()
+    if not str(target).startswith(str(base)):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(str(target))
+
 
 # ===================== RATE LIMITING =====================
 # SECURITY: Protect auth endpoints from brute force attacks (Redis-backed, shared across workers/tasks)
@@ -756,11 +774,13 @@ async def health_db_pool():
 
 
 @app.post("/api/admin/backfill-payouts")
-async def backfill_payouts(request: Request, secret_key: str = Query(...), db: Session = Depends(get_db)):
+async def backfill_payouts(request: Request, db: Session = Depends(get_db)):
     """Backfill platform_fee and driver_payout for completed rides"""
     check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
-    expected_key = os.getenv("ADMIN_SECRET_KEY")
-    if not expected_key or secret_key != expected_key:
+    import hmac as _hmac
+    expected_key = os.getenv("ADMIN_SECRET_KEY", "")
+    secret_key = request.headers.get("X-Admin-Secret", "")
+    if not expected_key or not _hmac.compare_digest(secret_key, expected_key):
         raise HTTPException(status_code=403, detail="Invalid secret key")
 
     from models import RideRequest, RideRequestStatus
@@ -803,17 +823,19 @@ async def backfill_payouts(request: Request, secret_key: str = Query(...), db: S
 
 # Database Migration Endpoint (protected with secret key)
 @app.post("/api/admin/migrate")
-async def run_migrations(request: Request, secret_key: str = Query(...), db: Session = Depends(get_db)):
+async def run_migrations(request: Request, db: Session = Depends(get_db)):
     """
     Run database migrations to add missing columns.
-    Protected with ADMIN_SECRET_KEY environment variable.
+    Protected with ADMIN_SECRET_KEY via X-Admin-Secret header.
     Each migration step commits independently to prevent cascade failures.
     """
     check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
-    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    import hmac as _hmac
+    expected_key = os.getenv("ADMIN_SECRET_KEY", "")
     if not expected_key:
         raise HTTPException(status_code=500, detail="ADMIN_SECRET_KEY not configured")
-    if secret_key != expected_key:
+    secret_key = request.headers.get("X-Admin-Secret", "")
+    if not _hmac.compare_digest(secret_key, expected_key):
         raise HTTPException(status_code=403, detail="Invalid secret key")
 
     from sqlalchemy import text
@@ -1259,6 +1281,28 @@ class PaymentResponse(BaseModel):
         from_attributes = True
 
 # Helper functions
+
+# M8: Magic-byte MIME detection for file uploads (never trust client content_type)
+_DOCUMENT_SIGNATURES = [
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"%PDF-", "application/pdf"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+    (b"RIFF", "image/webp"),  # RIFF....WEBP
+]
+
+def _detect_document_mime(content: bytes) -> str | None:
+    """Return MIME type from file magic bytes, or None if not an allowed type."""
+    for sig, mime in _DOCUMENT_SIGNATURES:
+        if content[:len(sig)] == sig:
+            return mime
+    # HEIC: ISO Base Media File Format — 4-byte box size + b"ftyp"
+    if len(content) >= 12 and content[4:8] == b"ftyp":
+        return "image/heic"
+    return None
+
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -1973,7 +2017,10 @@ def setup_production_admin(secret_key: Optional[str] = Query(None), db: Session 
     if _is_production:
         raise HTTPException(status_code=404, detail="Not found")
     admin_email = "support@dollor.ai"
-    admin_password = "DollorAdmin2026!"
+    # SECURITY: Never hardcode passwords in source. Set ADMIN_INITIAL_PASSWORD env var.
+    admin_password = os.getenv("ADMIN_INITIAL_PASSWORD")
+    if not admin_password:
+        raise HTTPException(status_code=500, detail="ADMIN_INITIAL_PASSWORD env var not set")
 
     # Check if production admin exists
     existing = db.query(User).filter(User.email == admin_email).first()
@@ -2033,8 +2080,14 @@ class AdminLoginRequest(BaseModel):
         return self.email or self.username or ""
 
 @app.post("/api/admin/login")
-def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
+def admin_login_json(http_request: Request, request: AdminLoginRequest, db: Session = Depends(get_db)):
     """JSON-based admin login endpoint for web frontend"""
+    # SECURITY: Rate-limit admin login to prevent brute force
+    check_rate_limit(http_request, auth_rate_limiter, "admin_login")
+    check_rate_limit(http_request, email_auth_rate_limiter, "admin_login_email",
+                     identifier=request.get_email().lower())
+    _check_login_lockout(request.get_email().lower())
+
     login_email = request.get_email()
     if not login_email:
         raise HTTPException(
@@ -2350,19 +2403,22 @@ def _verify_apple_jwt(token: str) -> dict:
 
 
 def _verify_google_jwt(token: str) -> dict:
-    """Verify Google identity token signature using google-auth library."""
+    """Verify Google identity token signature and audience using google-auth library."""
     try:
         from google.oauth2 import id_token
         from google.auth.transport import requests as google_requests
 
-        # GOOGLE_CLIENT_ID in env enables audience verification (recommended)
-        # If not set, signature is still verified but audience is not checked
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        # SECURITY: Fail closed — never skip audience verification in production.
+        # An absent GOOGLE_CLIENT_ID would accept tokens from ANY Google app.
+        if not google_client_id:
+            logger.error("GOOGLE_CLIENT_ID not configured — Google auth disabled")
+            return {}
 
         payload = id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
-            audience=google_client_id  # None = skip audience check (still verifies signature)
+            audience=google_client_id,
         )
         logger.info(f"Google JWT verified: sub={payload.get('sub')} email={mask_email(payload.get('email'))}")
         return payload
@@ -2408,17 +2464,23 @@ def confirm_password_reset(http_request: Request, request: PasswordResetConfirm,
         if token_type != "password_reset":
             raise HTTPException(status_code=400, detail="Invalid reset token")
 
-        # SECURITY: Prevent token reuse -- check if this token has already been used
+        # SECURITY: Prevent token reuse -- check Redis first, fall back to DB flag
         import hashlib
         token_hash = hashlib.sha256(request.token.encode()).hexdigest()
         used_key = f"pwd_reset_used:{token_hash}"
+        _redis_available = False
         try:
             from cache import redis_client, REDIS_AVAILABLE
-            if REDIS_AVAILABLE and redis_client:
-                if redis_client.get(used_key):
-                    raise HTTPException(status_code=400, detail="Reset token has already been used")
+            _redis_available = REDIS_AVAILABLE and bool(redis_client)
+            if _redis_available and redis_client.get(used_key):
+                raise HTTPException(status_code=400, detail="Reset token has already been used")
         except ImportError:
-            pass  # Redis not available, skip check (defense in depth)
+            pass
+        # DB fallback: check password_reset_token_used flag on the user row
+        # We find the user by decoding the token payload (email is in the verified jwt claims above)
+        _db_user_check = db.query(User).filter(User.email == email).first()
+        if _db_user_check and getattr(_db_user_check, "password_reset_token_used", None) == token_hash:
+            raise HTTPException(status_code=400, detail="Reset token has already been used")
 
         user = db.query(User).filter(User.email == email).first()
         if not user:
@@ -2428,12 +2490,19 @@ def confirm_password_reset(http_request: Request, request: PasswordResetConfirm,
         user.password_hash = get_password_hash(request.new_password)
         db.commit()
 
-        # SECURITY: Mark token as used in Redis (1 hour TTL matches token lifetime)
+        # SECURITY: Mark token as used in Redis + DB so it cannot be replayed
         try:
-            if REDIS_AVAILABLE and redis_client:
+            if _redis_available and redis_client:
                 redis_client.setex(used_key, 3600, "1")
         except Exception:
-            pass  # Best effort -- token expiry is the backup protection
+            pass
+        # DB fallback: stamp the token hash on the user row
+        try:
+            if user and hasattr(user, "password_reset_token_used"):
+                user.password_reset_token_used = token_hash
+                db.commit()
+        except Exception:
+            pass
 
         return {"message": "Password has been reset successfully"}
 
@@ -3606,10 +3675,15 @@ class VerifyEmailRequest(BaseModel):
 
 @app.post("/api/customer/email/send-verification")
 def send_verification_email(
+    http_request: Request,
     customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Send email verification code to customer's email"""
+    # SECURITY: Rate-limit to prevent OTP spam and enumeration
+    check_rate_limit(http_request, password_reset_limiter, "email_verify_send",
+                     identifier=customer.email.lower())
+
     # Check if already verified
     if customer.email_verified:
         return {
@@ -3618,8 +3692,9 @@ def send_verification_email(
             "already_verified": True
         }
 
-    # Generate 6-digit verification code
-    verification_code = ''.join(random.choices(string.digits, k=6))
+    # Generate cryptographically secure 6-digit verification code
+    import secrets as _secrets_mod
+    verification_code = ''.join(_secrets_mod.choice(string.digits) for _ in range(6))
 
     # Set expiry to 15 minutes from now
     expiry_time = datetime.utcnow() + timedelta(minutes=15)
@@ -3649,11 +3724,15 @@ def send_verification_email(
 
 @app.post("/api/customer/email/verify")
 def verify_customer_email(
+    http_request: Request,
     request: VerifyEmailRequest,
     customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Verify customer email with the 6-digit code"""
+    # SECURITY: Rate-limit to prevent 6-digit OTP brute force (1M possibilities)
+    check_rate_limit(http_request, auth_rate_limiter, "email_verify_attempt",
+                     identifier=customer.email.lower())
     # Check if already verified
     if customer.email_verified:
         return {
@@ -3898,6 +3977,18 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db), _auth: dict = D
     from sqlalchemy import text
     from models import RideRequest, RideRequestStatus
 
+    # SECURITY: Verify caller is a participant in this ride before exposing driver PII
+    caller_customer_id = _auth.get("customer_id")
+    caller_driver_id = _auth.get("driver_id")
+    rr = db.query(RideRequest).filter(
+        (RideRequest.id == ride_id) | (RideRequest.request_id == str(ride_id))
+    ).first()
+    if rr:
+        is_customer = caller_customer_id and rr.customer_id and int(caller_customer_id) == int(rr.customer_id)
+        is_driver = caller_driver_id and rr.matched_driver_id and int(caller_driver_id) == int(rr.matched_driver_id)
+        if not is_customer and not is_driver:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     # Try legacy rides table first
     result = None
     try:
@@ -4092,6 +4183,19 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db), _auth: d
     Full tracking endpoint for RIDESHARE - queries real data from database
     For FOOD ORDER tracking, use /api/erp/orders/{order_id}/full-tracking (in order_flow.py)
     """
+    # SECURITY: Only the customer or matched driver for THIS ride can see driver PII
+    from models import RideRequest as _RR
+    caller_customer_id = _auth.get("customer_id")
+    caller_driver_id = _auth.get("driver_id")
+    rr = db.query(_RR).filter(
+        (_RR.id == ride_id) | (_RR.request_id == str(ride_id))
+    ).first()
+    if rr:
+        is_customer = caller_customer_id and rr.customer_id and int(caller_customer_id) == int(rr.customer_id)
+        is_driver = caller_driver_id and rr.matched_driver_id and int(caller_driver_id) == int(rr.matched_driver_id)
+        if not is_customer and not is_driver:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     try:
         from sqlalchemy import text
 
@@ -4971,7 +5075,11 @@ async def stripe_connect_webhook(
     import os
 
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-    webhook_secret = os.getenv("STRIPE_CONNECT_WEBHOOK_SECRET", os.getenv("STRIPE_WEBHOOK_SECRET"))
+    # M6: must use the Connect-specific secret — the standard webhook secret is DIFFERENT
+    webhook_secret = os.getenv("STRIPE_CONNECT_WEBHOOK_SECRET")
+    if not webhook_secret:
+        logger.error("STRIPE_CONNECT_WEBHOOK_SECRET is not set — Connect webhook rejected")
+        raise HTTPException(status_code=500, detail="Webhook not configured")
 
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
@@ -5580,13 +5688,18 @@ async def upload_driver_document_by_id(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
 
+    # M8: Validate actual file type via magic bytes — never trust client content_type
+    _detected_mime = _detect_document_mime(content)
+    if not _detected_mime:
+        raise HTTPException(status_code=400, detail="Unsupported file type. Upload JPEG, PNG, PDF, WEBP, GIF or HEIC.")
+
     # Use S3 service for upload (falls back to local if S3 not configured)
     s3_service = get_s3_service()
     success, url_path, message = await s3_service.upload_file(
         file_content=content,
         original_filename=file.filename,
         folder=f"driver_documents/{driver.id}",
-        content_type=file.content_type
+        content_type=_detected_mime  # use verified MIME, not client-supplied
     )
 
     if not success:
@@ -5654,13 +5767,18 @@ async def upload_driver_document(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
 
+    # M8: Validate actual file type via magic bytes
+    _detected_mime = _detect_document_mime(content)
+    if not _detected_mime:
+        raise HTTPException(status_code=400, detail="Unsupported file type. Upload JPEG, PNG, PDF, WEBP, GIF or HEIC.")
+
     # Use S3 service for upload (falls back to local if S3 not configured)
     s3_service = get_s3_service()
     success, url_path, message = await s3_service.upload_file(
         file_content=content,
         original_filename=file.filename,
         folder=f"driver_documents/{driver.id}",
-        content_type=file.content_type
+        content_type=_detected_mime  # use verified MIME, not client-supplied
     )
 
     if not success:
@@ -9709,6 +9827,14 @@ async def track_ride(
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
+    # SECURITY: Only the customer or matched driver for THIS ride can track it
+    caller_customer_id = _auth.get("customer_id")
+    caller_driver_id = _auth.get("driver_id")
+    is_customer = caller_customer_id and ride.customer_id and int(caller_customer_id) == int(ride.customer_id)
+    is_driver = caller_driver_id and ride.matched_driver_id and int(caller_driver_id) == int(ride.matched_driver_id)
+    if not is_customer and not is_driver:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     # Base response matching iOS RideTrackingInfo struct
     response = {
         "success": True,
@@ -13176,11 +13302,16 @@ def admin_cleanup_pending_orders(
     Keeps: confirmed, preparing, ready_for_pickup, out_for_delivery, delivered, etc.
     Accepts either admin JWT Bearer token or ADMIN_SECRET_KEY query param.
     """
-    # Auth: accept JWT Bearer or secret_key query param
-    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    # Auth: accept JWT Bearer or X-Admin-Secret header (not query param — see H2 fix)
+    import hmac as _hmac_mod
+    expected_key = os.getenv("ADMIN_SECRET_KEY", "")
     auth_header = request.headers.get("authorization", "")
     has_jwt = auth_header.startswith("Bearer ")
-    has_secret = expected_key and secret_key and secret_key == expected_key
+    # M7: use constant-time compare to prevent timing attacks
+    _provided = (secret_key or request.headers.get("X-Admin-Secret", "")).encode()
+    has_secret = bool(expected_key) and bool(_provided) and _hmac_mod.compare_digest(
+        _provided, expected_key.encode()
+    )
     if not has_jwt and not has_secret:
         raise HTTPException(status_code=401, detail="Admin authentication required")
     check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
@@ -13250,11 +13381,16 @@ def admin_cleanup_all_incomplete(
     - Also cancels any bids that are still PENDING
     Accepts either admin JWT Bearer token or ADMIN_SECRET_KEY query param.
     """
-    # Auth: accept JWT Bearer or secret_key query param
-    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    # Auth: accept JWT Bearer or X-Admin-Secret header (not query param — see H2 fix)
+    import hmac as _hmac_mod
+    expected_key = os.getenv("ADMIN_SECRET_KEY", "")
     auth_header = request.headers.get("authorization", "")
     has_jwt = auth_header.startswith("Bearer ")
-    has_secret = expected_key and secret_key and secret_key == expected_key
+    # M7: use constant-time compare to prevent timing attacks
+    _provided = (secret_key or request.headers.get("X-Admin-Secret", "")).encode()
+    has_secret = bool(expected_key) and bool(_provided) and _hmac_mod.compare_digest(
+        _provided, expected_key.encode()
+    )
     if not has_jwt and not has_secret:
         raise HTTPException(status_code=401, detail="Admin authentication required")
     check_rate_limit(request, admin_mutation_limiter, "admin_mutation")

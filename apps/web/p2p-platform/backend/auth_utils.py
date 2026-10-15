@@ -109,6 +109,14 @@ async def require_customer(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        # M4: Reject tokens that carry a role claim for a different role
+        token_role = payload.get("role")
+        if token_role and token_role != "customer":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Customer token required",
+            )
+
         # Try customer_id first (set during customer registration)
         customer_id = payload.get("customer_id")
         if customer_id:
@@ -160,6 +168,14 @@ async def require_driver(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # M4: Reject tokens that carry a role claim for a different role
+        token_role = payload.get("role")
+        if token_role and token_role != "driver":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Driver token required",
             )
 
         # Try driver_id first
