@@ -30,7 +30,7 @@ class EmptyRackTests(unittest.TestCase):
         for uri in ('Drums/Drum Rack', 'Instrument Rack', 'drum rack'):
             with self.assertRaises(ValueError) as caught:
                 tool_to_osc('load_instrument', {'track': 3, 'instrument_uri': uri})
-            self.assertIn('Core Kit', str(caught.exception))
+            self.assertIn('populated kit or saved preset', str(caught.exception))
         commands = tool_to_osc('load_instrument', {'track': 3, 'instrument_uri': 'Drums/909 Core Kit.adg'})
         self.assertEqual(commands[1]['args'], ['909 Core Kit.adg'])
 

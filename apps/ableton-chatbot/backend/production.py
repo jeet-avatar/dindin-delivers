@@ -128,3 +128,33 @@ def replace_audition(user_id, previous_id, recording_id):
             if part.get("recording_id") == previous_id:
                 part.update(recording_id=recording_id, status="awaiting_review")
                 save(plan)
+
+
+def recent_sound_choices(user_id, session_id, limit=8):
+    """Other-song briefs for variety; never evidence of current devices or approval."""
+    choices = []
+    try:
+        files = sorted(ROOT.glob("*.json"), key=lambda file: file.stat().st_mtime, reverse=True)
+    except OSError:
+        return []
+    for file in files:
+        try:
+            plan = json.loads(file.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(plan, dict) or plan.get("user_id") != user_id or plan.get("session_id") == session_id:
+            continue
+        parts = plan.get("parts", [])
+        if not isinstance(parts, list):
+            continue
+        for part in parts:
+            if not isinstance(part, dict):
+                continue
+            choice = {key: part[key][:600] for key in ("role", "source", "sound", "status")
+                      if isinstance(part.get(key), str)}
+            if not choice.get("source") or choice in choices:
+                continue
+            choices.append(choice)
+            if len(choices) >= limit:
+                return choices
+    return choices

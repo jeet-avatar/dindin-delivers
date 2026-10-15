@@ -24,7 +24,7 @@ from claude_tools import ABLETON_TOOLS, SYSTEM_PROMPT
 from execution import BAD_STATUSES, MAX_PRODUCTION_ROUNDS, execute_verified
 from ai_provider import create_client, failure_message, model_name, provider_name
 from automation import AUTOMATION_TOOLS, execute_automation, note_density
-from production import create_plan, get_plan, link_audition, review_part, replace_audition
+from production import create_plan, get_plan, link_audition, review_part, replace_audition, recent_sound_choices
 from producer_reply import preview_reply
 from session_context import matching_recordings, context_note
 from model_history import bounded_history
@@ -966,6 +966,9 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         bridge_note += "\nStaged Arrangement planning, placement and scoped revisions are unavailable on this connected Bridge. Do not call those tools or claim those features are ready. Existing instrument, clip and sound-production tools remain available; this is not a read-only connection."
     bridge_note += getattr(session, 'reference_note', '')
     bridge_note += brief_context(messages)
+    recent_choices = recent_sound_choices(session.user_id, session.session_id)
+    if recent_choices:
+        bridge_note += "\nRecent sound choices from your other song briefs (historical intent, not current library availability or proof of approval): " + json.dumps(recent_choices)
     bridge_note += '\n' + getattr(session, 'project_note', '')
     planning_only = getattr(session, 'planning_only', False)
     discussion_only = getattr(session, 'discussion_only', planning_only and not (session.project or {}).get('remix'))
