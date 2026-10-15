@@ -4603,12 +4603,10 @@ def update_driver_status(
     driver_id: int,
     status: str,
     skip_document_check: bool = Query(False, description="Skip document verification (admin override)"),
-    _auth_driver: Driver = Depends(require_driver),
+    _admin: User = Depends(require_admin),  # SECURITY: admin-only — drivers must not self-approve
     db: Session = Depends(get_db)
 ):
-    """Update driver status - sends approval email when approved"""
-    if _auth_driver.id != driver_id:
-        raise HTTPException(status_code=403, detail="Access denied - not your account")
+    """Update driver status - sends approval email when approved. Admin only."""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
