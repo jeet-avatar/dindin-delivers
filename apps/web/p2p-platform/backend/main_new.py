@@ -457,6 +457,9 @@ _PUBLIC_EXACT_PATHS = {
     # Investor token-gated (not JWT-gated)
     "/api/investor/request-access", "/api/investor/verify-access", "/api/investor/log-view",
 
+    # Waitlist (public landing page + partner forms)
+    "/api/waitlist", "/api/waitlist/count",
+
     # Voice agent (Twilio webhook, no JWT) and AI text chat
     "/api/voice/incoming-call",
     "/api/support/chat",
