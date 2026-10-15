@@ -844,12 +844,24 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
                     stripe_customer = stripe.Customer.retrieve(stripe_customer_id)
                     default_payment_method = stripe_customer.invoice_settings.default_payment_method
                     if not default_payment_method:
-                        # CardError is a StripeError subclass, so this is caught by the
-                        # except block below, reusing its ride-cancel + notify logic as-is.
-                        raise stripe.error.CardError(
-                            message="No payment method on file for this ride.",
-                            param="payment_method", code="no_payment_method"
-                        )
+                        # No explicit default — fall back to any attached card.
+                        # This covers Apple Pay cards (added via SetupIntent) and manually
+                        # added cards that the customer never tapped "Set as Default".
+                        pms = stripe.PaymentMethod.list(customer=stripe_customer_id, type="card", limit=1)
+                        if pms.data:
+                            default_payment_method = pms.data[0].id
+                            # Auto-promote so future rides skip this fallback path.
+                            stripe.Customer.modify(
+                                stripe_customer_id,
+                                invoice_settings={"default_payment_method": default_payment_method}
+                            )
+                            logger.info(f"Auto-set default payment method {default_payment_method} for customer {customer_obj.id}")
+                        else:
+                            # CardError is a StripeError subclass, caught below (ride-cancel + notify).
+                            raise stripe.error.CardError(
+                                message="No payment method on file for this ride.",
+                                param="payment_method", code="no_payment_method"
+                            )
 
                     final_price_cents = int(float(bid.proposed_price) * 100)
                     if final_price_cents > 0:
@@ -2822,12 +2834,12 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
             if driver:
                 driver_name = f"{driver.first_name} {driver.last_name}".strip() or "Your driver"
 
-            final_price = ride_request.final_price or 0
+            _push_price = float(ride_request.final_price or 0)
             send_push_notification(
                 user_type="customer",
                 user_id=ride_request.customer_id,
                 title="Ride Complete!",
-                body=f"You've arrived! Total: ${final_price:.2f}. Rate {driver_name} and add a tip.",
+                body=f"You've arrived! Total: ${_push_price:.2f}. Rate {driver_name} and add a tip.",
                 data={
                     "type": "ride_completed",
                     "ride_request_id": str(ride_request.id),
