@@ -39,6 +39,7 @@ from email_service import (
     send_driver_approval_email, send_driver_registration_confirmation,
     send_customer_welcome_email, send_email_verification_code,
     send_password_reset_email, send_password_reset_link_email,
+    notify_support,
     # Order lifecycle emails
     send_order_confirmation_email, send_order_ready_email,
 )
@@ -2185,13 +2186,18 @@ def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         # Create demo driver
         hashed_password = get_password_hash(demo_password)
 
-        # Create driver record first
+        # Create driver record first — pre-verified so App Store reviewers can bid on rides
         demo_driver = Driver(
             first_name="Demo",
             last_name="Driver",
             email=demo_email,
             phone="+14155550002",
             status=DriverStatus.ACTIVE,
+            is_online=True,
+            current_latitude=37.7749,
+            current_longitude=-122.4194,
+            verification_status="passed",
+            documents_verified=True,
             created_at=datetime.utcnow()
         )
         db.add(demo_driver)
@@ -2211,13 +2217,22 @@ def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         db.refresh(user)
         print(f"Created demo driver: {mask_email(demo_email)}")
     else:
-        # Demo user exists - ensure password is correct
+        # Demo user exists - ensure password is correct and KYC fields are set
         user.password_hash = get_password_hash(demo_password)
         db.commit()
         print(f"Updated demo driver credentials: {mask_email(demo_email)}")
 
-    # Get driver record
+    # Get driver record — ensure KYC/online state is set for App Store review
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+    if driver:
+        driver.verification_status = "passed"
+        driver.documents_verified = True
+        driver.is_online = True
+        driver.status = DriverStatus.ACTIVE
+        if not driver.current_latitude:
+            driver.current_latitude = 37.7749
+            driver.current_longitude = -122.4194
+        db.commit()
     driver_name = f"{driver.first_name} {driver.last_name}" if driver else "Demo Driver"
 
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": user.driver_id})
@@ -2684,6 +2699,24 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
             print(f"Driver registration email sent to: {mask_email(new_driver.email)}")
         except Exception as e:
             print(f"Failed to send driver registration email: {str(e)}")
+
+        # Notify support@dollor.ai of new driver application
+        try:
+            notify_support(
+                subject=f"New driver application: {new_driver.first_name} {new_driver.last_name}",
+                details={
+                    "Name": f"{new_driver.first_name} {new_driver.last_name}",
+                    "Email": new_driver.email,
+                    "Phone": new_driver.phone or "(not provided)",
+                    "Vehicle Type": getattr(request, "vehicle_type", "(not provided)"),
+                    "License #": getattr(request, "license_number", "(not provided)"),
+                    "Driver Code": driver_code,
+                    "Status": "Pending review",
+                    "Next step": "Background check + document upload required",
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Driver notify_support failed (non-fatal): {e}")
 
         return {
             "access_token": access_token,
@@ -9930,13 +9963,15 @@ async def tip_ride_driver(
     _auth: dict = Depends(require_any_auth)
 ):
     """
-    Add tip to driver for a completed ride.
-    100% of tip goes to driver.
-    Used by Android/iOS customer apps.
+    Finalize a completed ride: capture the authorized PaymentIntent for fare + tip,
+    then pay the driver. Called by customer after dropoff (tip_amount=0 to skip tip).
     Accepts JSON body: {"tip_amount": 3.00}
     """
     check_rate_limit(request, payment_limiter, "payment", identifier=str(_auth.get("customer_id", _auth.get("user_id", "unknown"))))
-    from models import RideRequest
+    from models import RideRequest, RideRequestStatus
+    import stripe as stripe_lib
+    import os
+    from rideshare_payments import get_tier_fee
 
     actual_tip = body.tip_amount
 
@@ -9944,72 +9979,85 @@ async def tip_ride_driver(
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    # SECURITY: Only customers can tip, and only on their own rides
     customer_id = _auth.get("customer_id")
     if not customer_id:
-        raise HTTPException(status_code=403, detail="Only customers can tip on rides")
+        raise HTTPException(status_code=403, detail="Only customers can finalize rides")
     if ride.customer_id != customer_id:
-        raise HTTPException(status_code=403, detail="You can only tip on your own rides")
+        raise HTTPException(status_code=403, detail="You can only finalize your own rides")
 
-    # Only allow tipping on completed rides
-    from models import RideRequestStatus
     if ride.status != RideRequestStatus.COMPLETED:
-        raise HTTPException(status_code=400, detail=f"Can only tip on completed rides (current: {ride.status.value})")
+        raise HTTPException(status_code=400, detail=f"Ride must be completed before finalizing (current: {ride.status.value})")
 
-    # F6 SECURITY: Validate tip amount against ride fare (max 100% of fare)
-    ride_fare = float(ride.final_price or ride.suggested_price or 50)
+    ride_fare = float(ride.final_price or ride.suggested_price or 0)
     if actual_tip > ride_fare:
         raise HTTPException(status_code=400, detail=f"Tip cannot exceed ride fare (${ride_fare:.2f})")
 
-    # F6 SECURITY: Attempt Stripe transfer FIRST, only save to DB if successful
-    # This prevents the accounting mismatch where tip is in DB but driver never receives it
-    tip_transferred = False
-    tip_transfer_id = None
+    total_charge = ride_fare + actual_tip
+    pi_id = ride.stripe_payment_intent_id
+    captured = False
+    transfer_id = None
 
-    if ride.stripe_transfer_id:
+    if pi_id and not pi_id.startswith("demo_"):
+        stripe_lib.api_key = os.getenv("STRIPE_SECRET_KEY")
+        try:
+            # Increase the authorized amount if a tip was added before capturing
+            if actual_tip > 0:
+                stripe_lib.PaymentIntent.modify(
+                    pi_id,
+                    amount=int(total_charge * 100),
+                    metadata={"tip_amount": str(actual_tip)},
+                )
+
+            stripe_lib.PaymentIntent.capture(pi_id)
+            captured = True
+            logger.info(f"Ride {ride_id} PI {pi_id} captured: fare=${ride_fare:.2f} tip=${actual_tip:.2f}")
+        except stripe_lib.error.StripeError as e:
+            logger.error(f"Ride {ride_id} capture FAILED: {e}")
+            raise HTTPException(status_code=502, detail="Payment capture failed. Please try again.")
+
+        # Transfer driver payout after successful capture
         driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
-        if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
-            import stripe as stripe_lib
-            import os
-            stripe_lib.api_key = os.getenv("STRIPE_SECRET_KEY")
-            tip_cents = int(actual_tip * 100)
-            if tip_cents > 0:
+        if driver and getattr(driver, "stripe_account_id", None) and getattr(driver, "stripe_onboarded", False):
+            tier_fee = get_tier_fee(ride_fare)
+            driver_payout = round(ride_fare - tier_fee + actual_tip, 2)
+            payout_cents = int(driver_payout * 100)
+            if payout_cents > 0:
                 try:
                     transfer = stripe_lib.Transfer.create(
-                        amount=tip_cents,
+                        amount=payout_cents,
                         currency="usd",
                         destination=driver.stripe_account_id,
-                        description=f"Ride {ride.request_id} tip",
-                        idempotency_key=f"ride_tip_{ride_id}_{int(actual_tip * 100)}",
+                        description=f"Ride {ride.request_id} payout (fare - fee + tip)",
+                        idempotency_key=f"ride_payout_{ride_id}",
                         metadata={
                             "ride_id": str(ride_id),
-                            "type": "tip",
-                            "tip_amount": str(actual_tip),
-                        }
+                            "fare": str(ride_fare),
+                            "tip": str(actual_tip),
+                            "platform_fee": str(tier_fee),
+                        },
                     )
-                    tip_transferred = True
-                    tip_transfer_id = transfer.id
-                    logger.info(f"Ride {ride_id} tip ${actual_tip:.2f} transferred to driver {driver.id}, transfer={transfer.id}")
+                    transfer_id = transfer.id
+                    ride.stripe_transfer_id = transfer_id
+                    ride.driver_paid_at = datetime.utcnow()
+                    ride.driver_payout = driver_payout
+                    logger.info(f"Ride {ride_id} driver payout ${driver_payout:.2f}, transfer={transfer_id}")
                 except stripe_lib.error.StripeError as e:
-                    logger.error(f"Ride {ride_id} tip transfer FAILED: {e}")
-                    raise HTTPException(
-                        status_code=502,
-                        detail="Tip transfer failed. Please try again."
-                    )
+                    logger.error(f"Ride {ride_id} driver transfer FAILED (capture already done): {e}")
 
-    # F6: Only save tip to DB AFTER successful Stripe transfer (or if no Stripe transfer needed)
-    # Use replace (not accumulate) to prevent tip manipulation
     ride.tip_amount = actual_tip
+    ride.payment_status = "captured" if captured else "pending"
+    ride.payment_completed_at = datetime.utcnow() if captured else None
     db.commit()
 
     return {
         "success": True,
-        "message": f"${actual_tip:.2f} tip added for your driver",
+        "message": f"Ride finalized — fare ${ride_fare:.2f}" + (f", tip ${actual_tip:.2f}" if actual_tip > 0 else ""),
         "ride_id": ride_id,
+        "fare": ride_fare,
         "tip_amount": actual_tip,
-        "tip_transferred": tip_transferred,
-        "tip_transfer_id": tip_transfer_id,
-        "driver_new_earnings": actual_tip  # 100% to driver
+        "total_charged": total_charge,
+        "captured": captured,
+        "driver_transfer_id": transfer_id,
     }
 
 
@@ -13818,6 +13866,86 @@ if _frontend_dist.is_dir():
     @app.get("/login")
     async def login_spa():
         return FileResponse(str(_frontend_dist / "index.html"))
+
+
+# ── Waitlist ──────────────────────────────────────────────────────────────────
+
+class WaitlistRequest(BaseModel):
+    email: EmailStr
+    name: str = ""
+    role: str = "rider"  # rider | driver | both
+
+@app.post("/api/waitlist")
+async def join_waitlist(payload: WaitlistRequest, db: Session = Depends(get_db)):
+    try:
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS waitlist (
+                id SERIAL PRIMARY KEY,
+                email TEXT NOT NULL,
+                name TEXT DEFAULT '',
+                role TEXT DEFAULT 'rider',
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(email)
+            )
+        """))
+        db.commit()
+        is_new = False
+        existing = db.execute(text("SELECT id FROM waitlist WHERE email = :e"), {"e": payload.email}).fetchone()
+        if not existing:
+            is_new = True
+        db.execute(text("""
+            INSERT INTO waitlist (email, name, role)
+            VALUES (:email, :name, :role)
+            ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role, name = EXCLUDED.name
+        """), {"email": payload.email, "name": payload.name, "role": payload.role})
+        db.commit()
+
+        # Notify support@dollor.ai for every new signup
+        if is_new:
+            role_labels = {
+                "rider": "🚗 Rider", "driver": "💼 Driver", "volunteer": "🙋 Volunteer",
+                "partner": "🤝 Business Partner", "investor": "💰 Investor/Funder",
+                "state_launch": "🗺️ State Launch Partner",
+            }
+            role_display = role_labels.get(payload.role, payload.role)
+            try:
+                notify_support(
+                    subject=f"New signup: {payload.email} ({role_display})",
+                    details={
+                        "Email": payload.email,
+                        "Name": payload.name or "(not provided)",
+                        "Role": role_display,
+                        "Source": "dollor.ai waitlist / get-involved form",
+                    }
+                )
+            except Exception as email_err:
+                logger.warning(f"Waitlist email notify failed (non-fatal): {email_err}")
+
+        return {"success": True, "message": "You're on the list! We'll notify you when Dollor launches in your area."}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Waitlist error: {e}")
+        raise HTTPException(status_code=500, detail="Could not save your signup. Please try again.")
+
+@app.get("/api/waitlist/count")
+async def waitlist_count(db: Session = Depends(get_db)):
+    try:
+        result = db.execute(text("SELECT COUNT(*) FROM waitlist")).scalar()
+        return {"count": result}
+    except Exception:
+        return {"count": 0}
+
+@app.get("/api/admin/waitlist")
+async def admin_waitlist(db: Session = Depends(get_db)):
+    """Admin endpoint — list all waitlist entries newest first."""
+    try:
+        rows = db.execute(text(
+            "SELECT id, email, name, role, created_at FROM waitlist ORDER BY created_at DESC"
+        )).fetchall()
+        return {"entries": [{"id": r[0], "email": r[1], "name": r[2], "role": r[3], "created_at": str(r[4])} for r in rows]}
+    except Exception as e:
+        logger.error(f"Admin waitlist error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch waitlist.")
 
 
 if __name__ == "__main__":

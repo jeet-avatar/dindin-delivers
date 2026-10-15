@@ -357,6 +357,50 @@ def _send_smtp_with_retry(to_email: str, subject: str, html_body: str, text_body
     return False, f"Failed after {MAX_RETRIES} attempts. Last error: {last_error}"
 
 
+SUPPORT_EMAIL = "support@dollor.ai"
+
+
+def notify_support(subject: str, details: dict) -> bool:
+    """
+    Send an internal admin notification to support@dollor.ai.
+    Bypasses the DB recipient validation — only used for internal alerts.
+    Fails silently if SMTP is not configured so form saves still succeed.
+    """
+    if not _validate_smtp_config():
+        logger.warning(f"[notify_support] SMTP not configured — skipping email: {subject}")
+        return False
+
+    rows = "".join(
+        f"<tr><td style='padding:6px 12px;color:#94a3b8;font-size:13px;vertical-align:top;white-space:nowrap'>{k}</td>"
+        f"<td style='padding:6px 12px;color:#fff;font-size:13px;word-break:break-word'>{v}</td></tr>"
+        for k, v in details.items()
+    )
+    html = f"""
+    <div style='background:#0a0a0f;padding:32px;font-family:Inter,sans-serif'>
+      <div style='max-width:600px;margin:0 auto'>
+        <div style='background:linear-gradient(135deg,#ff6b00,#ff9500);padding:3px;border-radius:14px;margin-bottom:24px'>
+          <div style='background:#0a0a0f;border-radius:12px;padding:20px 24px'>
+            <span style='font-size:22px;font-weight:900;color:#fff'>dollor<span style="color:#ff6b00">.ai</span></span>
+            <span style='font-size:12px;color:rgba(255,255,255,0.4);margin-left:12px'>Admin Notification</span>
+          </div>
+        </div>
+        <h2 style='color:#fff;font-size:20px;font-weight:800;margin-bottom:20px'>{subject}</h2>
+        <table style='width:100%;border-collapse:collapse;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden'>
+          {rows}
+        </table>
+        <p style='color:rgba(255,255,255,0.25);font-size:12px;margin-top:24px'>
+          dollor.ai · CPUC Permit TNC0050982-N · Zietra Technologies Inc.
+        </p>
+      </div>
+    </div>
+    """
+    text = f"{subject}\n\n" + "\n".join(f"{k}: {v}" for k, v in details.items())
+    success, err = _send_smtp_with_retry(SUPPORT_EMAIL, f"[Dollor] {subject}", html, text)
+    if not success:
+        logger.error(f"[notify_support] Failed to send '{subject}': {err}")
+    return success
+
+
 def send_email(
     to_email: str,
     subject: str,

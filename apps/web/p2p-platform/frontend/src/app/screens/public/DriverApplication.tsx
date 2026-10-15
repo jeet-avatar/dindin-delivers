@@ -1,1013 +1,241 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Form, Input, Button, Card, message, Steps, Space, Checkbox, Select } from 'antd';
-import {
-  CarOutlined,
-  UserOutlined,
-  MailOutlined,
-  PhoneOutlined,
-  LockOutlined,
-  IdcardOutlined,
-  CheckCircleOutlined,
-  DollarOutlined,
-  WalletOutlined,
-  ClockCircleOutlined,
-  EnvironmentOutlined,
-  SafetyCertificateOutlined,
-  ArrowRightOutlined,
-  ArrowLeftOutlined
-} from '@ant-design/icons';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../../api/api';
+import PublicNav, { PublicFooter, publicPageStyle } from '../../components/layout/PublicNav';
 
-const { Option } = Select;
-
-// Dollor.ai brand colors
-const dollor = {
-  primary: '#4cc9f0',
-  secondary: '#7209b7',
-  dark: '#0d1b2a',
-  darkAlt: '#1b263b',
-  accent: '#415a77',
-  gold: '#ffd700',
-  success: '#10b981',
-  text: '#334155',
-  textLight: '#64748b'
+const inp: React.CSSProperties = {
+  width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: 12, padding: '14px 18px', color: '#fff', fontSize: 16, outline: 'none',
+  boxSizing: 'border-box', fontFamily: 'inherit',
 };
+const label: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', marginBottom: 8 };
+const field: React.CSSProperties = { marginBottom: 20 };
+const btn = (active = true): React.CSSProperties => ({
+  width: '100%', padding: '16px', borderRadius: 14,
+  background: active ? 'linear-gradient(135deg,#ff6b00,#ff9500)' : 'rgba(255,255,255,0.06)',
+  border: active ? 'none' : '1px solid rgba(255,255,255,0.1)',
+  color: active ? '#fff' : 'rgba(255,255,255,0.4)',
+  fontSize: 16, fontWeight: 800, cursor: active ? 'pointer' : 'default',
+  boxShadow: active ? '0 0 24px rgba(255,107,0,0.3)' : 'none',
+});
 
 const DriverApplication: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [form] = Form.useForm();
   const navigate = useNavigate();
   const API_URL = getApiUrl();
-
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    password: '',
-    vehicle_type: 'car',
-    license_number: '',
-    agree_terms: false,
-    agree_verification: false
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    first_name: '', last_name: '', email: '', phone: '',
+    password: '', vehicle_type: 'car', license_number: '',
+    date_of_birth: '', agree_terms: false, agree_verification: false,
   });
 
-  const steps = [
-    { title: 'Personal', icon: <UserOutlined /> },
-    { title: 'Account', icon: <MailOutlined /> },
-    { title: 'Vehicle', icon: <CarOutlined /> },
-    { title: 'Done', icon: <CheckCircleOutlined /> }
-  ];
-
-  const handleNext = async () => {
-    try {
-      await form.validateFields();
-      const values = form.getFieldsValue();
-      setFormData({ ...formData, ...values });
-      setCurrentStep(currentStep + 1);
-    } catch (error) {
-      // Validation failed
-    }
-  };
+  const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
     setLoading(true);
+    setError('');
     try {
-      const values = form.getFieldsValue();
-      const submitData = { ...formData, ...values };
-
       const response = await axios.post(`${API_URL}/api/auth/driver/register`, {
-        email: submitData.email,
-        password: submitData.password,
-        first_name: submitData.first_name,
-        last_name: submitData.last_name,
-        phone: submitData.phone,
-        vehicle_type: submitData.vehicle_type,
-        license_number: submitData.license_number,
-        date_of_birth: submitData.date_of_birth
+        email: form.email, password: form.password,
+        first_name: form.first_name, last_name: form.last_name,
+        phone: form.phone, vehicle_type: form.vehicle_type,
+        license_number: form.license_number, date_of_birth: form.date_of_birth,
       });
-
-      message.success('Application submitted successfully!');
-
       localStorage.setItem('driver_token', response.data.access_token);
       localStorage.setItem('driver_id', response.data.driver_id);
       localStorage.setItem('driver_code', response.data.driver_code);
-
-      setCurrentStep(3);
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      let errorMsg = 'Registration failed. Please try again.';
-      const detail = error.response?.data?.detail;
-      if (typeof detail === 'string') {
-        errorMsg = detail;
-      } else if (Array.isArray(detail) && detail.length > 0) {
-        errorMsg = detail[0]?.msg || errorMsg;
-      }
-      message.error(errorMsg);
+      setStep(3);
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : Array.isArray(detail) ? detail[0]?.msg : 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Success Screen
-  if (currentStep === 3) {
+  // ── Success ──
+  if (step === 3) {
     return (
-      <div className="success-page">
-        <div className="success-container">
-          <div className="success-icon-wrap">
-            <CheckCircleOutlined className="success-check" />
-          </div>
-          <h1 className="success-title">Application Submitted!</h1>
-          <p className="success-subtitle">
-            Thank you for applying to become a Dollor.ai delivery partner
-          </p>
-
-          <div className="next-steps-card">
-            <h3>What's Next?</h3>
-            <div className="steps-list">
-              <div className="step-item">
-                <span className="step-num">1</span>
-                <span>We'll review your application (24-48 hours)</span>
-              </div>
-              <div className="step-item">
-                <span className="step-num">2</span>
-                <span>Complete your background check</span>
-              </div>
-              <div className="step-item">
-                <span className="step-num">3</span>
-                <span>Upload required documents</span>
-              </div>
-              <div className="step-item">
-                <span className="step-num">4</span>
-                <span>Start accepting deliveries!</span>
-              </div>
+      <div style={publicPageStyle}>
+        <PublicNav />
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '120px 24px 80px' }}>
+          <div style={{ textAlign: 'center', maxWidth: 480 }}>
+            <div style={{ fontSize: 72, marginBottom: 24 }}>🎉</div>
+            <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', marginBottom: 16 }}>You're in!</h1>
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 17, lineHeight: 1.7, marginBottom: 32 }}>
+              Your driver application has been submitted. We'll review your details and reach out within 24–48 hours with next steps including your background check.
+            </p>
+            <div style={{ background: 'rgba(255,107,0,0.08)', border: '1px solid rgba(255,107,0,0.2)', borderRadius: 16, padding: '24px 28px', marginBottom: 32, textAlign: 'left' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#ff9500' }}>What happens next</h3>
+              {['Email confirmation sent to ' + form.email, 'Checkr background check initiated', 'Vehicle verification (we\'ll contact you)', 'Account activated — start earning'].map((s, i) => (
+                <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,107,0,0.15)', border: '1px solid rgba(255,107,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#ff6b00', flexShrink: 0 }}>{i + 1}</div>
+                  <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>{s}</span>
+                </div>
+              ))}
             </div>
-          </div>
-
-          <div className="success-actions">
-            <Button
-              type="primary"
-              size="large"
-              className="primary-btn"
-              onClick={() => navigate('/driver/login')}
-            >
-              Go to Driver Login <ArrowRightOutlined />
-            </Button>
-            <Button size="large" onClick={() => navigate('/')}>
-              Back to Home
-            </Button>
+            <a href="https://instagram.com/dollorai" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', color: '#fff', textDecoration: 'none', borderRadius: 12, padding: '14px 32px', fontSize: 15, fontWeight: 700 }}>
+              Follow @dollorai for launch updates
+            </a>
           </div>
         </div>
-
-        <style>{`
-          .success-page {
-            min-height: 100vh;
-            background: linear-gradient(135deg, ${dollor.dark} 0%, ${dollor.darkAlt} 50%, ${dollor.accent} 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-          }
-          .success-container {
-            max-width: 500px;
-            width: 100%;
-            text-align: center;
-          }
-          .success-icon-wrap {
-            width: 100px;
-            height: 100px;
-            background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 32px;
-          }
-          .success-check {
-            font-size: 48px;
-            color: white;
-          }
-          .success-title {
-            color: white;
-            font-size: 36px;
-            font-weight: 700;
-            margin: 0 0 12px 0;
-          }
-          .success-subtitle {
-            color: rgba(255,255,255,0.7);
-            font-size: 18px;
-            margin: 0 0 40px 0;
-          }
-          .next-steps-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px;
-            padding: 32px;
-            margin-bottom: 32px;
-            text-align: left;
-          }
-          .next-steps-card h3 {
-            color: white;
-            font-size: 18px;
-            margin: 0 0 24px 0;
-            text-align: center;
-          }
-          .steps-list {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-          }
-          .step-item {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            color: rgba(255,255,255,0.8);
-          }
-          .step-num {
-            width: 28px;
-            height: 28px;
-            background: ${dollor.primary};
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 14px;
-            color: ${dollor.dark};
-          }
-          .success-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-          .primary-btn {
-            height: 50px;
-            font-size: 16px;
-            font-weight: 600;
-            background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%) !important;
-            border: none !important;
-            border-radius: 12px;
-          }
-        `}</style>
+        <PublicFooter />
+        <style>{`* { margin:0; padding:0; box-sizing:border-box; } body { background:#0a0a0f; }`}</style>
       </div>
     );
   }
 
-  // Main Application Form
+  const steps = ['Personal Info', 'Account', 'Vehicle', 'Review'];
+
   return (
-    <div className="app-container">
-      {/* Left Panel - Hero */}
-      <div className="hero-panel">
-        <div className="hero-content">
-          <Link to="/" className="logo-link">
-            <DollarOutlined className="logo-icon" />
-            <span className="logo-text">Dollor.ai</span>
-          </Link>
+    <div style={publicPageStyle}>
+      <PublicNav ctaLabel="Back to Home" />
+      <div style={{ minHeight: '100vh', padding: '120px 24px 80px' }}>
+        <div style={{ maxWidth: 580, margin: '0 auto' }}>
 
-          <h1 className="hero-title">
-            Drive Your Future with <span className="gradient-text">Dollor.ai</span>
-          </h1>
-
-          <p className="hero-subtitle">
-            Be your own boss. Set your own schedule. Earn competitive pay with instant payouts.
-          </p>
-
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-value">$25/hr</div>
-              <div className="stat-label">Avg. Earnings</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">100%</div>
-              <div className="stat-label">Tips Kept</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">10K+</div>
-              <div className="stat-label">Active Drivers</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">24hr</div>
-              <div className="stat-label">Approval Time</div>
-            </div>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.25)', color: '#ff9500', borderRadius: 50, padding: '7px 18px', fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', marginBottom: 20 }}>💼 DRIVE WITH DOLLOR</div>
+            <h1 style={{ fontSize: 'clamp(28px,5vw,44px)', fontWeight: 900, letterSpacing: '-1.5px', marginBottom: 14 }}>Apply to Drive</h1>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, lineHeight: 1.7 }}>Flat $1 platform fee. You keep the rest. No weekly quotas, no commissions.</p>
           </div>
 
-          <div className="features-list">
-            {[
-              { icon: <ClockCircleOutlined />, text: 'Flexible hours - work when you want' },
-              { icon: <WalletOutlined />, text: 'Daily instant payouts available' },
-              { icon: <EnvironmentOutlined />, text: 'AI-optimized routes for more earnings' },
-              { icon: <SafetyCertificateOutlined />, text: 'Insurance coverage while delivering' },
-            ].map((feature, i) => (
-              <div key={i} className="feature-item">
-                <div className="feature-icon">{feature.icon}</div>
-                <span>{feature.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="hero-footer">
-          <div className="trust-badges">
-            <SafetyCertificateOutlined />
-            <span>Secure & Encrypted</span>
-          </div>
-          <div className="footer-links">
-            <Link to="/terms">Terms</Link>
-            <Link to="/privacy">Privacy</Link>
-            <Link to="/driver/login">Login</Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Panel - Form */}
-      <div className="form-panel">
-        <div className="form-container">
-          {/* Steps */}
-          <div className="steps-header">
-            {steps.map((step, i) => (
-              <div
-                key={i}
-                className={`step-dot ${i === currentStep ? 'active' : ''} ${i < currentStep ? 'completed' : ''}`}
-              >
-                {i < currentStep ? <CheckCircleOutlined /> : step.icon}
-                <span className="step-label">{step.title}</span>
+          {/* Step progress */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 40 }}>
+            {steps.map((s, i) => (
+              <div key={s} style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ height: 3, borderRadius: 99, background: i <= step ? 'linear-gradient(135deg,#ff6b00,#ff9500)' : 'rgba(255,255,255,0.08)', marginBottom: 8, transition: 'background 0.3s' }} />
+                <span style={{ fontSize: 11, color: i === step ? '#ff9500' : 'rgba(255,255,255,0.3)', fontWeight: 600, letterSpacing: '0.5px' }}>{s.toUpperCase()}</span>
               </div>
             ))}
           </div>
 
-          {/* Form Card */}
-          <Card className="form-card">
-            <Form form={form} layout="vertical" initialValues={formData}>
-              {currentStep === 0 && (
-                <>
-                  <h2 className="form-title">Personal Information</h2>
-                  <p className="form-subtitle">Tell us about yourself</p>
-                  <Form.Item
-                    name="first_name"
-                    rules={[{ required: true, message: 'First name is required' }]}
-                  >
-                    <Input prefix={<UserOutlined />} placeholder="First Name" size="large" />
-                  </Form.Item>
-                  <Form.Item
-                    name="last_name"
-                    rules={[{ required: true, message: 'Last name is required' }]}
-                  >
-                    <Input prefix={<UserOutlined />} placeholder="Last Name" size="large" />
-                  </Form.Item>
-                  <Form.Item
-                    name="phone"
-                    rules={[{ required: true, message: 'Phone number is required' }]}
-                  >
-                    <Input prefix={<PhoneOutlined />} placeholder="Phone Number" size="large" />
-                  </Form.Item>
-                </>
-              )}
+          {/* Form card */}
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 24, padding: '36px' }}>
 
-              {currentStep === 1 && (
-                <>
-                  <h2 className="form-title">Account Setup</h2>
-                  <p className="form-subtitle">Create your driver account</p>
-                  <Form.Item
-                    name="email"
-                    rules={[
-                      { required: true, message: 'Email is required' },
-                      { type: 'email', message: 'Please enter a valid email' }
-                    ]}
-                  >
-                    <Input prefix={<MailOutlined />} placeholder="Email Address" size="large" />
-                  </Form.Item>
-                  <Form.Item
-                    name="password"
-                    rules={[
-                      { required: true, message: 'Password is required' },
-                      { min: 6, message: 'Password must be at least 6 characters' }
-                    ]}
-                  >
-                    <Input.Password prefix={<LockOutlined />} placeholder="Create Password" size="large" />
-                  </Form.Item>
-                  <Form.Item
-                    name="confirm_password"
-                    dependencies={['password']}
-                    rules={[
-                      { required: true, message: 'Please confirm your password' },
-                      ({ getFieldValue }) => ({
-                        validator(_, value) {
-                          if (!value || getFieldValue('password') === value) {
-                            return Promise.resolve();
-                          }
-                          return Promise.reject(new Error('Passwords do not match'));
-                        },
-                      }),
-                    ]}
-                  >
-                    <Input.Password prefix={<LockOutlined />} placeholder="Confirm Password" size="large" />
-                  </Form.Item>
-                </>
-              )}
-
-              {currentStep === 2 && (
-                <>
-                  <h2 className="form-title">Vehicle Information</h2>
-                  <p className="form-subtitle">Tell us about your vehicle</p>
-                  <Form.Item
-                    name="vehicle_type"
-                    rules={[{ required: true, message: 'Please select vehicle type' }]}
-                    initialValue="car"
-                  >
-                    <Select size="large" placeholder="Select Vehicle Type">
-                      <Option value="car">Car</Option>
-                      <Option value="motorcycle">Motorcycle</Option>
-                      <Option value="bicycle">Bicycle</Option>
-                      <Option value="scooter">Scooter</Option>
-                    </Select>
-                  </Form.Item>
-                  <Form.Item
-                    name="license_number"
-                    rules={[{ required: true, message: 'License number is required' }]}
-                  >
-                    <Input prefix={<IdcardOutlined />} placeholder="Driver's License Number" size="large" />
-                  </Form.Item>
-                  {/* Consent Section */}
-                  <div className="consent-section">
-                    <h4><SafetyCertificateOutlined /> Legal Agreements</h4>
-
-                    <Form.Item
-                      name="agree_verification"
-                      valuePropName="checked"
-                      rules={[
-                        {
-                          validator: (_, value) =>
-                            value ? Promise.resolve() : Promise.reject(new Error('You must consent to document verification')),
-                        },
-                      ]}
-                    >
-                      <Checkbox>
-                        I consent to <strong>document verification</strong> through Dollor.ai's third-party verification partner.
-                        I understand that my driver's license, vehicle insurance, and photo will be verified for authenticity.
-                        <Link to="/privacy" target="_blank"> Privacy Policy</Link>
-                      </Checkbox>
-                    </Form.Item>
-
-                    <Form.Item
-                      name="agree_terms"
-                      valuePropName="checked"
-                      rules={[
-                        {
-                          validator: (_, value) =>
-                            value ? Promise.resolve() : Promise.reject(new Error('You must agree to the terms')),
-                        },
-                      ]}
-                    >
-                      <Checkbox>
-                        I agree to the <Link to="/terms" target="_blank">Terms of Service</Link> and{' '}
-                        <Link to="/privacy" target="_blank">Privacy Policy</Link>.
-                        I confirm all information is accurate.
-                      </Checkbox>
-                    </Form.Item>
+            {/* Step 0 — Personal */}
+            {step === 0 && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div style={field}>
+                    <label style={label}>FIRST NAME</label>
+                    <input style={inp} value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="Jane" />
                   </div>
-                </>
-              )}
+                  <div style={field}>
+                    <label style={label}>LAST NAME</label>
+                    <input style={inp} value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Smith" />
+                  </div>
+                </div>
+                <div style={field}>
+                  <label style={label}>PHONE NUMBER</label>
+                  <input style={inp} type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+1 (714) 555-0100" />
+                </div>
+                <div style={field}>
+                  <label style={label}>DATE OF BIRTH</label>
+                  <input style={inp} type="date" value={form.date_of_birth} onChange={e => set('date_of_birth', e.target.value)} />
+                </div>
+                <button style={btn(!!form.first_name && !!form.last_name && !!form.phone)} onClick={() => form.first_name && form.last_name && form.phone && setStep(1)}>
+                  Continue →
+                </button>
+              </>
+            )}
 
-              {/* Navigation */}
-              <div className="form-nav">
-                {currentStep > 0 && (
-                  <button type="button" className="nav-btn back-btn" onClick={() => setCurrentStep(currentStep - 1)}>
-                    <ArrowLeftOutlined /> Back
-                  </button>
-                )}
-                <div style={{ flex: 1 }} />
-                {currentStep < 2 ? (
-                  <button type="button" className="nav-btn next-btn" onClick={handleNext}>
-                    Continue <ArrowRightOutlined />
-                  </button>
-                ) : (
+            {/* Step 1 — Account */}
+            {step === 1 && (
+              <>
+                <div style={field}>
+                  <label style={label}>EMAIL ADDRESS</label>
+                  <input style={inp} type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="you@email.com" />
+                </div>
+                <div style={field}>
+                  <label style={label}>PASSWORD</label>
+                  <input style={inp} type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="Min. 8 characters" />
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                  <button style={{ ...btn(false), flex: '0 0 auto', width: 'auto', padding: '16px 24px' }} onClick={() => setStep(0)}>← Back</button>
+                  <button style={{ ...btn(!!form.email && form.password.length >= 8), flex: 1 }} onClick={() => form.email && form.password.length >= 8 && setStep(2)}>Continue →</button>
+                </div>
+              </>
+            )}
+
+            {/* Step 2 — Vehicle */}
+            {step === 2 && (
+              <>
+                <div style={field}>
+                  <label style={label}>VEHICLE TYPE</label>
+                  <select style={{ ...inp, cursor: 'pointer' }} value={form.vehicle_type} onChange={e => set('vehicle_type', e.target.value)}>
+                    <option value="car">Car</option>
+                    <option value="suv">SUV</option>
+                    <option value="truck">Truck</option>
+                    <option value="van">Van / Minivan</option>
+                  </select>
+                </div>
+                <div style={field}>
+                  <label style={label}>DRIVER'S LICENSE NUMBER</label>
+                  <input style={inp} value={form.license_number} onChange={e => set('license_number', e.target.value)} placeholder="CA license number" />
+                </div>
+                <div style={{ background: 'rgba(255,107,0,0.06)', border: '1px solid rgba(255,107,0,0.15)', borderRadius: 14, padding: '20px', marginBottom: 24 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 700, color: '#ff9500', marginBottom: 12 }}>Requirements</h4>
+                  {['Valid CA driver\'s license', 'Insured personal vehicle (2010 or newer)', 'Clean driving record', 'Pass Checkr background check'].map(r => (
+                    <div key={r} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, fontSize: 14, color: 'rgba(255,255,255,0.55)' }}>
+                      <span style={{ color: '#ff6b00' }}>✓</span> {r}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={form.agree_terms} onChange={e => set('agree_terms', e.target.checked)} style={{ marginTop: 3, accentColor: '#ff6b00' }} />
+                    <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                      I agree to the <Link to="/terms" target="_blank" style={{ color: '#ff9500' }}>Terms of Service</Link> and <Link to="/privacy" target="_blank" style={{ color: '#ff9500' }}>Privacy Policy</Link>
+                    </span>
+                  </label>
+                </div>
+                <div style={{ marginBottom: 28 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={form.agree_verification} onChange={e => set('agree_verification', e.target.checked)} style={{ marginTop: 3, accentColor: '#ff6b00' }} />
+                    <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                      I consent to a background and motor vehicle record check via Checkr
+                    </span>
+                  </label>
+                </div>
+                {error && <div style={{ color: '#f87171', fontSize: 14, marginBottom: 16, background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '12px 16px' }}>{error}</div>}
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button style={{ ...btn(false), flex: '0 0 auto', width: 'auto', padding: '16px 24px' }} onClick={() => setStep(1)}>← Back</button>
                   <button
-                    type="button"
-                    className="nav-btn submit-btn"
+                    style={{ ...btn(!loading && form.agree_terms && form.agree_verification && !!form.license_number), flex: 1, opacity: loading ? 0.7 : 1 }}
                     onClick={handleSubmit}
-                    disabled={loading}
+                    disabled={loading || !form.agree_terms || !form.agree_verification || !form.license_number}
                   >
-                    {loading ? 'Submitting...' : 'Submit Application'}
+                    {loading ? 'Submitting...' : 'Submit Application →'}
                   </button>
-                )}
-              </div>
-            </Form>
-          </Card>
+                </div>
+              </>
+            )}
+          </div>
 
-          <div className="back-home">
-            <Link to="/">Back to Home</Link>
+          {/* Benefits below form */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginTop: 32 }}>
+            {[{ icon: '💸', t: 'Flat $1 fee', d: 'Keep the rest' }, { icon: '⚡', t: 'Instant payout', d: 'After every ride' }, { icon: '🕒', t: 'Your schedule', d: 'No minimums' }].map(c => (
+              <div key={c.t} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '20px 16px', textAlign: 'center' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>{c.icon}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{c.t}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{c.d}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
-
+      <PublicFooter />
       <style>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        .app-container {
-          min-height: 100vh;
-          display: flex;
-          background: #f8fafc;
-        }
-
-        /* Hero Panel */
-        .hero-panel {
-          width: 45%;
-          min-height: 100vh;
-          background: linear-gradient(135deg, ${dollor.dark} 0%, ${dollor.darkAlt} 50%, ${dollor.accent} 100%);
-          padding: 48px;
-          display: flex;
-          flex-direction: column;
-          position: sticky;
-          top: 0;
-          height: 100vh;
-        }
-
-        .hero-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-
-        .logo-link {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          text-decoration: none;
-          margin-bottom: 16px;
-        }
-
-        .logo-icon {
-          font-size: 36px;
-          color: ${dollor.primary};
-        }
-
-        .logo-text {
-          font-size: 28px;
-          font-weight: 800;
-          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .hero-title {
-          font-size: 42px;
-          font-weight: 800;
-          color: white;
-          line-height: 1.2;
-          margin: 24px 0 16px 0;
-        }
-
-        .gradient-text {
-          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .hero-subtitle {
-          font-size: 18px;
-          color: rgba(255,255,255,0.7);
-          margin: 0 0 40px 0;
-          line-height: 1.6;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
-          margin-bottom: 40px;
-        }
-
-        .stat-card {
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 16px;
-          padding: 20px;
-          text-align: center;
-        }
-
-        .stat-value {
-          font-size: 28px;
-          font-weight: 700;
-          color: ${dollor.primary};
-          margin-bottom: 4px;
-        }
-
-        .stat-label {
-          font-size: 13px;
-          color: rgba(255,255,255,0.6);
-          text-transform: uppercase;
-        }
-
-        .features-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .feature-item {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          color: rgba(255,255,255,0.8);
-          font-size: 15px;
-        }
-
-        .feature-icon {
-          width: 40px;
-          height: 40px;
-          background: rgba(76, 201, 240, 0.15);
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: ${dollor.primary};
-          font-size: 18px;
-        }
-
-        .hero-footer {
-          padding-top: 32px;
-          border-top: 1px solid rgba(255,255,255,0.1);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .trust-badges {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: rgba(255,255,255,0.5);
-          font-size: 14px;
-        }
-
-        .footer-links {
-          display: flex;
-          gap: 24px;
-        }
-
-        .footer-links a {
-          color: rgba(255,255,255,0.5);
-          text-decoration: none;
-          font-size: 14px;
-        }
-
-        .footer-links a:hover {
-          color: ${dollor.primary};
-        }
-
-        /* Form Panel */
-        .form-panel {
-          flex: 1;
-          padding: 48px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .form-container {
-          width: 100%;
-          max-width: 480px;
-        }
-
-        .steps-header {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 32px;
-        }
-
-        .step-dot {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-          opacity: 0.4;
-        }
-
-        .step-dot.active, .step-dot.completed {
-          opacity: 1;
-        }
-
-        .step-dot .anticon {
-          width: 44px;
-          height: 44px;
-          background: #e2e8f0;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 18px;
-          color: #64748b;
-        }
-
-        .step-dot.active .anticon {
-          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%);
-          color: white;
-        }
-
-        .step-dot.completed .anticon {
-          background: ${dollor.success};
-          color: white;
-        }
-
-        .step-label {
-          font-size: 12px;
-          color: #64748b;
-          font-weight: 500;
-        }
-
-        .form-card {
-          border-radius: 20px !important;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
-          margin-bottom: 24px;
-        }
-
-        .form-title {
-          font-size: 24px;
-          font-weight: 700;
-          color: ${dollor.dark};
-          margin: 0 0 8px 0;
-        }
-
-        .form-subtitle {
-          font-size: 14px;
-          color: #64748b;
-          margin: 0 0 24px 0;
-        }
-
-        /* Consent Section */
-        .consent-section {
-          background: #f0f9ff;
-          border: 1px solid #0ea5e9;
-          border-radius: 12px;
-          padding: 20px;
-          margin-top: 16px;
-        }
-
-        .consent-section h4 {
-          font-size: 15px;
-          font-weight: 600;
-          color: #0369a1;
-          margin: 0 0 16px 0;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .consent-section .ant-checkbox-wrapper {
-          font-size: 13px;
-          color: #334155;
-          line-height: 1.5;
-        }
-
-        .consent-section .ant-checkbox-wrapper a {
-          color: #0369a1;
-          font-weight: 500;
-        }
-
-        .consent-section .ant-checkbox-wrapper strong {
-          color: #0f172a;
-        }
-
-        .consent-section .ant-form-item {
-          margin-bottom: 12px;
-        }
-
-        .form-nav {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-top: 24px;
-          padding-top: 24px;
-          border-top: 1px solid #e2e8f0;
-        }
-
-        .nav-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 14px 28px;
-          border-radius: 12px;
-          font-size: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          border: none;
-          transition: all 0.3s;
-        }
-
-        .back-btn {
-          background: #f1f5f9;
-          color: #475569;
-        }
-
-        .back-btn:hover {
-          background: #e2e8f0;
-        }
-
-        .next-btn, .submit-btn {
-          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%);
-          color: white;
-        }
-
-        .next-btn:hover, .submit-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(76, 201, 240, 0.4);
-        }
-
-        .submit-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-
-        .back-home {
-          text-align: center;
-        }
-
-        .back-home a {
-          color: #64748b;
-          text-decoration: none;
-        }
-
-        .back-home a:hover {
-          color: ${dollor.primary};
-        }
-
-        /* Ant Design Overrides */
-        .ant-input, .ant-input-affix-wrapper, .ant-select-selector {
-          border-radius: 12px !important;
-          border: 2px solid #e2e8f0 !important;
-          min-height: 48px !important;
-        }
-
-        .ant-input:focus, .ant-input-affix-wrapper:focus, .ant-input-affix-wrapper-focused,
-        .ant-select-focused .ant-select-selector {
-          border-color: ${dollor.primary} !important;
-          box-shadow: 0 0 0 4px rgba(76, 201, 240, 0.15) !important;
-        }
-
-        /* Responsive - Tablet */
-        @media (max-width: 1024px) {
-          .hero-panel {
-            display: none;
-          }
-
-          .form-panel {
-            padding: 24px;
-          }
-        }
-
-        /* Responsive - Mobile */
-        @media (max-width: 768px) {
-          .form-panel {
-            padding: 16px;
-          }
-
-          .form-container {
-            max-width: 100%;
-          }
-
-          .steps-header {
-            gap: 8px;
-            margin-bottom: 24px;
-          }
-
-          .step-dot .anticon {
-            width: 36px;
-            height: 36px;
-            font-size: 16px;
-          }
-
-          .step-label {
-            font-size: 11px;
-          }
-
-          .form-card {
-            border-radius: 16px !important;
-            padding: 20px 16px;
-          }
-
-          .form-title {
-            font-size: 20px;
-          }
-
-          .form-subtitle {
-            font-size: 13px;
-          }
-
-          .form-nav {
-            flex-wrap: wrap;
-            gap: 12px;
-          }
-
-          .nav-btn {
-            padding: 12px 20px;
-            font-size: 14px;
-            flex: 1;
-            min-width: 120px;
-            justify-content: center;
-          }
-
-          .back-home {
-            margin-top: 16px;
-          }
-
-          /* Success Page Mobile */
-          .success-page {
-            padding: 24px 16px;
-          }
-
-          .success-container {
-            max-width: 100%;
-          }
-
-          .success-icon-wrap {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 24px;
-          }
-
-          .success-check {
-            font-size: 36px;
-          }
-
-          .success-title {
-            font-size: 24px;
-            margin-bottom: 8px;
-          }
-
-          .success-subtitle {
-            font-size: 15px;
-            margin-bottom: 28px;
-          }
-
-          .next-steps-card {
-            padding: 20px 16px;
-            margin-bottom: 24px;
-          }
-
-          .next-steps-card h3 {
-            font-size: 16px;
-            margin-bottom: 20px;
-          }
-
-          .step-item {
-            gap: 12px;
-          }
-
-          .step-num {
-            width: 24px;
-            height: 24px;
-            font-size: 12px;
-          }
-
-          .success-actions {
-            gap: 10px;
-          }
-
-          .primary-btn {
-            height: 48px;
-            font-size: 14px;
-            border-radius: 10px;
-          }
-        }
-
-        /* Responsive - Small Mobile */
-        @media (max-width: 375px) {
-          .form-panel {
-            padding: 12px;
-          }
-
-          .form-card {
-            padding: 16px 12px;
-          }
-
-          .form-title {
-            font-size: 18px;
-          }
-
-          .step-dot .anticon {
-            width: 32px;
-            height: 32px;
-            font-size: 14px;
-          }
-
-          .step-label {
-            font-size: 10px;
-          }
-
-          .nav-btn {
-            padding: 10px 16px;
-            font-size: 13px;
-          }
-
-          .success-title {
-            font-size: 20px;
-          }
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:#0a0a0f; }
+        input::placeholder, textarea::placeholder { color:rgba(255,255,255,0.2); }
+        input:focus, select:focus, textarea:focus { border-color:rgba(255,107,0,0.5) !important; }
+        select option { background:#1a1a2a; color:#fff; }
       `}</style>
     </div>
   );

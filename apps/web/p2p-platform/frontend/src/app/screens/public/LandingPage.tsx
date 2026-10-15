@@ -1,1471 +1,568 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button, Row, Col, Drawer } from 'antd';
-import {
-  ShopOutlined,
-  CarOutlined,
-  CheckCircleOutlined,
-  DollarOutlined,
-  ThunderboltOutlined,
-  LineChartOutlined,
-  WalletOutlined,
-  StarFilled,
-  ArrowRightOutlined,
-  MenuOutlined,
-  CloseOutlined,
-  UserOutlined
-} from '@ant-design/icons';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'rider' | 'driver' | 'volunteer' | 'partner' | 'investor' | 'state_launch'>('rider');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const waitlistRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/waitlist/count`)
+      .then(r => r.json())
+      .then(d => setWaitlistCount(d.count))
+      .catch(() => {});
+  }, []);
+
+  const scrollToWaitlist = () => {
+    waitlistRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_URL}/api/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name, role }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Something went wrong');
+      setSubmitted(true);
+      setWaitlistCount(c => (c ?? 0) + 1);
+    } catch (err: any) {
+      setError(err.message || 'Could not save. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div className="landing-page">
-      {/* Navigation */}
-      <nav className="main-nav">
-        <div className="nav-container">
-          <div className="logo">
-            <DollarOutlined className="logo-icon" />
-            <span className="logo-text">Dollor.ai</span>
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", background: '#0a0a0f', color: '#fff', overflowX: 'hidden' }}>
+
+      {/* NAV */}
+      <nav style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        background: scrolled ? 'rgba(10,10,15,0.95)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(20px)' : 'none',
+        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.06)' : 'none',
+        transition: 'all 0.3s ease',
+        padding: '18px 0',
+      }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, background: 'linear-gradient(135deg, #ff6b00, #ff9500)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900 }}>D</div>
+            <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>dollor<span style={{ color: '#ff6b00' }}>.ai</span></span>
           </div>
-          <div className="nav-links">
-            <Link to="/restaurant/apply">For Restaurants</Link>
-            <Link to="/driver/apply">For Drivers</Link>
-            <Link to="/terms">Terms</Link>
-            <Link to="/privacy">Privacy</Link>
+          <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+            <div className="nav-links-desktop" style={{ display: 'flex', gap: 28 }}>
+              <a href="#why" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, fontWeight: 500 }}>Why Dollor</a>
+              <Link to="/driver/apply" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, fontWeight: 500 }}>Drive with Us</Link>
+              <a href="#partner" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, fontWeight: 500 }}>Partner</a>
+            </div>
+            <button onClick={scrollToWaitlist} style={{
+              background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
+              color: '#fff', border: 'none', borderRadius: 10, padding: '10px 22px',
+              fontSize: 14, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.2px',
+            }}>Join Waitlist</button>
           </div>
-          <div className="nav-actions">
-            <Button type="primary" className="customer-btn" onClick={() => navigate('/customer/login')}>
-              <UserOutlined /> Customer Login
-            </Button>
-            <Button ghost onClick={() => navigate('/vendor/login')}>Restaurant</Button>
-            <Button ghost onClick={() => navigate('/driver/login')}>Driver</Button>
-          </div>
-          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
-            <MenuOutlined />
-          </button>
         </div>
       </nav>
 
-      {/* Mobile Menu Drawer */}
-      <Drawer
-        placement="right"
-        onClose={() => setMobileMenuOpen(false)}
-        open={mobileMenuOpen}
-        width={280}
-        className="mobile-drawer"
-        closeIcon={<CloseOutlined style={{ color: 'white', fontSize: 20 }} />}
-        styles={{
-          header: { background: '#1a1a2e', borderBottom: '1px solid rgba(255,255,255,0.1)' },
-          body: { background: '#1a1a2e', padding: 0 }
-        }}
-      >
-        <div className="mobile-menu">
-          <div className="mobile-menu-links">
-            <Link to="/restaurant/apply" onClick={() => setMobileMenuOpen(false)}>
-              <ShopOutlined /> For Restaurants
-            </Link>
-            <Link to="/driver/apply" onClick={() => setMobileMenuOpen(false)}>
-              <CarOutlined /> For Drivers
-            </Link>
-            <Link to="/terms" onClick={() => setMobileMenuOpen(false)}>Terms</Link>
-            <Link to="/privacy" onClick={() => setMobileMenuOpen(false)}>Privacy</Link>
+      {/* HERO */}
+      <section style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 24px 80px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        {/* bg glows */}
+        <div style={{ position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)', width: 700, height: 700, background: 'radial-gradient(circle, rgba(255,107,0,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '5%', right: '5%', width: 400, height: 400, background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+        {/* Badge */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,107,0,0.12)', border: '1px solid rgba(255,107,0,0.3)', color: '#ff9500', borderRadius: 50, padding: '8px 20px', fontSize: 13, fontWeight: 600, marginBottom: 32, letterSpacing: '0.3px' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b00', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+          CALIFORNIA LICENSED TNC · APP IN REVIEW
+        </div>
+
+        <h1 style={{ fontSize: 'clamp(36px, 7vw, 80px)', fontWeight: 900, lineHeight: 1.05, marginBottom: 24, letterSpacing: '-2px', maxWidth: 900 }}>
+          We're coming to<br />
+          <span style={{ background: 'linear-gradient(135deg, #ff6b00, #ff9500, #ffcc00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>save California.</span>
+        </h1>
+
+        <p style={{ fontSize: 'clamp(16px, 2.5vw, 22px)', color: 'rgba(255,255,255,0.6)', maxWidth: 620, lineHeight: 1.7, marginBottom: 16 }}>
+          Uber takes 28%. Lyft takes 35%. Dollor charges a flat <strong style={{ color: '#fff' }}>$1</strong> — and keeps nothing else.
+          Riders save. Drivers earn more. Launching across <strong style={{ color: '#fff' }}>California</strong>.
+        </p>
+
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.35)', marginBottom: 48, letterSpacing: '0.3px' }}>
+          CPUC Permit TNC0050982-N · Active 2026–2029
+        </p>
+
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 64 }}>
+          <button onClick={scrollToWaitlist} style={{
+            background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
+            color: '#fff', border: 'none', borderRadius: 14, padding: '18px 40px',
+            fontSize: 17, fontWeight: 800, cursor: 'pointer', letterSpacing: '-0.2px',
+            boxShadow: '0 0 40px rgba(255,107,0,0.4)',
+          }}>
+            Join the Waitlist →
+          </button>
+          <Link to="/driver/apply" style={{
+            display: 'inline-flex', alignItems: 'center',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+            color: '#fff', borderRadius: 14, padding: '18px 40px',
+            fontSize: 17, fontWeight: 700, textDecoration: 'none',
+          }}>
+            Drive with Dollor
+          </Link>
+        </div>
+
+        {/* Trust badges */}
+        <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+          {[
+            { icon: '🏛️', text: 'State Licensed TNC' },
+            { icon: '🛡️', text: '$1M Insured' },
+            { icon: '✅', text: 'Background Checked Drivers' },
+            { icon: '📱', text: 'App Store Submitted' },
+          ].map(b => (
+            <div key={b.text} style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
+              <span>{b.icon}</span> {b.text}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* STATS STRIP */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '40px 24px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', gap: 0, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {[
+            { value: '$1', label: 'Flat platform fee per ride', sub: 'No surge pricing' },
+            { value: '100%', label: 'Tips kept by driver', sub: 'Every cent' },
+            { value: '3 yr', label: 'CPUC License term', sub: 'Permit TNC0050982-N' },
+            { value: '24/7', label: 'Driver support', sub: 'Always on' },
+          ].map((s, i) => (
+            <div key={i} style={{ textAlign: 'center', padding: '12px 40px', borderRight: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              <div style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 900, background: 'linear-gradient(135deg,#ff6b00,#ffcc00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{s.value}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: 2 }}>{s.label}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* WHY DOLLOR */}
+      <section id="why" style={{ padding: '100px 24px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 64 }}>
+            <div style={{ color: '#ff6b00', fontSize: 13, fontWeight: 700, letterSpacing: '2px', marginBottom: 12 }}>WHY DOLLOR</div>
+            <h2 style={{ fontSize: 'clamp(28px,4vw,48px)', fontWeight: 900, letterSpacing: '-1px', marginBottom: 16 }}>Built different. For everyone.</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 17, maxWidth: 520, margin: '0 auto' }}>Uber and Lyft take up to 35% from drivers. We charge a flat $1. That's it.</p>
           </div>
-          <div className="mobile-menu-actions">
-            <Button block size="large" type="primary" className="mobile-btn-customer" onClick={() => { navigate('/customer/login'); setMobileMenuOpen(false); }}>
-              <UserOutlined /> Customer Login
-            </Button>
-            <Button block size="large" className="mobile-btn" onClick={() => { navigate('/vendor/login'); setMobileMenuOpen(false); }}>
-              Restaurant Login
-            </Button>
-            <Button block size="large" className="mobile-btn" onClick={() => { navigate('/driver/login'); setMobileMenuOpen(false); }}>
-              Driver Login
-            </Button>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 20 }}>
+            {[
+              { icon: '💸', title: 'Flat $1 Fee', desc: 'Riders pay a predictable $1 platform fee. No surge pricing, ever. The fare you see is the fare you pay.' },
+              { icon: '🚗', title: 'Drivers Keep More', desc: 'Drivers set their own price per trip and keep 100% of tips. No commission cuts eating into your earnings.' },
+              { icon: '🔍', title: 'Full Transparency', desc: 'See the breakdown on every receipt — platform fee, driver earnings, and tip. No hidden charges, ever.' },
+              { icon: '⚡', title: 'AI-Matched Rides', desc: 'Our AI pairs you with the closest available driver in seconds, optimizing routes for faster pickups.' },
+              { icon: '🛡️', title: 'Safety First', desc: 'Checkr background checks on all drivers. In-app emergency contact, live ride tracking, and safety reports.' },
+              { icon: '💳', title: 'Instant Driver Payouts', desc: 'Earnings land in your bank account immediately after every completed trip. No weekly wait.' },
+            ].map(card => (
+              <div key={card.title} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '36px 32px', transition: 'all 0.2s' }}>
+                <div style={{ fontSize: 36, marginBottom: 20 }}>{card.icon}</div>
+                <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.3px' }}>{card.title}</h3>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, lineHeight: 1.7 }}>{card.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
-      </Drawer>
+      </section>
 
-      {/* Hero Section */}
-      <section className="hero">
-        <div className="hero-bg"></div>
-        <div className="hero-content">
-          <div className="hero-badge">
-            <ThunderboltOutlined /> AI-Powered Delivery & Rideshare Platform
+      {/* COMING SOON SERVICES */}
+      <section style={{ padding: '80px 24px', background: 'rgba(255,255,255,0.015)', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+            <div style={{ color: '#ff6b00', fontSize: 13, fontWeight: 700, letterSpacing: '2px', marginBottom: 12 }}>EXPANDING SOON</div>
+            <h2 style={{ fontSize: 'clamp(26px,4vw,44px)', fontWeight: 900, letterSpacing: '-1px', marginBottom: 12 }}>One app. Every journey.</h2>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 16 }}>Rideshare is just the beginning. Join now to be first when we launch these.</p>
           </div>
-          <h1 className="hero-title">
-            Rides & Delivery
-            <span className="highlight"> Just $1 Fee</span>
-          </h1>
-          <p className="hero-subtitle">
-            The world's first $1 matchmaking platform. Book rides, order food,
-            or become a partner. Transparent pricing, no hidden fees.
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px,1fr))', gap: 16 }}>
+            {[
+              { icon: '✈️', title: 'Airport Pickups', desc: 'Flat-rate SNA, LAX, LGB runs. Track your flight, we track your gate.' },
+              { icon: '🍜', title: 'Food Delivery', desc: 'Local restaurants, flat $1 delivery fee. No markup on menu prices.' },
+              { icon: '📦', title: 'Courier & Packages', desc: 'Same-day courier for businesses and individuals across California.' },
+              { icon: '👑', title: 'VIP Service', desc: 'Premium vehicles, priority matching, dedicated driver availability.' },
+              { icon: '🔄', title: 'Recurring Rides', desc: 'Schedule your daily commute once, ride every day automatically.' },
+              { icon: '🏢', title: 'Corporate Accounts', desc: 'Centralized billing, ride approvals, and expense reporting for teams.' },
+            ].map(s => (
+              <div key={s.title} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '28px 24px', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa', borderRadius: 50, padding: '3px 10px', fontSize: 10, fontWeight: 700, letterSpacing: '1px' }}>SOON</div>
+                <div style={{ fontSize: 30, marginBottom: 14 }}>{s.icon}</div>
+                <h4 style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>{s.title}</h4>
+                <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, lineHeight: 1.6 }}>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* DRIVER SECTION */}
+      <section style={{ padding: '100px 24px' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }}>
+          <div>
+            <div style={{ color: '#ff6b00', fontSize: 13, fontWeight: 700, letterSpacing: '2px', marginBottom: 16 }}>FOR DRIVERS</div>
+            <h2 style={{ fontSize: 'clamp(26px,4vw,44px)', fontWeight: 900, letterSpacing: '-1px', marginBottom: 20 }}>Your car.<br />Your rules.<br />Your earnings.</h2>
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 16, lineHeight: 1.8, marginBottom: 32 }}>
+              Other platforms take 25–35% of every fare. Dollor takes a flat $1. If a rider pays $20, you keep $19 plus any tip. Your income is yours.
+            </p>
+            {[
+              'Set your own price per trip',
+              'Accept only the rides you want',
+              'Keep 100% of every tip',
+              'Instant payout after each ride',
+              'Background check included — we cover the cost',
+            ].map(item => (
+              <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,107,0,0.15)', border: '1px solid rgba(255,107,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#ff6b00', flexShrink: 0 }}>✓</div>
+                <span style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)' }}>{item}</span>
+              </div>
+            ))}
+            <Link to="/driver/apply" style={{
+              display: 'inline-block', marginTop: 32,
+              background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
+              color: '#fff', textDecoration: 'none', borderRadius: 12, padding: '16px 36px',
+              fontSize: 16, fontWeight: 700,
+            }}>Apply to Drive →</Link>
+          </div>
+
+          {/* earnings card */}
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 24, padding: 40 }}>
+            <div style={{ marginBottom: 24, color: 'rgba(255,255,255,0.4)', fontSize: 13, fontWeight: 600, letterSpacing: '1px' }}>SAMPLE EARNINGS — 6-HR SHIFT</div>
+            {[
+              { route: 'Irvine → LAX', fare: '$48', fee: '-$1', earn: '$47' },
+              { route: 'Irvine → Newport Beach', fare: '$18', fee: '-$1', earn: '$17' },
+              { route: 'Costa Mesa → Anaheim', fare: '$22', fee: '-$1', earn: '$21' },
+              { route: 'Tip from rider 3', fare: '$5', fee: '$0', earn: '$5' },
+            ].map(r => (
+              <div key={r.route} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{r.route}</span>
+                <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecoration: 'line-through' }}>{r.fare}</span>
+                  <span style={{ fontSize: 13, color: '#f87171' }}>{r.fee}</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: '#4ade80', minWidth: 36, textAlign: 'right' }}>{r.earn}</span>
+                </div>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20 }}>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>Total Earned</span>
+              <span style={{ fontSize: 26, fontWeight: 900, color: '#4ade80' }}>$90</span>
+            </div>
+            <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>vs. ~$65 on Uber/Lyft after their 28% cut</div>
+          </div>
+        </div>
+      </section>
+
+      {/* LAUNCH TIMELINE */}
+      <section style={{ padding: '80px 24px', background: 'rgba(255,255,255,0.015)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ color: '#ff6b00', fontSize: 13, fontWeight: 700, letterSpacing: '2px', marginBottom: 12 }}>WHAT'S HAPPENING NOW</div>
+          <h2 style={{ fontSize: 'clamp(24px,3.5vw,40px)', fontWeight: 900, letterSpacing: '-1px', marginBottom: 48 }}>We're almost there.</h2>
+          <div style={{ textAlign: 'left' }}>
+            {[
+              { done: true, label: 'CPUC TNC License Granted', date: 'Oct 7, 2026', detail: 'Permit TNC0050982-N — active through 2029' },
+              { done: true, label: '$1M Commercial Liability Insurance', date: 'Secured', detail: 'Fully insured per California GO 115-G requirements' },
+              { done: true, label: 'iOS App Submitted to Apple', date: 'In Review', detail: 'Customer + Driver apps awaiting App Store approval' },
+              { done: false, label: 'App Store Launch', date: 'Coming Soon', detail: 'Join the waitlist to get notified the moment we go live' },
+              { done: false, label: 'California Launch', date: 'Coming Soon', detail: 'Statewide rideshare launch — riders and drivers across CA' },
+              { done: false, label: 'Android App', date: 'Following shortly', detail: 'Google Play submission in progress' },
+              { done: false, label: 'National Expansion', date: '2027', detail: 'Texas, New York, Florida and beyond — partner with us to bring Dollor to your state' },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', gap: 20, marginBottom: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: item.done ? 'linear-gradient(135deg,#ff6b00,#ff9500)' : 'rgba(255,255,255,0.06)', border: item.done ? 'none' : '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                    {item.done ? '✓' : '○'}
+                  </div>
+                  {i < 6 && <div style={{ width: 1, flex: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 0', minHeight: 40 }} />}
+                </div>
+                <div style={{ paddingBottom: 32 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: item.done ? '#fff' : 'rgba(255,255,255,0.5)' }}>{item.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: item.done ? '#ff9500' : 'rgba(255,255,255,0.3)', background: item.done ? 'rgba(255,149,0,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${item.done ? 'rgba(255,149,0,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 50, padding: '2px 10px' }}>{item.date}</span>
+                  </div>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.38)', margin: 0 }}>{item.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* BE A PARTNER */}
+      <section id="partner" style={{ padding: '100px 24px', background: 'rgba(255,255,255,0.015)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 64 }}>
+            <div style={{ color: '#ff6b00', fontSize: 13, fontWeight: 700, letterSpacing: '2px', marginBottom: 12 }}>GET INVOLVED</div>
+            <h2 style={{ fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-1.5px', marginBottom: 16 }}>
+              This is bigger than a app.<br />
+              <span style={{ background: 'linear-gradient(135deg,#ff6b00,#ffcc00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Help us change the industry.</span>
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 17, maxWidth: 580, margin: '0 auto', lineHeight: 1.7 }}>
+              We're building a movement. Uber and Lyft won't give up their 35% without a fight — we need believers, builders, and backers at our side.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 20 }}>
+            {[
+              {
+                icon: '🙋',
+                color: '#3b82f6',
+                title: 'Volunteers',
+                desc: 'Help spread the word in your city. Street teams, social media, driver recruitment — we need boots on the ground to make California launch a success.',
+                cta: 'Volunteer with us',
+                to: '/get-involved?type=volunteer',
+              },
+              {
+                icon: '🤝',
+                color: '#8b5cf6',
+                title: 'Business Partners',
+                desc: 'Hotels, venues, airports, healthcare facilities — partner with Dollor to offer reliable, affordable rides to your customers and staff.',
+                cta: 'Explore partnerships',
+                to: '/get-involved?type=business',
+              },
+              {
+                icon: '💰',
+                color: '#f59e0b',
+                title: 'Funders & Investors',
+                desc: 'We have the license, the tech, and the model. We\'re raising to scale California and go national. If you believe drivers deserve more, let\'s talk.',
+                cta: 'Request our deck',
+                to: '/get-involved?type=investor',
+              },
+              {
+                icon: '🗺️',
+                color: '#10b981',
+                title: 'Launch in Your State',
+                desc: 'Ready to bring the $1 flat fee model to Texas, New York, or Florida? We\'re looking for state-level operators and partners to co-launch Dollor nationwide.',
+                cta: 'Apply to launch',
+                to: '/get-involved?type=state_launch',
+              },
+            ].map(card => (
+              <div key={card.title} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 24, padding: '36px 32px', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ width: 52, height: 52, borderRadius: 16, background: `${card.color}18`, border: `1px solid ${card.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 20 }}>{card.icon}</div>
+                <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.3px' }}>{card.title}</h3>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 1.7, flex: 1, marginBottom: 24 }}>{card.desc}</p>
+                <Link to={card.to} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: card.color, textDecoration: 'none', fontSize: 14, fontWeight: 700, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20 }}>
+                  {card.cta} →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* WAITLIST FORM */}
+      <section ref={waitlistRef} style={{ padding: '100px 24px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 800, height: 800, background: 'radial-gradient(circle, rgba(255,107,0,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.25)', color: '#ff9500', borderRadius: 50, padding: '7px 18px', fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', marginBottom: 24 }}>
+            🔥 BE FIRST
+          </div>
+          <h2 style={{ fontSize: 'clamp(28px,5vw,52px)', fontWeight: 900, letterSpacing: '-1.5px', marginBottom: 16 }}>
+            Get early access.<br />
+            <span style={{ background: 'linear-gradient(135deg,#ff6b00,#ffcc00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Ride for less.</span>
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, lineHeight: 1.7, marginBottom: 40 }}>
+            Join the waitlist and we'll notify you the moment Dollor goes live in California. Early members get priority access and launch-day perks.
           </p>
-          <div className="hero-cta">
-            <Button
-              type="primary"
-              size="large"
-              className="cta-customer"
-              onClick={() => navigate('/customer/login')}
-            >
-              <ShopOutlined /> Order Food <ArrowRightOutlined />
-            </Button>
-            <Button
-              type="primary"
-              size="large"
-              className="cta-customer"
-              style={{ marginLeft: 16 }}
-              onClick={() => navigate('/customer/login')}
-            >
-              <CarOutlined /> Book a Ride <ArrowRightOutlined />
-            </Button>
-          </div>
-          <div className="hero-partner-links">
-            <span>Are you a business?</span>
-            <Button type="link" onClick={() => navigate('/restaurant/apply')}>Partner Restaurant</Button>
-            <Button type="link" onClick={() => navigate('/driver/apply')}>Become a Driver</Button>
-          </div>
-          <div className="hero-stats">
-            <div className="stat">
-              <span className="stat-value">5,000+</span>
-              <span className="stat-label">Restaurant Partners</span>
+
+          {waitlistCount !== null && waitlistCount > 0 && (
+            <div style={{ marginBottom: 28, fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+              <span style={{ fontWeight: 700, color: '#ff9500' }}>{waitlistCount.toLocaleString()}</span> people already on the list
             </div>
-            <div className="stat-divider"></div>
-            <div className="stat">
-              <span className="stat-value">10,000+</span>
-              <span className="stat-label">Active Drivers</span>
+          )}
+
+          {submitted ? (
+            <div style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 20, padding: '40px 32px' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: '#4ade80', marginBottom: 12 }}>You're on the list!</h3>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15, lineHeight: 1.6 }}>
+                We'll message you the moment Dollor goes live. Watch our Instagram for daily updates on launch progress.
+              </p>
+              <a href="https://instagram.com/dollorai" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 24, color: '#ff9500', textDecoration: 'none', fontSize: 15, fontWeight: 700 }}>
+                Follow @dollorai on Instagram →
+              </a>
             </div>
-            <div className="stat-divider"></div>
-            <div className="stat">
-              <span className="stat-value">$50M+</span>
-              <span className="stat-label">Partner Revenue</span>
-            </div>
-          </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 24, padding: '40px 36px', textAlign: 'left' }}>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.5px', marginBottom: 8 }}>YOUR NAME</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Jane Smith"
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '14px 18px', color: '#fff', fontSize: 16, outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.5px', marginBottom: 8 }}>EMAIL ADDRESS *</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                  required
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '14px 18px', color: '#fff', fontSize: 16, outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ marginBottom: 32 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.5px', marginBottom: 12 }}>I WANT TO</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                  {([
+                    { val: 'rider', label: '🚗 Ride' },
+                    { val: 'driver', label: '💼 Drive' },
+                    { val: 'volunteer', label: '🙋 Volunteer' },
+                    { val: 'partner', label: '🤝 Partner' },
+                    { val: 'investor', label: '💰 Invest' },
+                    { val: 'state_launch', label: '🗺️ My State' },
+                  ] as const).map(r => (
+                    <button
+                      key={r.val}
+                      type="button"
+                      onClick={() => setRole(r.val)}
+                      style={{
+                        padding: '12px 8px', borderRadius: 12, border: `1px solid ${role === r.val ? 'rgba(255,107,0,0.6)' : 'rgba(255,255,255,0.1)'}`,
+                        background: role === r.val ? 'rgba(255,107,0,0.15)' : 'rgba(255,255,255,0.03)',
+                        color: role === r.val ? '#ff9500' : 'rgba(255,255,255,0.5)',
+                        fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {error && <div style={{ color: '#f87171', fontSize: 14, marginBottom: 16 }}>{error}</div>}
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{
+                  width: '100%', padding: '18px', borderRadius: 14,
+                  background: submitting ? 'rgba(255,107,0,0.5)' : 'linear-gradient(135deg,#ff6b00,#ff9500)',
+                  border: 'none', color: '#fff', fontSize: 17, fontWeight: 800,
+                  cursor: submitting ? 'not-allowed' : 'pointer', letterSpacing: '-0.2px',
+                  boxShadow: submitting ? 'none' : '0 0 30px rgba(255,107,0,0.35)',
+                }}
+              >
+                {submitting ? 'Saving your spot...' : "Reserve My Spot →"}
+              </button>
+              <p style={{ textAlign: 'center', marginTop: 16, color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>
+                No spam. Just launch updates. Unsubscribe anytime.
+              </p>
+            </form>
+          )}
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="features">
-        <div className="features-container">
-          <div className="section-header">
-            <h2>Why Choose Dollor.ai?</h2>
-            <p>Built for growth. Designed for success.</p>
-          </div>
-          <Row gutter={[32, 32]}>
-            <Col xs={24} sm={12} lg={6}>
-              <div className="feature-card">
-                <div className="feature-icon">
-                  <DollarOutlined />
-                </div>
-                <h3>Zero Commission*</h3>
-                <p>Keep more of what you earn with our transparent pricing model</p>
-              </div>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <div className="feature-card">
-                <div className="feature-icon">
-                  <ThunderboltOutlined />
-                </div>
-                <h3>AI Menu Import</h3>
-                <p>Import your entire menu from your website in seconds with AI</p>
-              </div>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <div className="feature-card">
-                <div className="feature-icon">
-                  <WalletOutlined />
-                </div>
-                <h3>Instant Payouts</h3>
-                <p>Get paid daily with instant cash-out to your bank account</p>
-              </div>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <div className="feature-card">
-                <div className="feature-icon">
-                  <LineChartOutlined />
-                </div>
-                <h3>Smart Analytics</h3>
-                <p>AI-powered insights to optimize your menu and maximize revenue</p>
-              </div>
-            </Col>
-          </Row>
+      {/* INSTAGRAM CTA */}
+      <section style={{ padding: '60px 24px', background: 'rgba(255,255,255,0.015)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>📲</div>
+          <h3 style={{ fontSize: 26, fontWeight: 900, marginBottom: 12 }}>Daily launch updates on Instagram</h3>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 15, marginBottom: 28 }}>
+            Follow <strong style={{ color: '#fff' }}>@dollorai</strong> for behind-the-scenes updates, driver spotlights, and the exact moment we go live.
+          </p>
+          <a
+            href="https://instagram.com/dollorai"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              background: 'linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)',
+              color: '#fff', textDecoration: 'none', borderRadius: 14, padding: '16px 36px',
+              fontSize: 16, fontWeight: 800,
+            }}
+          >
+            Follow @dollorai
+          </a>
         </div>
       </section>
 
-      {/* Restaurant Section */}
-      <section className="partner-section restaurant-section">
-        <div className="partner-container">
-          <Row gutter={[64, 48]} align="middle">
-            <Col xs={24} lg={12}>
-              <div className="partner-content">
-                <div className="partner-badge">
-                  <ShopOutlined /> For Restaurants
-                </div>
-                <h2>Grow Your Restaurant Business</h2>
-                <p className="partner-desc">
-                  Join thousands of restaurants using Dollor.ai to expand their reach,
-                  increase orders, and maximize revenue without the hefty commission fees.
-                </p>
-                <ul className="partner-benefits">
-                  <li><CheckCircleOutlined /> One-click AI menu import from your website</li>
-                  <li><CheckCircleOutlined /> Real-time order management dashboard</li>
-                  <li><CheckCircleOutlined /> Dedicated partner success manager</li>
-                  <li><CheckCircleOutlined /> Marketing tools to boost visibility</li>
-                  <li><CheckCircleOutlined /> Weekly payouts directly to your bank</li>
-                </ul>
-                <Button
-                  type="primary"
-                  size="large"
-                  className="partner-cta restaurant-cta"
-                  onClick={() => navigate('/restaurant/apply')}
-                >
-                  Apply as Restaurant Partner <ArrowRightOutlined />
-                </Button>
-              </div>
-            </Col>
-            <Col xs={24} lg={12}>
-              <div className="partner-visual restaurant-visual">
-                <div className="visual-card">
-                  <ShopOutlined className="visual-icon" />
-                  <div className="visual-stats">
-                    <div className="visual-stat">
-                      <span className="value">+45%</span>
-                      <span className="label">Avg. Revenue Increase</span>
-                    </div>
-                    <div className="visual-stat">
-                      <span className="value">24hrs</span>
-                      <span className="label">Go Live Time</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Col>
-          </Row>
-        </div>
-      </section>
-
-      {/* Driver Section */}
-      <section className="partner-section driver-section">
-        <div className="partner-container">
-          <Row gutter={[64, 48]} align="middle">
-            <Col xs={24} lg={12} className="driver-visual-col">
-              <div className="partner-visual driver-visual">
-                <div className="visual-card">
-                  <CarOutlined className="visual-icon" />
-                  <div className="visual-stats">
-                    <div className="visual-stat">
-                      <span className="value">$25/hr</span>
-                      <span className="label">Avg. Earnings</span>
-                    </div>
-                    <div className="visual-stat">
-                      <span className="value">100%</span>
-                      <span className="label">Tips Kept</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Col>
-            <Col xs={24} lg={12}>
-              <div className="partner-content">
-                <div className="partner-badge driver-badge">
-                  <CarOutlined /> For Drivers
-                </div>
-                <h2>Drive Your Own Success</h2>
-                <p className="partner-desc">
-                  Be your own boss. Set your own schedule. Earn competitive pay with
-                  instant payouts and keep 100% of your tips.
-                </p>
-                <ul className="partner-benefits">
-                  <li><CheckCircleOutlined /> Flexible hours - work when you want</li>
-                  <li><CheckCircleOutlined /> Keep 100% of your tips</li>
-                  <li><CheckCircleOutlined /> Daily instant payouts available</li>
-                  <li><CheckCircleOutlined /> AI-optimized routes for more deliveries</li>
-                  <li><CheckCircleOutlined /> Insurance coverage while delivering</li>
-                </ul>
-                <Button
-                  type="primary"
-                  size="large"
-                  className="partner-cta driver-cta"
-                  onClick={() => navigate('/driver/apply')}
-                >
-                  Apply as Delivery Partner <ArrowRightOutlined />
-                </Button>
-              </div>
-            </Col>
-          </Row>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="how-it-works">
-        <div className="how-container">
-          <div className="section-header light">
-            <h2>Get Started in Minutes</h2>
-            <p>Simple onboarding. Quick approval. Fast results.</p>
-          </div>
-          <Row gutter={[48, 48]}>
-            <Col xs={24} md={8}>
-              <div className="step-card">
-                <div className="step-number">1</div>
-                <h3>Apply Online</h3>
-                <p>Fill out our simple application form with your basic information</p>
-              </div>
-            </Col>
-            <Col xs={24} md={8}>
-              <div className="step-card">
-                <div className="step-number">2</div>
-                <h3>Quick Verification</h3>
-                <p>We verify your details and set up your account within 24-48 hours</p>
-              </div>
-            </Col>
-            <Col xs={24} md={8}>
-              <div className="step-card">
-                <div className="step-number">3</div>
-                <h3>Start Earning</h3>
-                <p>Go live and start receiving orders or accepting deliveries</p>
-              </div>
-            </Col>
-          </Row>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="testimonials">
-        <div className="testimonials-container">
-          <div className="section-header">
-            <h2>Trusted by Thousands</h2>
-            <p>See what our partners say about Dollor.ai</p>
-          </div>
-          <Row gutter={[32, 32]}>
-            <Col xs={24} md={8}>
-              <div className="testimonial-card">
-                <div className="stars">
-                  <StarFilled /><StarFilled /><StarFilled /><StarFilled /><StarFilled />
-                </div>
-                <p>"Since joining Dollor.ai, our delivery orders have increased by 60%. The AI menu import saved us hours of work!"</p>
-                <div className="testimonial-author">
-                  <strong>Maria's Kitchen</strong>
-                  <span>Restaurant Partner</span>
-                </div>
-              </div>
-            </Col>
-            <Col xs={24} md={8}>
-              <div className="testimonial-card">
-                <div className="stars">
-                  <StarFilled /><StarFilled /><StarFilled /><StarFilled /><StarFilled />
-                </div>
-                <p>"I love the flexibility. I work when I want and the instant payouts mean I never have to wait for my money."</p>
-                <div className="testimonial-author">
-                  <strong>James T.</strong>
-                  <span>Delivery Partner</span>
-                </div>
-              </div>
-            </Col>
-            <Col xs={24} md={8}>
-              <div className="testimonial-card">
-                <div className="stars">
-                  <StarFilled /><StarFilled /><StarFilled /><StarFilled /><StarFilled />
-                </div>
-                <p>"The analytics dashboard helps us understand our customers better. We've optimized our menu and increased profits."</p>
-                <div className="testimonial-author">
-                  <strong>Golden Dragon</strong>
-                  <span>Restaurant Partner</span>
-                </div>
-              </div>
-            </Col>
-          </Row>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="final-cta">
-        <div className="cta-container">
-          <h2>Ready to Transform Your Business?</h2>
-          <p>Join the Dollor.ai network today and start growing</p>
-          <div className="cta-buttons">
-            <Button
-              type="primary"
-              size="large"
-              className="cta-btn-light"
-              onClick={() => navigate('/restaurant/apply')}
-            >
-              <ShopOutlined /> Partner Your Restaurant
-            </Button>
-            <Button
-              size="large"
-              className="cta-btn-outline"
-              onClick={() => navigate('/driver/apply')}
-            >
-              <CarOutlined /> Become a Driver
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="main-footer">
-        <div className="footer-container">
-          <div className="footer-top">
-            <div className="footer-brand">
-              <div className="logo">
-                <DollarOutlined className="logo-icon" />
-                <span className="logo-text">Dollor.ai</span>
-              </div>
-              <p>Empowering local businesses with AI-powered delivery solutions.</p>
+      {/* FOOTER */}
+      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '48px 24px 32px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: 40, justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 32, height: 32, background: 'linear-gradient(135deg,#ff6b00,#ff9500)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900 }}>D</div>
+              <span style={{ fontSize: 18, fontWeight: 800 }}>dollor<span style={{ color: '#ff6b00' }}>.ai</span></span>
             </div>
-            <div className="footer-links-group">
-              <h4>Partners</h4>
-              <Link to="/restaurant/apply">Restaurant Application</Link>
-              <Link to="/driver/apply">Driver Application</Link>
-              <Link to="/vendor/login">Restaurant Login</Link>
-              <Link to="/driver/login">Driver Login</Link>
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, maxWidth: 280, lineHeight: 1.7 }}>
+              Licensed rideshare platform operating under CPUC Permit TNC0050982-N. Zietra Technologies Inc., RSM, CA 92688.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 56, flexWrap: 'wrap' }}>
+            <div>
+              <h4 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', marginBottom: 16 }}>COMPANY</h4>
+              {[
+                { label: 'Privacy Policy', to: '/privacy' },
+                { label: 'Terms of Service', to: '/terms' },
+                { label: 'Zero Tolerance Policy', to: '/zero-tolerance' },
+                { label: 'Safety', to: '/safety' },
+              ].map(l => (
+                <div key={l.label} style={{ marginBottom: 10 }}>
+                  <Link to={l.to} style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: 14 }}>{l.label}</Link>
+                </div>
+              ))}
             </div>
-            <div className="footer-links-group">
-              <h4>Company</h4>
-              <Link to="/terms">Terms of Service</Link>
-              <Link to="/privacy">Privacy Policy</Link>
-              <Link to="/zero-tolerance">Zero Tolerance Policy</Link>
-              <a href="mailto:support@dollor.ai">Contact Us</a>
-            </div>
-            <div className="footer-links-group">
-              <h4>Support</h4>
-              <a href="mailto:partners@dollor.ai">Partner Support</a>
-              <a href="mailto:drivers@dollor.ai">Driver Support</a>
-              <a href="mailto:help@dollor.ai">General Help</a>
+            <div>
+              <h4 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', marginBottom: 16 }}>CONTACT</h4>
+              {[
+                { label: 'support@dollor.ai', href: 'mailto:support@dollor.ai' },
+                { label: 'drivers@dollor.ai', href: 'mailto:drivers@dollor.ai' },
+                { label: '@dollorai', href: 'https://instagram.com/dollorai' },
+              ].map(l => (
+                <div key={l.label} style={{ marginBottom: 10 }}>
+                  <a href={l.href} target={l.href.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: 14 }}>{l.label}</a>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="footer-bottom">
-            <p>&copy; 2024 Dollor.ai. All rights reserved. Empowering Local Businesses.</p>
-          </div>
+        </div>
+        <div style={{ maxWidth: 1100, margin: '32px auto 0', paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>© 2026 Zietra Technologies Inc. All rights reserved.</p>
+          <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>CPUC Permit TNC0050982-N · Licensed in California</p>
         </div>
       </footer>
 
       <style>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a0f; }
+        input::placeholder { color: rgba(255,255,255,0.25); }
+        input:focus { border-color: rgba(255,107,0,0.5) !important; }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.8); }
         }
-
-        .landing-page {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          overflow-x: hidden;
-        }
-
-        /* Navigation */
-        .main-nav {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 1000;
-          background: rgba(26, 26, 46, 0.95);
-          backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .nav-container {
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 16px 48px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .logo {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .logo-icon {
-          font-size: 28px;
-          color: #ffd700;
-        }
-
-        .logo-text {
-          font-size: 24px;
-          font-weight: 800;
-          background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .nav-links {
-          display: flex;
-          gap: 32px;
-        }
-
-        .nav-links a {
-          color: rgba(255,255,255,0.8);
-          text-decoration: none;
-          font-weight: 500;
-          transition: color 0.3s;
-        }
-
-        .nav-links a:hover {
-          color: #ffd700;
-        }
-
-        .nav-actions {
-          display: flex;
-          gap: 12px;
-        }
-
-        .nav-actions .ant-btn-background-ghost {
-          border-color: rgba(255,255,255,0.3);
-          color: white;
-        }
-
-        .nav-actions .ant-btn-background-ghost:hover {
-          border-color: #ffd700;
-          color: #ffd700;
-        }
-
-        .customer-btn {
-          background: linear-gradient(135deg, #06C167 0%, #4ADE80 100%) !important;
-          border: none !important;
-          color: white !important;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .customer-btn:hover {
-          background: linear-gradient(135deg, #4ADE80 0%, #06C167 100%) !important;
-          box-shadow: 0 4px 12px rgba(6,193,103,0.4);
-        }
-
-        /* Hero Section */
-        .hero {
-          position: relative;
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-          padding: 120px 48px 80px;
-          overflow: hidden;
-        }
-
-        .hero-bg {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background:
-            radial-gradient(circle at 20% 80%, rgba(255,215,0,0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(76,201,240,0.1) 0%, transparent 50%);
-        }
-
-        .hero-content {
-          position: relative;
-          text-align: center;
-          max-width: 900px;
-        }
-
-        .hero-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(255,215,0,0.15);
-          color: #ffd700;
-          padding: 10px 24px;
-          border-radius: 50px;
-          font-size: 14px;
-          font-weight: 600;
-          margin-bottom: 32px;
-          border: 1px solid rgba(255,215,0,0.3);
-        }
-
-        .hero-title {
-          font-size: 64px;
-          font-weight: 800;
-          color: white;
-          line-height: 1.1;
-          margin-bottom: 24px;
-        }
-
-        .hero-title .highlight {
-          background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .hero-subtitle {
-          font-size: 20px;
-          color: rgba(255,255,255,0.8);
-          line-height: 1.6;
-          margin-bottom: 40px;
-          max-width: 700px;
-          margin-left: auto;
-          margin-right: auto;
-        }
-
-        .hero-cta {
-          display: flex;
-          gap: 16px;
-          justify-content: center;
-          margin-bottom: 64px;
-        }
-
-        .cta-customer {
-          height: 56px;
-          padding: 0 40px;
-          font-size: 16px;
-          font-weight: 600;
-          background: linear-gradient(135deg, #06C167 0%, #4ADE80 100%) !important;
-          border: none !important;
-          color: white !important;
-          border-radius: 12px;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .cta-customer:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(6,193,103,0.4);
-        }
-
-        .cta-primary {
-          height: 56px;
-          padding: 0 40px;
-          font-size: 16px;
-          font-weight: 600;
-          background: linear-gradient(135deg, #ffd700 0%, #f0c000 100%) !important;
-          border: none !important;
-          color: #1a1a2e !important;
-          border-radius: 12px;
-        }
-
-        .cta-primary:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(255,215,0,0.4);
-        }
-
-        .hero-partner-links {
-          margin-top: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-
-        .hero-partner-links span {
-          color: rgba(255,255,255,0.6);
-          font-size: 14px;
-        }
-
-        .hero-partner-links .ant-btn-link {
-          color: #ffd700 !important;
-          font-weight: 500;
-          padding: 0 8px;
-        }
-
-        .hero-partner-links .ant-btn-link:hover {
-          color: #ffed4a !important;
-        }
-
-        .cta-secondary {
-          height: 56px;
-          padding: 0 40px;
-          font-size: 16px;
-          font-weight: 600;
-          background: transparent;
-          border: 2px solid rgba(255,255,255,0.3) !important;
-          color: white !important;
-          border-radius: 12px;
-        }
-
-        .cta-secondary:hover {
-          border-color: #ffd700 !important;
-          color: #ffd700 !important;
-        }
-
-        .hero-stats {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 48px;
-        }
-
-        .stat {
-          text-align: center;
-        }
-
-        .stat-value {
-          display: block;
-          font-size: 36px;
-          font-weight: 800;
-          color: #ffd700;
-        }
-
-        .stat-label {
-          font-size: 14px;
-          color: rgba(255,255,255,0.6);
-        }
-
-        .stat-divider {
-          width: 1px;
-          height: 40px;
-          background: rgba(255,255,255,0.2);
-        }
-
-        /* Features Section */
-        .features {
-          padding: 100px 48px;
-          background: #f8fafc;
-        }
-
-        .features-container {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .section-header {
-          text-align: center;
-          margin-bottom: 64px;
-        }
-
-        .section-header h2 {
-          font-size: 40px;
-          font-weight: 800;
-          color: #1a1a2e;
-          margin-bottom: 16px;
-        }
-
-        .section-header p {
-          font-size: 18px;
-          color: #64748b;
-        }
-
-        .section-header.light h2 {
-          color: white;
-        }
-
-        .section-header.light p {
-          color: rgba(255,255,255,0.7);
-        }
-
-        .feature-card {
-          background: white;
-          padding: 40px 32px;
-          border-radius: 20px;
-          text-align: center;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-          transition: all 0.3s;
-          height: 100%;
-        }
-
-        .feature-card:hover {
-          transform: translateY(-8px);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.12);
-        }
-
-        .feature-icon {
-          width: 72px;
-          height: 72px;
-          background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-          border-radius: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 24px;
-        }
-
-        .feature-icon .anticon {
-          font-size: 32px;
-          color: #1a1a2e;
-        }
-
-        .feature-card h3 {
-          font-size: 20px;
-          font-weight: 700;
-          color: #1a1a2e;
-          margin-bottom: 12px;
-        }
-
-        .feature-card p {
-          color: #64748b;
-          line-height: 1.6;
-        }
-
-        /* Partner Sections */
-        .partner-section {
-          padding: 100px 48px;
-        }
-
-        .restaurant-section {
-          background: white;
-        }
-
-        .driver-section {
-          background: #f8fafc;
-        }
-
-        .partner-container {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .partner-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-          color: #1a1a2e;
-          padding: 8px 20px;
-          border-radius: 50px;
-          font-size: 14px;
-          font-weight: 600;
-          margin-bottom: 24px;
-        }
-
-        .driver-badge {
-          background: linear-gradient(135deg, #4cc9f0 0%, #7209b7 100%);
-          color: white;
-        }
-
-        .partner-content h2 {
-          font-size: 40px;
-          font-weight: 800;
-          color: #1a1a2e;
-          margin-bottom: 20px;
-        }
-
-        .partner-desc {
-          font-size: 18px;
-          color: #64748b;
-          line-height: 1.7;
-          margin-bottom: 32px;
-        }
-
-        .partner-benefits {
-          list-style: none;
-          padding: 0;
-          margin-bottom: 40px;
-        }
-
-        .partner-benefits li {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font-size: 16px;
-          color: #334155;
-          margin-bottom: 16px;
-        }
-
-        .partner-benefits .anticon {
-          color: #10b981;
-          font-size: 18px;
-        }
-
-        .partner-cta {
-          height: 56px;
-          padding: 0 40px;
-          font-size: 16px;
-          font-weight: 600;
-          border-radius: 12px;
-          border: none;
-        }
-
-        .restaurant-cta {
-          background: linear-gradient(135deg, #ffd700 0%, #f0c000 100%) !important;
-          color: #1a1a2e !important;
-        }
-
-        .driver-cta {
-          background: linear-gradient(135deg, #4cc9f0 0%, #3a86ff 100%) !important;
-          color: white !important;
-        }
-
-        .partner-visual {
-          display: flex;
-          justify-content: center;
-        }
-
-        .visual-card {
-          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-          border-radius: 24px;
-          padding: 48px;
-          text-align: center;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-        }
-
-        .visual-icon {
-          font-size: 80px;
-          color: #ffd700;
-          margin-bottom: 32px;
-        }
-
-        .visual-stats {
-          display: flex;
-          gap: 40px;
-        }
-
-        .visual-stat .value {
-          display: block;
-          font-size: 32px;
-          font-weight: 800;
-          color: #ffd700;
-        }
-
-        .visual-stat .label {
-          font-size: 14px;
-          color: rgba(255,255,255,0.7);
-        }
-
-        /* How It Works */
-        .how-it-works {
-          padding: 100px 48px;
-          background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
-        }
-
-        .how-container {
-          max-width: 1000px;
-          margin: 0 auto;
-        }
-
-        .step-card {
-          text-align: center;
-          padding: 40px 24px;
-        }
-
-        .step-number {
-          width: 64px;
-          height: 64px;
-          background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 28px;
-          font-weight: 800;
-          color: #1a1a2e;
-          margin: 0 auto 24px;
-        }
-
-        .step-card h3 {
-          font-size: 22px;
-          font-weight: 700;
-          color: white;
-          margin-bottom: 12px;
-        }
-
-        .step-card p {
-          color: rgba(255,255,255,0.7);
-          line-height: 1.6;
-        }
-
-        /* Testimonials */
-        .testimonials {
-          padding: 100px 48px;
-          background: white;
-        }
-
-        .testimonials-container {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .testimonial-card {
-          background: #f8fafc;
-          padding: 40px;
-          border-radius: 20px;
-          height: 100%;
-        }
-
-        .stars {
-          margin-bottom: 20px;
-        }
-
-        .stars .anticon {
-          color: #ffd700;
-          font-size: 18px;
-          margin-right: 4px;
-        }
-
-        .testimonial-card p {
-          font-size: 16px;
-          color: #475569;
-          line-height: 1.7;
-          margin-bottom: 24px;
-          font-style: italic;
-        }
-
-        .testimonial-author strong {
-          display: block;
-          color: #1a1a2e;
-          font-size: 16px;
-        }
-
-        .testimonial-author span {
-          color: #64748b;
-          font-size: 14px;
-        }
-
-        /* Final CTA */
-        .final-cta {
-          padding: 100px 48px;
-          background: linear-gradient(135deg, #ffd700 0%, #f0c000 100%);
-          text-align: center;
-        }
-
-        .cta-container {
-          max-width: 700px;
-          margin: 0 auto;
-        }
-
-        .final-cta h2 {
-          font-size: 40px;
-          font-weight: 800;
-          color: #1a1a2e;
-          margin-bottom: 16px;
-        }
-
-        .final-cta p {
-          font-size: 18px;
-          color: rgba(26,26,46,0.7);
-          margin-bottom: 40px;
-        }
-
-        .cta-buttons {
-          display: flex;
-          gap: 16px;
-          justify-content: center;
-        }
-
-        .cta-btn-light {
-          height: 56px;
-          padding: 0 40px;
-          font-size: 16px;
-          font-weight: 600;
-          background: #1a1a2e !important;
-          border: none !important;
-          color: white !important;
-          border-radius: 12px;
-        }
-
-        .cta-btn-outline {
-          height: 56px;
-          padding: 0 40px;
-          font-size: 16px;
-          font-weight: 600;
-          background: transparent !important;
-          border: 2px solid #1a1a2e !important;
-          color: #1a1a2e !important;
-          border-radius: 12px;
-        }
-
-        /* Footer */
-        .main-footer {
-          background: #1a1a2e;
-          padding: 80px 48px 40px;
-        }
-
-        .footer-container {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .footer-top {
-          display: grid;
-          grid-template-columns: 2fr 1fr 1fr 1fr;
-          gap: 48px;
-          margin-bottom: 48px;
-        }
-
-        .footer-brand p {
-          color: rgba(255,255,255,0.6);
-          margin-top: 16px;
-          line-height: 1.6;
-        }
-
-        .footer-links-group h4 {
-          color: white;
-          font-size: 16px;
-          font-weight: 600;
-          margin-bottom: 20px;
-        }
-
-        .footer-links-group a {
-          display: block;
-          color: rgba(255,255,255,0.6);
-          text-decoration: none;
-          margin-bottom: 12px;
-          transition: color 0.3s;
-        }
-
-        .footer-links-group a:hover {
-          color: #ffd700;
-        }
-
-        .footer-bottom {
-          border-top: 1px solid rgba(255,255,255,0.1);
-          padding-top: 32px;
-          text-align: center;
-        }
-
-        .footer-bottom p {
-          color: rgba(255,255,255,0.5);
-          font-size: 14px;
-        }
-
-        /* Mobile Menu Button */
-        .mobile-menu-btn {
-          display: none;
-          background: transparent;
-          border: 1px solid rgba(255,255,255,0.3);
-          border-radius: 8px;
-          padding: 8px 12px;
-          color: white;
-          font-size: 20px;
-          cursor: pointer;
-        }
-
-        .mobile-menu-btn:hover {
-          border-color: #ffd700;
-          color: #ffd700;
-        }
-
-        /* Mobile Menu Drawer */
-        .mobile-menu {
-          padding: 24px;
-        }
-
-        .mobile-menu-links {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          margin-bottom: 32px;
-        }
-
-        .mobile-menu-links a {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          color: rgba(255,255,255,0.8);
-          text-decoration: none;
-          padding: 16px;
-          border-radius: 12px;
-          font-size: 16px;
-          transition: all 0.3s;
-        }
-
-        .mobile-menu-links a:hover {
-          background: rgba(255,215,0,0.1);
-          color: #ffd700;
-        }
-
-        .mobile-menu-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .mobile-btn {
-          background: transparent !important;
-          border: 1px solid rgba(255,255,255,0.3) !important;
-          color: white !important;
-          height: 48px;
-          border-radius: 12px;
-        }
-
-        .mobile-btn:hover {
-          border-color: #ffd700 !important;
-          color: #ffd700 !important;
-        }
-
-        .mobile-btn-primary {
-          background: #ffd700 !important;
-          border: none !important;
-          color: #1a1a2e !important;
-          height: 48px;
-          border-radius: 12px;
-          font-weight: 600;
-        }
-
-        .mobile-btn-customer {
-          background: linear-gradient(135deg, #06C167 0%, #4ADE80 100%) !important;
-          border: none !important;
-          color: white !important;
-          height: 48px;
-          border-radius: 12px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-
-        /* Responsive - Tablet */
-        @media (max-width: 1024px) {
-          .nav-links {
-            display: none;
-          }
-
-          .mobile-menu-btn {
-            display: flex;
-          }
-
-          .hero-title {
-            font-size: 48px;
-          }
-
-          .footer-top {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .visual-stats {
-            flex-direction: column;
-            gap: 20px;
-          }
-        }
-
-        /* Responsive - Mobile */
         @media (max-width: 768px) {
-          .nav-container {
-            padding: 12px 16px;
-          }
-
-          .logo-icon {
-            font-size: 24px;
-          }
-
-          .logo-text {
-            font-size: 20px;
-          }
-
-          .nav-actions {
-            display: none;
-          }
-
-          .hero {
-            padding: 80px 16px 48px;
-            min-height: auto;
-          }
-
-          .hero-badge {
-            font-size: 12px;
-            padding: 8px 16px;
-            margin-bottom: 20px;
-          }
-
-          .hero-title {
-            font-size: 28px;
-            margin-bottom: 16px;
-          }
-
-          .hero-subtitle {
-            font-size: 15px;
-            margin-bottom: 28px;
-          }
-
-          .hero-cta {
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 40px;
-          }
-
-          .cta-primary, .cta-secondary {
-            width: 100%;
-            height: 52px;
-            padding: 0 24px;
-          }
-
-          .hero-stats {
-            flex-direction: column;
-            gap: 20px;
-          }
-
-          .stat-value {
-            font-size: 28px;
-          }
-
-          .stat-label {
-            font-size: 13px;
-          }
-
-          .stat-divider {
-            display: none;
-          }
-
-          .features, .partner-section, .testimonials {
-            padding: 48px 16px;
-          }
-
-          .how-it-works, .final-cta {
-            padding: 48px 16px;
-          }
-
-          .section-header {
-            margin-bottom: 40px;
-          }
-
-          .section-header h2 {
-            font-size: 24px;
-          }
-
-          .section-header p {
-            font-size: 15px;
-          }
-
-          .feature-card {
-            padding: 28px 20px;
-          }
-
-          .feature-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 16px;
-          }
-
-          .feature-icon .anticon {
-            font-size: 24px;
-          }
-
-          .feature-card h3 {
-            font-size: 18px;
-          }
-
-          .partner-badge {
-            font-size: 13px;
-            padding: 6px 16px;
-          }
-
-          .partner-content h2 {
-            font-size: 24px;
-          }
-
-          .partner-desc {
-            font-size: 15px;
-          }
-
-          .partner-benefits li {
-            font-size: 14px;
-          }
-
-          .partner-cta {
-            width: 100%;
-            height: 52px;
-          }
-
-          .visual-card {
-            padding: 32px 24px;
-          }
-
-          .visual-icon {
-            font-size: 56px;
-            margin-bottom: 24px;
-          }
-
-          .visual-stats {
-            flex-direction: row;
-            gap: 24px;
-          }
-
-          .visual-stat .value {
-            font-size: 24px;
-          }
-
-          .visual-stat .label {
-            font-size: 12px;
-          }
-
-          .step-card {
-            padding: 24px 16px;
-          }
-
-          .step-number {
-            width: 52px;
-            height: 52px;
-            font-size: 22px;
-          }
-
-          .step-card h3 {
-            font-size: 18px;
-          }
-
-          .testimonial-card {
-            padding: 28px 20px;
-          }
-
-          .testimonial-card p {
-            font-size: 15px;
-          }
-
-          .final-cta h2 {
-            font-size: 24px;
-          }
-
-          .final-cta p {
-            font-size: 15px;
-          }
-
-          .cta-buttons {
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          .cta-btn-light, .cta-btn-outline {
-            width: 100%;
-            height: 52px;
-          }
-
-          .main-footer {
-            padding: 48px 16px 32px;
-          }
-
-          .footer-top {
-            grid-template-columns: 1fr;
-            gap: 32px;
-          }
-
-          .footer-brand p {
-            font-size: 14px;
-          }
-
-          .footer-links-group h4 {
-            font-size: 15px;
-            margin-bottom: 16px;
-          }
-
-          .footer-links-group a {
-            font-size: 14px;
-            margin-bottom: 10px;
-          }
-
-          .driver-visual-col {
-            order: 2;
-          }
+          .nav-links-desktop { display: none !important; }
+          section > div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+          div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
         }
-
-        /* Responsive - Small Mobile */
-        @media (max-width: 375px) {
-          .hero-title {
-            font-size: 24px;
-          }
-
-          .hero-subtitle {
-            font-size: 14px;
-          }
-
-          .section-header h2, .partner-content h2, .final-cta h2 {
-            font-size: 22px;
-          }
-
-          .stat-value {
-            font-size: 24px;
-          }
-
-          .visual-stats {
-            flex-direction: column;
-            gap: 16px;
-          }
+        @media (max-width: 640px) {
+          div[style*="borderRight"] { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.06); }
         }
       `}</style>
     </div>

@@ -1,152 +1,99 @@
 import React from 'react';
-import { Typography, Breadcrumb, Table } from 'antd';
-import { HomeOutlined, DollarOutlined, SafetyOutlined, PhoneOutlined, MailOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
+import PublicNav, { PublicFooter, publicPageStyle } from '../../components/layout/PublicNav';
 
-const { Title, Paragraph, Text } = Typography;
+const s = (title: string, children: React.ReactNode) => (
+  <div style={{ marginBottom: 40 }}>
+    <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 14, color: '#fff' }}>{title}</h2>
+    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.8 }}>{children}</div>
+  </div>
+);
 
-const ZeroTolerancePolicy: React.FC = () => {
-  const reportColumns = [
-    { title: 'Channel', dataIndex: 'channel', key: 'channel' },
-    { title: 'How to Report', dataIndex: 'how', key: 'how' },
-  ];
+const ZeroTolerancePolicy: React.FC = () => (
+  <div style={publicPageStyle}>
+    <PublicNav />
+    <div style={{ minHeight: '100vh', padding: '120px 24px 80px' }}>
+      <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
-  const reportData = [
-    {
-      key: '1',
-      channel: 'In the Dollor app',
-      how: 'Open the active-trip screen or your trip receipt and tap "Report a Safety Issue". Reports are accepted from riders, passengers, and members of the public.',
-    },
-    {
-      key: '2',
-      channel: 'Phone',
-      how: 'Call Dollor.ai Support: +1-800-365-5671 (24/7)',
-    },
-    {
-      key: '3',
-      channel: 'Email',
-      how: 'support@dollor.ai — include the trip date, time, and driver name if known',
-    },
-    {
-      key: '4',
-      channel: 'CPUC (independent)',
-      how: 'California Public Utilities Commission: 1-800-894-9444 or CIU_intake@cpuc.ca.gov',
-    },
-  ];
-
-  return (
-    <div className="legal-page">
-      {/* Header */}
-      <header className="legal-header">
-        <div className="header-content">
-          <Link to="/" className="logo-link">
-            <DollarOutlined className="logo-icon" />
-            <span className="logo-text">Dollor.ai</span>
-          </Link>
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.25)', color: '#ff9500', borderRadius: 50, padding: '7px 18px', fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', marginBottom: 20 }}>🛡️ SAFETY</div>
+          <h1 style={{ fontSize: 'clamp(28px,5vw,44px)', fontWeight: 900, letterSpacing: '-1.5px', marginBottom: 14 }}>Zero Tolerance Policy</h1>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Last updated: October 7, 2026 · Zietra Technologies Inc.</p>
         </div>
-      </header>
 
-      {/* Content */}
-      <div className="legal-content">
-        <div className="content-container">
-          <Breadcrumb className="breadcrumb">
-            <Breadcrumb.Item>
-              <Link to="/"><HomeOutlined /> Home</Link>
-            </Breadcrumb.Item>
-            <Breadcrumb.Item>
-              <SafetyOutlined /> Zero Tolerance Policy
-            </Breadcrumb.Item>
-          </Breadcrumb>
+        <div style={{ background: 'rgba(255,107,0,0.06)', border: '1px solid rgba(255,107,0,0.2)', borderRadius: 20, padding: '28px 32px', marginBottom: 32 }}>
+          <p style={{ fontSize: 16, fontWeight: 600, color: '#fff', lineHeight: 1.7 }}>Dollor is committed to the safety of every person on our platform. We maintain a strict zero tolerance policy for the behaviors listed below. Violations result in <strong style={{ color: '#ff9500' }}>immediate and permanent deactivation</strong> — no warnings, no second chances.</p>
+        </div>
 
-          <Typography className="legal-typography">
-            <Title level={1}>Zero Tolerance Intoxicating Substance Policy</Title>
-            <Text type="secondary" className="effective-date">
-              Zietra Technologies Inc. (Dollor.ai) &bull; Pursuant to CPUC General Order 157-E, Part 11.04
-            </Text>
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '40px' }}>
 
-            <div className="intro-box">
-              <Paragraph>
-                Dollor.ai maintains a <Text strong>zero-tolerance policy</Text> for the use of
-                intoxicating substances &mdash; drugs or alcohol &mdash; by any driver while providing
-                transportation services on, or logged in to, the Dollor.ai platform. There is no
-                permissible level of impairment. A driver who violates this policy is immediately
-                suspended, and permanently removed from the platform if the complaint is substantiated.
-              </Paragraph>
+          {s('1. Drugs and Alcohol', <>
+            <p>Dollor prohibits the use, possession, or influence of alcohol, marijuana, or any controlled substance by drivers while using the Dollor platform (including during Period 1, 2, and 3 as defined by California TNC regulations).</p>
+            <p style={{ marginTop: 12 }}>Riders who request a driver to transport them under the influence in a way that endangers others may also be permanently deactivated.</p>
+            <p style={{ marginTop: 12 }}>If you believe your driver is impaired: <strong>tap the emergency button immediately and exit the vehicle when safe to do so.</strong></p>
+          </>)}
+
+          {s('2. Discrimination', <>
+            <p>Dollor prohibits discrimination based on:</p>
+            <ul style={{ paddingLeft: 20, marginTop: 10 }}>
+              {['Race, color, national origin, or ethnicity', 'Religion or creed', 'Sex, gender identity, or sexual orientation', 'Age or disability status', 'Source of income or public assistance status'].map(i => <li key={i} style={{ marginBottom: 8 }}>{i}</li>)}
+            </ul>
+            <p style={{ marginTop: 12 }}>Drivers may not refuse ride requests, apply different terms, or provide inferior service based on any of the above. Riders may not request discrimination against drivers or third parties.</p>
+          </>)}
+
+          {s('3. Sexual Misconduct and Harassment', <>
+            <p>Dollor has zero tolerance for any form of sexual misconduct, harassment, or inappropriate physical contact. This includes:</p>
+            <ul style={{ paddingLeft: 20, marginTop: 10 }}>
+              {['Unsolicited touching or physical contact', 'Verbal harassment or sexual comments', 'Requesting personal contact information for personal purposes', 'Non-consensual recording or photography', 'Any sexual conduct of any kind'].map(i => <li key={i} style={{ marginBottom: 8 }}>{i}</li>)}
+            </ul>
+          </>)}
+
+          {s('4. Violence and Threatening Behavior', <>
+            <p>Physical violence, threats of violence, or intimidation of any kind — toward any person, including drivers, riders, or bystanders — is grounds for immediate permanent deactivation and referral to law enforcement.</p>
+          </>)}
+
+          {s('5. Fraud and Deception', <>
+            <p>Deceptive practices including creating fake accounts, manipulating ratings, submitting false reports, or circumventing the platform's fee system are prohibited and may result in legal action in addition to deactivation.</p>
+          </>)}
+
+          {s('6. How to Report a Violation', <>
+            <p>If you experience or witness a zero tolerance violation:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+              {[
+                { icon: '🚨', t: 'Immediate danger', d: 'Tap the emergency button in the app. This contacts 911 directly.' },
+                { icon: '✉️', t: 'Report after the fact', d: 'Email safety@dollor.ai with your ride details and description.' },
+                { icon: '⭐', t: 'In-app reporting', d: 'After your ride, rate your experience and use "Report an Issue" to flag the incident.' },
+              ].map(c => (
+                <div key={c.t} style={{ display: 'flex', gap: 16, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px 20px' }}>
+                  <span style={{ fontSize: 24, flexShrink: 0 }}>{c.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#fff', marginBottom: 4 }}>{c.t}</div>
+                    <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>{c.d}</div>
+                  </div>
+                </div>
+              ))}
             </div>
+          </>)}
 
-            <Title level={2}>1. The Policy</Title>
-            <Paragraph>
-              A driver may not provide any trip while under the influence of alcohol, illegal drugs,
-              or any substance (including prescription or over-the-counter medication) that impairs
-              the ability to drive safely. Drivers may not consume alcohol within 8 hours before, or
-              at any time during, a platform session, and may not transport open containers of
-              alcohol in the driver compartment.
-            </Paragraph>
+          {s('7. Investigation Process', <>
+            <p>All reported violations are reviewed by our Trust & Safety team within 24 hours. Accounts under investigation may be temporarily suspended. Drivers found to have violated this policy are permanently deactivated and may be reported to the CPUC and law enforcement as required by California Public Utilities Code § 5440.5.</p>
+          </>)}
 
-            <Title level={2}>2. How to Report a Suspected Violation</Title>
-            <Paragraph>
-              If you reasonably suspect that your driver was under the influence of drugs or alcohol
-              during the course of a ride, report it through any of the following channels:
-            </Paragraph>
-            <Table
-              columns={reportColumns}
-              dataSource={reportData}
-              pagination={false}
-              bordered
-              size="middle"
-            />
-            <Paragraph style={{ marginTop: 16 }}>
-              <PhoneOutlined /> <Text strong>Dollor.ai Support: +1-800-365-5671</Text>
-              <br />
-              <MailOutlined /> <Text strong>support@dollor.ai</Text>
-            </Paragraph>
-            <Paragraph>
-              You may also complain directly to the California Public Utilities Commission:
-              <br />
-              <PhoneOutlined /> <Text strong>CPUC: 1-800-894-9444</Text>
-              <br />
-              <MailOutlined /> <Text strong>CIU_intake@cpuc.ca.gov</Text>
-            </Paragraph>
+          {s('8. CPUC Compliance', <>
+            <p>This policy is maintained in compliance with California Public Utilities Code requirements for Transportation Network Companies. Under California law (PUC § 5440.5), Dollor is required to immediately deactivate drivers upon receiving a credible complaint of impairment or certain violations.</p>
+            <p style={{ marginTop: 12 }}>To report a TNC violation to the CPUC directly, visit the CPUC Consumer Affairs website or call 1-800-649-7570.</p>
+          </>)}
 
-            <Title level={2}>3. What Happens When You Report</Title>
-            <Paragraph>
-              <ol>
-                <li>
-                  <Text strong>Immediate suspension:</Text> upon receipt of a zero-tolerance
-                  complaint, the reported driver&rsquo;s account is automatically and immediately
-                  suspended. The driver cannot go online or receive any trip request while the
-                  complaint is investigated.
-                </li>
-                <li>
-                  <Text strong>Reference number:</Text> every report receives a unique reference
-                  number so you can follow up on the outcome.
-                </li>
-                <li>
-                  <Text strong>Investigation:</Text> our safety team begins an investigation within
-                  48 hours, including reporter follow-up, a driver statement, and trip data review.
-                </li>
-                <li>
-                  <Text strong>Resolution:</Text> substantiated complaints result in permanent
-                  removal from the platform; incidents involving criminal conduct are referred to
-                  law enforcement. All complaints and outcomes are permanently retained and reported
-                  to the CPUC as required.
-                </li>
-              </ol>
-            </Paragraph>
-
-            <Title level={2}>4. Contact</Title>
-            <Paragraph>
-              Zietra Technologies Inc. (Dollor.ai)
-              <br />
-              Support: +1-800-365-5671 &bull; support@dollor.ai
-              <br />
-              California Public Utilities Commission: 1-800-894-9444 &bull; CIU_intake@cpuc.ca.gov
-            </Paragraph>
-          </Typography>
+          {s('Contact', <p>Safety concerns: <a href="mailto:safety@dollor.ai" style={{ color: '#ff9500' }}>safety@dollor.ai</a><br />General support: <a href="mailto:support@dollor.ai" style={{ color: '#ff9500' }}>support@dollor.ai</a></p>)}
         </div>
       </div>
     </div>
-  );
-};
+    <PublicFooter />
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { background:#0a0a0f; }
+    `}</style>
+  </div>
+);
 
 export default ZeroTolerancePolicy;

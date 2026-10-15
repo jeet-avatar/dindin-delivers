@@ -42,6 +42,7 @@ import HelpSupport from './app/screens/public/HelpSupport';
 import ReferAndEarn from './app/screens/public/ReferAndEarn';
 import RefundPolicy from './app/screens/public/RefundPolicy';
 import ZeroTolerancePolicy from './app/screens/public/ZeroTolerancePolicy';
+import GetInvolved from './app/screens/public/GetInvolved';
 import InvestorDeck from './app/screens/public/InvestorDeck';
 import InvestorDeck2026 from './app/screens/public/InvestorDeck2026';
 
@@ -163,6 +164,12 @@ function App() {
 
         {/* Investor Deck 2026 (Password-protected) */}
         <Route path="/investor2026" element={<InvestorDeck2026 />} />
+
+        {/* Get Involved */}
+        <Route path="/get-involved" element={<GetInvolved />} />
+        <Route path="/partner" element={<GetInvolved />} />
+        <Route path="/volunteer" element={<GetInvolved />} />
+        <Route path="/invest" element={<GetInvolved />} />
 
         {/* Restaurant & Driver Applications */}
         <Route path="/restaurant/apply" element={<RestaurantApplication />} />
