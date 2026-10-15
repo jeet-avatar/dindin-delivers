@@ -578,6 +578,95 @@ def send_email(
                 pass
 
 
+def _dollor_email(icon: str, title: str, subtitle: str, body_html: str, footer_note: str = "") -> str:
+    """
+    Shared Dollor email base template.
+    All consumer-facing emails use this for consistent branding.
+    Dark header, orange accents, light body — works in all major email clients.
+    """
+    footer_extra = f'<br>{footer_note}' if footer_note else ''
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  *{{margin:0;padding:0;box-sizing:border-box}}
+  body{{background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#111827}}
+  .wrap{{max-width:600px;margin:28px auto}}
+  .hdr{{background:#0a0a0f;padding:22px 28px;border-radius:14px 14px 0 0;display:table;width:100%}}
+  .logo-d{{display:inline-block;width:34px;height:34px;background:linear-gradient(135deg,#ff6b00,#ff9500);border-radius:9px;text-align:center;line-height:34px;font-size:17px;font-weight:900;color:#fff;vertical-align:middle}}
+  .logo-txt{{display:inline-block;font-size:19px;font-weight:800;color:#fff;letter-spacing:-0.4px;vertical-align:middle;margin-left:10px}}
+  .hero{{background:#fff;padding:36px 28px 28px;text-align:center;border-left:1px solid #e5e5ea;border-right:1px solid #e5e5ea}}
+  .hero-icon{{font-size:52px;display:block;margin-bottom:14px}}
+  .hero-title{{font-size:24px;font-weight:800;color:#0a0a0f;letter-spacing:-0.5px;margin-bottom:6px}}
+  .hero-sub{{font-size:14px;color:#6b7280;line-height:1.6}}
+  .body{{background:#fff;padding:4px 28px 28px;border-left:1px solid #e5e5ea;border-right:1px solid #e5e5ea}}
+  .body p{{font-size:15px;color:#374151;line-height:1.75;margin:14px 0}}
+  .divider{{height:1px;background:#f3f4f6;margin:20px 0}}
+  .box{{background:#f7f7fa;border-radius:12px;padding:20px;margin:20px 0}}
+  .row{{display:table;width:100%;padding:9px 0;border-bottom:1px solid #efeff3}}
+  .row:last-child{{border-bottom:none}}
+  .row-lbl{{display:table-cell;font-size:13px;color:#9ca3af;font-weight:500;width:40%;vertical-align:top;padding-top:1px}}
+  .row-val{{display:table-cell;font-size:14px;color:#111827;font-weight:600;text-align:right}}
+  .stats{{display:table;width:100%;margin:22px 0;background:#f7f7fa;border-radius:12px;padding:18px 0}}
+  .stat{{display:table-cell;text-align:center;padding:0 12px;border-right:1px solid #e5e5ea}}
+  .stat:last-child{{border-right:none}}
+  .stat-val{{font-size:28px;font-weight:900;color:#0a0a0f;letter-spacing:-1px}}
+  .stat-lbl{{font-size:11px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}}
+  .cta{{display:block;background:linear-gradient(135deg,#ff6b00,#ff9500);color:#fff;text-align:center;padding:17px 28px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;margin:24px 0;letter-spacing:-0.2px}}
+  .cta-ghost{{display:block;background:transparent;color:#ff6b00;text-align:center;padding:14px 28px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px;border:1.5px solid rgba(255,107,0,.3);margin:10px 0}}
+  .code-wrap{{background:#0a0a0f;border-radius:14px;padding:30px;text-align:center;margin:22px 0}}
+  .code{{font-family:'Courier New',Courier,monospace;font-size:42px;font-weight:900;color:#ff6b00;letter-spacing:10px}}
+  .code-hint{{color:rgba(255,255,255,.4);font-size:13px;margin-top:10px}}
+  .alert{{background:#fff7ed;border:1px solid rgba(255,107,0,.25);border-radius:10px;padding:15px 18px;margin:18px 0;font-size:14px;color:#92400e;line-height:1.6}}
+  .green-tag{{display:inline-block;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#15803d;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700}}
+  .orange-tag{{display:inline-block;background:rgba(255,107,0,.1);border:1px solid rgba(255,107,0,.3);color:#ff6b00;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700}}
+  ul.perks{{list-style:none;margin:14px 0}}
+  ul.perks li{{padding:8px 0;font-size:14px;color:#374151;border-bottom:1px solid #f3f4f6;display:flex;align-items:flex-start;gap:10px}}
+  ul.perks li:last-child{{border-bottom:none}}
+  .check{{color:#ff6b00;font-weight:700;flex-shrink:0}}
+  .ftr{{background:#0a0a0f;padding:22px 28px;border-radius:0 0 14px 14px}}
+  .ftr-logo{{font-size:16px;font-weight:800;color:#fff;margin-bottom:10px}}
+  .ftr-links{{font-size:12px;color:rgba(255,255,255,.4);line-height:1.8}}
+  .ftr-links a{{color:rgba(255,255,255,.5);text-decoration:none}}
+  .ftr-legal{{font-size:11px;color:rgba(255,255,255,.2);margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06);line-height:1.7}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <span class="logo-d">D</span>
+    <span class="logo-txt">dollor<span style="color:#ff6b00">.ai</span></span>
+  </div>
+  <div class="hero">
+    <span class="hero-icon">{icon}</span>
+    <div class="hero-title">{title}</div>
+    <div class="hero-sub">{subtitle}</div>
+  </div>
+  <div class="body">
+    {body_html}
+  </div>
+  <div class="ftr">
+    <div class="ftr-logo">dollor<span style="color:#ff6b00">.ai</span></div>
+    <div class="ftr-links">
+      CPUC Permit TNC0050982-N · Zietra Technologies Inc., RSM, CA 92688<br>
+      <a href="https://dollor.ai/zero-tolerance">Zero Tolerance</a> &nbsp;·&nbsp;
+      <a href="https://dollor.ai/terms">Terms</a> &nbsp;·&nbsp;
+      <a href="https://dollor.ai/privacy">Privacy</a> &nbsp;·&nbsp;
+      <a href="https://dollor.ai/safety">Safety</a>
+      {footer_extra}
+    </div>
+    <div class="ftr-legal">
+      © 2026 Zietra Technologies Inc. · support@dollor.ai · dollor.ai<br>
+      You're receiving this because you have a Dollor account.
+    </div>
+  </div>
+</div>
+</body>
+</html>"""
+
+
 def send_vendor_approval_email(
     to_email: str,
     restaurant_name: str,
@@ -821,230 +910,93 @@ def send_driver_approval_email(
     """
     activation_url = f"{API_BASE_URL}/drivers/activate/{activation_token}" if activation_token else f"{WEB_BASE_URL}/driver/activate"
 
-    subject = f"ACTION REQUIRED: Activate Your Dollor.AI Driver Account"
+    subject = f"Action required: activate your Dollor driver account"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 700px; margin: 0 auto; background-color: white; }}
-            .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 20px; text-align: center; }}
-            .logo {{ font-size: 32px; color: white; font-weight: bold; }}
-            .content {{ padding: 40px 30px; }}
-            .greeting {{ font-size: 24px; color: #1e293b; margin-bottom: 20px; }}
-            .message {{ color: #475569; font-size: 16px; line-height: 1.6; }}
-            .driver-code {{ background: #f0fdf4; border: 2px solid #10b981; padding: 15px 20px; border-radius: 8px; font-family: monospace; font-size: 24px; text-align: center; margin: 20px 0; color: #10b981; }}
-            .alert-box {{ background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 25px 0; border-radius: 8px; }}
-            .services-box {{ background: #f0fdf4; border: 1px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; }}
-            .terms-section {{ background: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; margin: 25px 0; border-radius: 8px; }}
-            .terms-item {{ margin: 15px 0; padding-left: 15px; border-left: 3px solid #10b981; }}
-            .cta-button {{ display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 18px 40px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 18px; margin: 25px 0; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }}
-            .footer {{ background: #1e293b; padding: 30px; text-align: center; color: #94a3b8; font-size: 13px; }}
-            .checkmark {{ color: #10b981; font-weight: bold; margin-right: 8px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">DOLLOR.AI</div>
-                <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 18px;">Your Application Has Been Approved!</p>
-            </div>
-            <div class="content">
-                <h1 class="greeting">Congratulations, {driver_name}!</h1>
-                <p class="message">
-                    Your driver application with <strong>Dollor.AI</strong> has been <strong style="color: #10b981;">APPROVED</strong>.
-                    You are now eligible to provide services as an <strong>Independent Contractor</strong> on our platform.
-                </p>
+    body = f"""
+<p>Hi <strong>{driver_name}</strong>,</p>
+<p>Your application to drive with Dollor has been <strong style="color:#ff6b00">approved</strong>. One step left: activate your account to accept rides.</p>
 
-                <div class="driver-code">YOUR DRIVER CODE: <strong>{driver_code}</strong></div>
+<div class="box">
+  <div class="row"><span class="row-lbl">Driver Code</span><span class="row-val" style="font-family:monospace;font-size:18px;font-weight:900;color:#ff6b00">{driver_code}</span></div>
+  <div class="row" style="border:none"><span class="row-lbl">Status</span><span class="row-val"><span class="orange-tag">Approved — Activation Pending</span></span></div>
+</div>
 
-                <div class="alert-box">
-                    <strong style="color: #92400e; font-size: 16px;">⚠️ IMPORTANT: ACTIVATION REQUIRED</strong>
-                    <p style="color: #78350f; margin: 10px 0 0 0;">
-                        Before you can start accepting requests, you must review and accept our Terms of Service
-                        by clicking the <strong>ACTIVATE MY ACCOUNT</strong> button below.
-                    </p>
-                </div>
+<div class="alert">
+  <strong>⚠️ Action Required</strong> — You must click Activate below to accept our Terms of Service and go live. Until then, you cannot accept ride requests.
+</div>
 
-                <h2 style="color: #1e293b; border-bottom: 2px solid #10b981; padding-bottom: 10px;">You Are Approved For:</h2>
+<p style="font-weight:700;color:#0a0a0f;margin:24px 0 10px">What you're approved for:</p>
+<ul class="perks">
+  <li><span class="check">✅</span> <span><strong>Rideshare services</strong> — set your own fares, keep the negotiated rate, plus 100% of tips</span></li>
+  <li><span class="check">✅</span> <span><strong>Flexible schedule</strong> — go online and offline whenever you choose</span></li>
+  <li><span class="check">✅</span> <span><strong>Instant payouts</strong> — earnings deposited via Stripe Connect after each ride</span></li>
+</ul>
 
-                <div class="services-box">
-                    <h3 style="color: #10b981; margin-top: 0;"><span class="checkmark">✅</span> FOOD DELIVERY SERVICES</h3>
-                    <ul style="color: #475569;">
-                        <li>Deliver food orders from restaurants to customers</li>
-                        <li><strong>Earn 100% of delivery fees + 100% of tips</strong></li>
-                        <li>Platform fee: $1 per delivery (paid by customer)</li>
-                    </ul>
-                    <h3 style="color: #10b981;"><span class="checkmark">✅</span> RIDESHARE SERVICES</h3>
-                    <ul style="color: #475569;">
-                        <li>Provide transportation services to riders</li>
-                        <li><strong>Set your own fares through negotiation</strong></li>
-                        <li>Platform fee: $1-$3 tiered (paid by rider)</li>
-                    </ul>
-                </div>
+<div class="box" style="margin-top:20px">
+  <p style="font-weight:700;font-size:14px;margin:0 0 12px;color:#0a0a0f">Independent Contractor Agreement — Summary</p>
+  <p style="font-size:13px;color:#6b7280;margin:0 0 10px">By clicking Activate, you acknowledge and agree to all of the following:</p>
+  <ul style="margin:0;padding:0 0 0 18px;font-size:13px;color:#374151;line-height:1.9">
+    <li><strong>Independent Contractor Status</strong> — you are not an employee of Dollor or Zietra Technologies Inc. You are responsible for your own taxes, insurance, and business expenses.</li>
+    <li><strong>Matchmaking Platform</strong> — Dollor connects drivers and riders. We do not set mandatory prices or control how you perform services.</li>
+    <li><strong>Vehicle &amp; Insurance</strong> — you must maintain valid vehicle registration and TNC/commercial auto insurance as required by California law.</li>
+    <li><strong>Background Check Consent</strong> — you consent to periodic background and MVR checks as required by law and CPUC regulations.</li>
+    <li><strong>Service Standards</strong> — maintain a 4.5+ star rating; follow all traffic laws; no discrimination of any kind.</li>
+    <li><strong>Payment Terms</strong> — weekly automatic payouts via Stripe Connect. You keep 100% of tips. A flat platform fee applies per ride.</li>
+    <li><strong>Deactivation Policy</strong> — your account may be deactivated for rating below 4.5 stars, safety violations, fraud, or Terms of Service violations.</li>
+  </ul>
+  <p style="font-size:12px;color:#9ca3af;margin:14px 0 0">
+    Full legal documents: <a href="{WEB_BASE_URL}/terms" style="color:#ff6b00">Terms of Service</a> · <a href="{WEB_BASE_URL}/privacy" style="color:#ff6b00">Privacy Policy</a> · <a href="{WEB_BASE_URL}/zero-tolerance" style="color:#ff6b00">Zero Tolerance Policy</a>
+  </p>
+</div>
 
-                <div class="terms-section">
-                    <h2 style="color: #1e293b; margin-top: 0;">INDEPENDENT CONTRACTOR AGREEMENT</h2>
-                    <p style="color: #64748b; font-size: 14px;">By clicking "ACTIVATE MY ACCOUNT" below, you acknowledge and agree to:</p>
+<a href="{activation_url}" class="cta">Activate My Account →</a>
+<p style="font-size:13px;color:#9ca3af;text-align:center">By clicking above you accept the Driver Terms of Service and Independent Contractor Agreement.</p>
 
-                    <div class="terms-item">
-                        <strong>1. INDEPENDENT CONTRACTOR STATUS</strong>
-                        <p style="color: #475569; margin: 5px 0;">You are an independent contractor, NOT an employee of Dollor.AI or Zietra Technologies Inc. You are responsible for your own taxes, insurance, and business expenses.</p>
-                    </div>
-                    <div class="terms-item">
-                        <strong>2. MATCHMAKING PLATFORM</strong>
-                        <p style="color: #475569; margin: 5px 0;">Dollor.AI is a MATCHMAKING PLATFORM that connects drivers with customers. We do not employ drivers, set mandatory prices, or control how you perform services.</p>
-                    </div>
-                    <div class="terms-item">
-                        <strong>3. VEHICLE & INSURANCE REQUIREMENTS</strong>
-                        <p style="color: #475569; margin: 5px 0;">You must maintain valid vehicle registration and carry minimum auto insurance as required by your state. For rideshare: commercial/TNC insurance is required.</p>
-                    </div>
-                    <div class="terms-item">
-                        <strong>4. BACKGROUND CHECK CONSENT</strong>
-                        <p style="color: #475569; margin: 5px 0;">You consent to periodic background checks as required by law and platform policies.</p>
-                    </div>
-                    <div class="terms-item">
-                        <strong>5. SERVICE STANDARDS</strong>
-                        <p style="color: #475569; margin: 5px 0;">Maintain minimum 4.5 star rating, complete services safely and professionally, follow all traffic laws, no discrimination.</p>
-                    </div>
-                    <div class="terms-item">
-                        <strong>6. PAYMENT TERMS</strong>
-                        <p style="color: #475569; margin: 5px 0;">Payments via Stripe Connect with weekly automatic payouts. You keep 100% of tips. Platform fees deducted per transaction.</p>
-                    </div>
-                    <div class="terms-item">
-                        <strong>7. DEACTIVATION POLICY</strong>
-                        <p style="color: #475569; margin: 5px 0;">Your account may be deactivated for: rating below 4.5 stars, safety violations, customer complaints, fraudulent activity, or Terms of Service violations.</p>
-                    </div>
-                </div>
+<p style="font-weight:700;color:#0a0a0f;margin:24px 0 10px">After activation, get started:</p>
+<ul class="perks">
+  <li><span class="check">1.</span> <span>Download the <strong>Dollor Driver app</strong> on iOS or Android</span></li>
+  <li><span class="check">2.</span> <span>Log in with this email and complete your Stripe payout setup</span></li>
+  <li><span class="check">3.</span> <span>Tap <strong>Go Online</strong> — riders in your area will start sending requests</span></li>
+</ul>
+"""
+    html_body = _dollor_email("✅", f"You're Approved, {driver_name}", "Activate your account to start accepting rides.",
+                              body, footer_note=f'Driver Code: {driver_code}')
 
-                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <p style="color: #475569; font-size: 14px; margin: 0;"><strong>By activating your account, you agree to:</strong></p>
-                    <p style="color: #475569; font-size: 14px; margin: 10px 0;">
-                        <span class="checkmark">☑</span> Dollor.AI Driver Terms of Service<br>
-                        <span class="checkmark">☑</span> Independent Contractor Agreement<br>
-                        <span class="checkmark">☑</span> Privacy Policy<br>
-                        <span class="checkmark">☑</span> Community Guidelines<br>
-                        <span class="checkmark">☑</span> Deactivation Policy
-                    </p>
-                </div>
+    text_body = f"""Driver Approved — Dollor
 
-                <center>
-                    <a href="{activation_url}" class="cta-button">ACTIVATE MY ACCOUNT</a>
-                    <p style="color: #64748b; font-size: 13px;">Click to accept terms and start driving</p>
-                </center>
+Congratulations, {driver_name}!
 
-                <div style="text-align: center; margin: 30px 0;">
-                    <p style="font-size: 14px; color: #64748b;">Review full legal documents:</p>
-                    <a href="{WEB_BASE_URL}/legal/driver-terms" style="color: #10b981; margin: 0 10px;">Driver Terms</a> |
-                    <a href="{WEB_BASE_URL}/legal/privacy" style="color: #10b981; margin: 0 10px;">Privacy Policy</a> |
-                    <a href="{WEB_BASE_URL}/legal/insurance" style="color: #10b981; margin: 0 10px;">Insurance Requirements</a>
-                </div>
+Your application to drive with Dollor has been APPROVED.
 
-                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+Driver Code: {driver_code}
+Status:      Approved — Activation Pending
 
-                <h3 style="color: #1e293b;">Get Started After Activation:</h3>
-                <ol style="color: #475569;">
-                    <li><strong>Download the Dollor Driver App</strong><br>
-                        <a href="https://apps.apple.com/app/dollor-driver">iOS App Store</a> |
-                        <a href="https://play.google.com/store/apps/details?id=ai.dollor.driver">Google Play</a>
-                    </li>
-                    <li><strong>Log in</strong> with your email and password</li>
-                    <li><strong>Complete Stripe payment setup</strong> (if not done)</li>
-                    <li><strong>Go online</strong> and start earning!</li>
-                </ol>
+ACTION REQUIRED: You must activate your account to go live.
+Activate here: {activation_url}
 
-                <p class="message" style="margin-top: 30px;">
-                    Questions? Contact our driver support team 24/7.<br>
-                    Email: <strong>support@dollor.ai</strong>
-                </p>
-            </div>
-            <div class="footer">
-                <p style="margin: 0 0 10px 0;">© 2025 Zietra Technologies Inc. All rights reserved.</p>
-                <p style="margin: 0; font-size: 12px;">Rancho Santa Margarita, CA 92688 | Dollor.AI</p>
-                <p style="margin: 15px 0 0 0; font-size: 11px; color: #64748b;">
-                    This email was sent because you applied to be a driver on Dollor.AI.<br>
-                    If you did not apply, please ignore this email or contact support.
-                </p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+By activating, you agree to the Independent Contractor Agreement:
+1. Independent Contractor — you are NOT an employee of Dollor/Zietra Technologies.
+2. Matchmaking Platform — we connect you with riders, we don't set mandatory prices.
+3. Vehicle & Insurance — maintain valid CA registration and TNC insurance.
+4. Background Check Consent — you consent to periodic Checkr checks.
+5. Service Standards — maintain 4.5+ stars, follow traffic laws, no discrimination.
+6. Payment Terms — Stripe Connect payouts, 100% of tips kept by you.
+7. Deactivation Policy — violations may result in permanent deactivation.
 
-    text_body = f"""
-    DOLLOR.AI - YOUR APPLICATION HAS BEEN APPROVED
-    ================================================
+Full legal docs:
+Terms: {WEB_BASE_URL}/terms
+Privacy: {WEB_BASE_URL}/privacy
+Zero Tolerance: {WEB_BASE_URL}/zero-tolerance
 
-    Congratulations, {driver_name}!
+AFTER ACTIVATION:
+1. Download the Dollor Driver app (iOS / Android)
+2. Log in and complete Stripe payout setup
+3. Tap Go Online — start earning
 
-    Your driver application with Dollor.AI has been APPROVED.
-    You are now eligible to provide services as an Independent Contractor.
+Questions? support@dollor.ai
 
-    YOUR DRIVER CODE: {driver_code}
-
-    ⚠️ IMPORTANT: ACTIVATION REQUIRED
-    Before you can start accepting requests, you must accept our Terms of Service.
-
-    Activate your account here: {activation_url}
-
-    ================================================
-    YOU ARE APPROVED FOR:
-    ================================================
-
-    ✅ FOOD DELIVERY SERVICES
-    - Deliver food orders from restaurants to customers
-    - Earn 100% of delivery fees + 100% of tips
-    - Platform fee: $1 per delivery (paid by customer)
-
-    ✅ RIDESHARE SERVICES
-    - Provide transportation services to riders
-    - Set your own fares through negotiation
-    - Platform fee: $1-$3 tiered (paid by rider)
-
-    ================================================
-    INDEPENDENT CONTRACTOR AGREEMENT
-    ================================================
-
-    By activating your account, you acknowledge and agree to:
-
-    1. INDEPENDENT CONTRACTOR STATUS - You are NOT an employee of Dollor.AI or Zietra Technologies Inc.
-    2. MATCHMAKING PLATFORM - We connect drivers with customers, we do not employ drivers.
-    3. VEHICLE & INSURANCE - Maintain valid registration and required insurance.
-    4. BACKGROUND CHECK CONSENT - You consent to periodic background checks.
-    5. SERVICE STANDARDS - Maintain 4.5+ star rating and professional conduct.
-    6. PAYMENT TERMS - Payments via Stripe Connect, weekly payouts, 100% of tips.
-    7. DEACTIVATION POLICY - Account may be deactivated for policy violations.
-
-    Legal Documents:
-    - Driver Terms: {WEB_BASE_URL}/legal/driver-terms
-    - Privacy Policy: {WEB_BASE_URL}/legal/privacy
-    - Insurance Requirements: {WEB_BASE_URL}/legal/insurance
-
-    ================================================
-    ACTIVATE YOUR ACCOUNT
-    ================================================
-
-    Click here to accept terms and start driving:
-    {activation_url}
-
-    ================================================
-    GET STARTED AFTER ACTIVATION
-    ================================================
-
-    1. Download the Dollor Driver App
-       - iOS: https://apps.apple.com/app/dollor-driver
-       - Android: https://play.google.com/store/apps/details?id=ai.dollor.driver
-    2. Log in with your email
-    3. Complete Stripe payment setup
-    4. Go online and start earning!
-
-    Questions? Email support@dollor.ai
-
-    © 2025 Zietra Technologies Inc.
-    Rancho Santa Margarita, CA 92688 | Dollor.AI
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai · CPUC Permit TNC0050982-N
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -1057,103 +1009,59 @@ def send_driver_registration_confirmation(
     """
     Send registration confirmation email to a new driver.
     """
-    subject = f"Application Received - Driver {driver_code} | Dollor.AI"
+    subject = f"Application Received — Welcome to Dollor, {driver_name}"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
-            .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 20px; text-align: center; }}
-            .logo {{ font-size: 32px; color: white; font-weight: bold; }}
-            .content {{ padding: 40px 30px; }}
-            .greeting {{ font-size: 24px; color: #1e293b; margin-bottom: 20px; }}
-            .message {{ color: #475569; font-size: 16px; line-height: 1.6; }}
-            .app-id {{ background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
-            .timeline {{ margin: 30px 0; }}
-            .timeline-item {{ display: flex; margin: 15px 0; }}
-            .timeline-dot {{ width: 12px; height: 12px; background: #10b981; border-radius: 50%; margin-right: 15px; margin-top: 5px; }}
-            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">Dollor.AI Driver</div>
-                <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Driver Application</p>
-            </div>
-            <div class="content">
-                <h1 class="greeting">Thank you, {driver_name}!</h1>
-                <p class="message">
-                    We've received your application to become a Dollor.AI delivery partner.
-                </p>
+    body = f"""
+<p>Hi <strong>{driver_name}</strong>,</p>
+<p>Your application to drive with Dollor is in. We've received everything and our team is reviewing it now.</p>
 
-                <div class="app-id">
-                    Application ID: <strong>{driver_code}</strong>
-                </div>
+<div class="box">
+  <div class="row"><span class="row-lbl">Application ID</span><span class="row-val" style="font-family:monospace;font-size:15px;color:#ff6b00">{driver_code}</span></div>
+  <div class="row"><span class="row-lbl">Status</span><span class="row-val"><span class="orange-tag">Under Review</span></span></div>
+  <div class="row"><span class="row-lbl">Typical timeline</span><span class="row-val">1–3 business days</span></div>
+</div>
 
-                <h3>What happens next?</h3>
-                <div class="timeline">
-                    <div class="timeline-item">
-                        <div class="timeline-dot"></div>
-                        <div>
-                            <strong>Document Review</strong><br>
-                            <span style="color: #64748b;">We verify your license and vehicle information (1-2 business days)</span>
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-dot" style="background: #e2e8f0;"></div>
-                        <div>
-                            <strong>Background Check</strong><br>
-                            <span style="color: #64748b;">Standard safety verification process</span>
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-dot" style="background: #e2e8f0;"></div>
-                        <div>
-                            <strong>Start Earning!</strong><br>
-                            <span style="color: #64748b;">Download the app and hit the road</span>
-                        </div>
-                    </div>
-                </div>
+<p style="font-weight:700;color:#0a0a0f;margin-top:22px">What happens next:</p>
+<ul class="perks">
+  <li><span class="check">1.</span> <span><strong>Document review</strong> — we verify your California license and vehicle details</span></li>
+  <li><span class="check">2.</span> <span><strong>Background check</strong> — standard safety verification via Checkr</span></li>
+  <li><span class="check">3.</span> <span><strong>Activation</strong> — you'll get an email to accept terms and go live</span></li>
+  <li><span class="check">4.</span> <span><strong>Start earning</strong> — set your price, accept rides, keep the fare</span></li>
+</ul>
 
-                <p class="message">
-                    Once approved, you'll receive an email with instructions to download the Driver app
-                    and start accepting deliveries.
-                </p>
+<div class="alert">
+  <strong>Save your Application ID: {driver_code}</strong><br>
+  Reference it if you contact us. Questions? Reply to this email or write to support@dollor.ai.
+</div>
 
-                <p class="message" style="margin-top: 30px;">
-                    Questions? Email <strong>drivers@dollor.ai</strong> or call <strong>(800) 555-RIDE</strong>.
-                </p>
-            </div>
-            <div class="footer">
-                <p>2024 Dollor.AI - Earn $25+/hour with $1 Deliveries</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+<p style="font-size:13px;color:#9ca3af;text-align:center;margin-top:24px">
+  With Dollor, you keep 100% of every fare. We charge riders a flat $1 — nothing more, never.
+</p>
+"""
+    html_body = _dollor_email("🚗", "Application Received", "We'll be in touch within 1–3 business days.", body)
 
-    text_body = f"""
-    Thank you, {driver_name}!
+    text_body = f"""Application Received — Dollor
 
-    We've received your application to become a Dollor.AI delivery partner.
+Hi {driver_name},
 
-    Application ID: {driver_code}
+Your application to drive with Dollor is in.
 
-    What happens next?
-    1. Document Review - We verify your license and vehicle information (1-2 business days)
-    2. Background Check - Standard safety verification process
-    3. Start Earning! - Download the app and hit the road
+Application ID: {driver_code}
+Status: Under Review
+Timeline: 1–3 business days
 
-    Once approved, you'll receive an email with instructions to download the Driver app.
+WHAT HAPPENS NEXT:
+1. Document review — California license and vehicle check
+2. Background check — via Checkr
+3. Activation email — accept terms and go live
+4. Start earning — set your price, keep the fare
 
-    Questions? Email drivers@dollor.ai or call (800) 555-RIDE.
+Questions? Email support@dollor.ai with your Application ID.
 
-    2024 Dollor.AI
-    """
+With Dollor, you keep 100% of every fare. Riders pay a flat $1.
+
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -1166,94 +1074,56 @@ def send_customer_welcome_email(
     """
     Send welcome email to a new customer after registration.
     """
-    subject = "Welcome to Dollor.AI!"
+    subject = f"Welcome to Dollor, {customer_name} 👋"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #FF6B35, #FF8C42); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-            .header h1 {{ color: white; margin: 0; font-size: 28px; }}
-            .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; }}
-            .welcome-box {{ background: #FFF7ED; padding: 20px; border-radius: 10px; margin: 20px 0; }}
-            .feature {{ margin: 15px 0; padding: 10px; }}
-            .cta-button {{ display: inline-block; background: #FF6B35; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }}
-            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 10px 10px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Welcome to Dollor.AI!</h1>
-            </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
+    code_line = f'<div class="row"><span class="row-lbl">Your rider code</span><span class="row-val" style="font-family:monospace;color:#ff6b00">{customer_code}</span></div>' if customer_code else ''
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>You're in. Dollor is California's rideshare platform where riders pay a flat $1 — and drivers keep everything else. No surge pricing. No percentage cuts. Just fair.</p>
 
-                <p>Thank you for joining Dollor.AI! We're excited to have you as part of our community.</p>
+<div class="box">
+  {code_line}
+  <div class="row"><span class="row-lbl">Platform fee</span><span class="row-val">$1 flat, always</span></div>
+  <div class="row"><span class="row-lbl">Surge pricing</span><span class="row-val">Never</span></div>
+  <div class="row"><span class="row-lbl">Tips</span><span class="row-val">100% go to your driver</span></div>
+</div>
 
-                <div class="welcome-box">
-                    <h3 style="margin-top: 0;">Our Mission</h3>
-                    <p>Fair pricing for everyone in the food delivery ecosystem. No hidden fees, no surge pricing.</p>
-                </div>
+<a href="https://dollor.ai/customer/rides" class="cta">Book Your First Ride →</a>
 
-                <h3>What makes us different:</h3>
+<ul class="perks">
+  <li><span class="check">✓</span> <span><strong>Set your own route</strong> — pick up and drop off anywhere</span></li>
+  <li><span class="check">✓</span> <span><strong>Choose your driver</strong> — review bids before you accept</span></li>
+  <li><span class="check">✓</span> <span><strong>Track your ride live</strong> — real-time GPS in the app</span></li>
+  <li><span class="check">✓</span> <span><strong>Pay $1 platform fee</strong> — driver keeps the rest</span></li>
+</ul>
 
-                <div class="feature">
-                    <strong>Only $1 Platform Fee</strong> - No hidden charges or surge pricing
-                </div>
+<p style="font-size:13px;color:#9ca3af;text-align:center;margin-top:20px">
+  CPUC Licensed · Background Checked Drivers · Zero Tolerance Safety Policy
+</p>
+"""
+    html_body = _dollor_email("📍", f"Welcome, {customer_name}.", "California rideshare, done right.", body)
 
-                <div class="feature">
-                    <strong>100% Menu Prices</strong> - Restaurants set their own prices
-                </div>
+    text_body = f"""Welcome to Dollor, {customer_name}!
 
-                <div class="feature">
-                    <strong>100% Tips to Drivers</strong> - Your tips go directly to drivers
-                </div>
+You're in. Dollor is California's rideshare platform where riders pay a flat $1 — and drivers keep everything else.
 
-                <p style="text-align: center;">
-                    <a href="https://dollor.ai" class="cta-button">Start Ordering Now</a>
-                </p>
+Platform fee: $1 flat, always
+Surge pricing: Never
+Tips: 100% go to your driver
+{"Rider code: " + customer_code if customer_code else ""}
 
-                <p>Questions? Reply to this email or contact us at support@dollor.ai</p>
+Book your first ride: https://dollor.ai/customer/rides
 
-                <p>Welcome aboard!<br>The Dollor.AI Team</p>
-            </div>
-            <div class="footer">
-                <p>2024 Dollor.AI by Zietra Technologies Inc.</p>
-                <p>You received this email because you created an account on Dollor.AI</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+WHAT MAKES DOLLOR DIFFERENT:
+- Set your own route
+- Choose your driver from bids
+- Track your ride live
+- Pay $1 platform fee — driver keeps the rest
 
-    text_body = f"""
-    Welcome to Dollor.AI!
+CPUC Licensed · Background Checked Drivers · Zero Tolerance Safety Policy
 
-    Hi {customer_name},
-
-    Thank you for joining Dollor.AI! We're excited to have you as part of our community.
-
-    OUR MISSION
-    Fair pricing for everyone in the food delivery ecosystem. No hidden fees, no surge pricing.
-
-    WHAT MAKES US DIFFERENT:
-    - Only $1 Platform Fee - No hidden charges or surge pricing
-    - 100% Menu Prices - Restaurants set their own prices
-    - 100% Tips to Drivers - Your tips go directly to drivers
-
-    Start ordering now at https://dollor.ai
-
-    Questions? Contact us at support@dollor.ai
-
-    Welcome aboard!
-    The Dollor.AI Team
-
-    2024 Dollor.AI by Zietra Technologies Inc.
-    """
+© 2026 Zietra Technologies Inc. · support@dollor.ai · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -1266,74 +1136,34 @@ def send_email_verification_code(
     """
     Send email verification code to customer.
     """
-    subject = f"Your Dollor.AI Verification Code: {verification_code}"
+    subject = f"Your Dollor verification code: {verification_code}"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #FF6B35, #FF8C42); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
-            .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; }}
-            .code-box {{ background: #f8f9fa; border: 2px dashed #FF6B35; padding: 20px; text-align: center; margin: 20px 0; border-radius: 10px; }}
-            .code {{ font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #FF6B35; font-family: monospace; }}
-            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 10px 10px; }}
-            .warning {{ background: #FFF3CD; border: 1px solid #FFEEBA; padding: 15px; border-radius: 8px; margin: 20px 0; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Verify Your Email</h1>
-            </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>Enter this code to verify your email address and complete your Dollor account setup.</p>
+<div class="code-wrap">
+  <div class="code">{verification_code}</div>
+  <div class="code-hint">Expires in 10 minutes · Do not share</div>
+</div>
+<div class="alert">
+  Didn't request this? You can safely ignore this email. Your account remains unchanged.
+</div>
+"""
+    html_body = _dollor_email("🔒", "Verify Your Email", "One quick step to secure your account.", body)
 
-                <p>Please use the following code to verify your email address:</p>
+    text_body = f"""Verify Your Email — Dollor
 
-                <div class="code-box">
-                    <div class="code">{verification_code}</div>
-                </div>
+Hi {customer_name},
 
-                <p>Enter this code in the app to complete your registration.</p>
+Your verification code: {verification_code}
 
-                <div class="warning">
-                    <strong>This code expires in 10 minutes.</strong><br>
-                    If you didn't request this code, please ignore this email.
-                </div>
+Enter this in the app to complete your registration.
+Expires in 10 minutes. Do not share this code.
 
-                <p>Thanks,<br>The Dollor.AI Team</p>
-            </div>
-            <div class="footer">
-                <p>2024 Dollor.AI by Zietra Technologies Inc.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+Didn't request this? Ignore this email.
 
-    text_body = f"""
-    Verify Your Email - Dollor.AI
-
-    Hi {customer_name},
-
-    Please use the following code to verify your email address:
-
-    {verification_code}
-
-    Enter this code in the app to complete your registration.
-
-    This code expires in 10 minutes.
-    If you didn't request this code, please ignore this email.
-
-    Thanks,
-    The Dollor.AI Team
-
-    2024 Dollor.AI by Zietra Technologies Inc.
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -1791,74 +1621,34 @@ def send_password_reset_email(
     """
     Send password reset code to customer.
     """
-    subject = f"Your Dollor.AI Password Reset Code: {reset_code}"
+    subject = "Your Dollor password reset code"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #FF6B35, #FF8C42); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
-            .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; }}
-            .code-box {{ background: #f8f9fa; border: 2px dashed #FF6B35; padding: 20px; text-align: center; margin: 20px 0; border-radius: 10px; }}
-            .code {{ font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #FF6B35; font-family: monospace; }}
-            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 10px 10px; }}
-            .warning {{ background: #FFF3CD; border: 1px solid #FFEEBA; padding: 15px; border-radius: 8px; margin: 20px 0; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Password Reset</h1>
-            </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>We received a request to reset your Dollor password. Use the code below — it expires in 15 minutes.</p>
+<div class="code-wrap">
+  <div class="code">{reset_code}</div>
+  <div class="code-hint">Expires in 15 minutes · Do not share</div>
+</div>
+<div class="alert">
+  <strong>Didn't request this?</strong> Your password has not been changed. You can safely ignore this email. If you're concerned, contact support@dollor.ai.
+</div>
+"""
+    html_body = _dollor_email("🔑", "Password Reset", "Enter this code in the app to reset your password.", body)
 
-                <p>We received a request to reset your password. Use the code below to complete the process:</p>
+    text_body = f"""Password Reset — Dollor
 
-                <div class="code-box">
-                    <div class="code">{reset_code}</div>
-                </div>
+Hi {customer_name},
 
-                <p>Enter this code in the app to reset your password.</p>
+Your password reset code: {reset_code}
 
-                <div class="warning">
-                    <strong>This code expires in 15 minutes.</strong><br>
-                    If you didn't request a password reset, please ignore this email or contact support if you have concerns.
-                </div>
+Enter this in the app. Expires in 15 minutes.
 
-                <p>Thanks,<br>The Dollor.AI Team</p>
-            </div>
-            <div class="footer">
-                <p>2024 Dollor.AI by Zietra Technologies Inc.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+Didn't request this? Ignore this email. Your password is unchanged.
+Concerned? Contact support@dollor.ai
 
-    text_body = f"""
-    Password Reset - Dollor.AI
-
-    Hi {customer_name},
-
-    We received a request to reset your password. Use the code below:
-
-    {reset_code}
-
-    Enter this code in the app to reset your password.
-
-    This code expires in 15 minutes.
-    If you didn't request this, please ignore this email.
-
-    Thanks,
-    The Dollor.AI Team
-
-    2024 Dollor.AI by Zietra Technologies Inc.
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -1872,61 +1662,31 @@ def send_password_reset_link_email(
     Send password reset link to vendor/admin users (link-based flow).
     """
     reset_url = f"https://dollor.ai/reset-password?token={reset_token}"
-    subject = "Reset your Dollor.AI password"
+    subject = "Reset your Dollor password"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #FF6B35, #FF8C42); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
-            .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; }}
-            .btn {{ display: inline-block; background: #FF6B35; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0; }}
-            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 10px 10px; }}
-            .warning {{ background: #FFF3CD; border: 1px solid #FFEEBA; padding: 15px; border-radius: 8px; margin: 20px 0; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Password Reset</h1>
-            </div>
-            <div class="content">
-                <p>Hi {recipient_name},</p>
-                <p>We received a request to reset your Dollor.AI password. Click the button below to set a new password:</p>
-                <p style="text-align: center;">
-                    <a href="{reset_url}" class="btn">Reset Password</a>
-                </p>
-                <div class="warning">
-                    <strong>This link expires in 1 hour.</strong><br>
-                    If you didn't request a password reset, please ignore this email or contact support.
-                </div>
-                <p>Thanks,<br>The Dollor.AI Team</p>
-            </div>
-            <div class="footer">
-                <p>2026 Dollor.AI by Zietra Technologies Inc.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    body = f"""
+<p>Hi <strong>{recipient_name}</strong>,</p>
+<p>We received a request to reset your Dollor password. Click the button below — the link expires in 1 hour.</p>
+<a href="{reset_url}" class="cta">Reset My Password →</a>
+<div class="alert">
+  <strong>Didn't request this?</strong> Your password has not been changed. Ignore this email. If you're concerned, contact support@dollor.ai.
+</div>
+<p style="font-size:12px;color:#9ca3af;word-break:break-all">Or copy this link: {reset_url}</p>
+"""
+    html_body = _dollor_email("🔑", "Password Reset", "Set a new password for your Dollor account.", body)
 
-    text_body = f"""
-    Password Reset - Dollor.AI
+    text_body = f"""Password Reset — Dollor
 
-    Hi {recipient_name},
+Hi {recipient_name},
 
-    Click this link to reset your password (expires in 1 hour):
-    {reset_url}
+Reset your password (expires in 1 hour):
+{reset_url}
 
-    If you didn't request this, please ignore this email.
+Didn't request this? Ignore this email.
+Concerned? Contact support@dollor.ai
 
-    Thanks,
-    The Dollor.AI Team
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -2041,113 +1801,50 @@ def send_ride_request_confirmation_email(
     """
     Send confirmation email when customer creates a ride request.
     """
-    subject = f"Ride Request Submitted - {request_id}"
+    subject = f"Ride request live — drivers are bidding"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
-            .header {{ background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 30px 20px; text-align: center; color: white; }}
-            .logo {{ font-size: 28px; font-weight: bold; }}
-            .content {{ padding: 30px; }}
-            .ride-box {{ background: #f8fafc; border-radius: 12px; padding: 20px; margin: 20px 0; }}
-            .location {{ display: flex; align-items: flex-start; margin: 15px 0; }}
-            .location-icon {{ width: 24px; height: 24px; margin-right: 12px; font-size: 20px; }}
-            .location-text {{ flex: 1; }}
-            .location-label {{ font-size: 12px; color: #64748b; text-transform: uppercase; }}
-            .location-address {{ font-size: 16px; color: #1e293b; margin-top: 4px; }}
-            .trip-details {{ display: flex; justify-content: space-between; margin: 20px 0; padding: 15px; background: #eff6ff; border-radius: 8px; }}
-            .detail {{ text-align: center; }}
-            .detail-value {{ font-size: 24px; font-weight: bold; color: #4f46e5; }}
-            .detail-label {{ font-size: 12px; color: #64748b; margin-top: 4px; }}
-            .status {{ display: inline-block; background: #fef3c7; color: #92400e; padding: 8px 16px; border-radius: 20px; font-size: 14px; margin: 10px 0; }}
-            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">Dollor.AI Rides</div>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Your ride request is live!</p>
-            </div>
-            <div class="content">
-                <h2>Hi {customer_name}!</h2>
-                <p>Your ride request has been submitted and drivers in your area are being notified.</p>
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>Your ride request is live. Nearby drivers are reviewing it and will send fare proposals. Open the app to review bids and pick your driver.</p>
 
-                <div class="ride-box">
-                    <div style="text-align: center; margin-bottom: 15px;">
-                        <span class="status">Waiting for Bids</span>
-                    </div>
+<div class="box">
+  <div class="row"><span class="row-lbl">Request ID</span><span class="row-val" style="font-family:monospace;font-size:13px">{request_id}</span></div>
+  <div class="row"><span class="row-lbl">Status</span><span class="row-val"><span class="orange-tag">Waiting for Bids</span></span></div>
+  <div class="row"><span class="row-lbl">📍 Pickup</span><span class="row-val">{pickup_address}</span></div>
+  <div class="row"><span class="row-lbl">🏁 Dropoff</span><span class="row-val">{dropoff_address}</span></div>
+</div>
 
-                    <div class="location">
-                        <div class="location-icon">📍</div>
-                        <div class="location-text">
-                            <div class="location-label">Pickup</div>
-                            <div class="location-address">{pickup_address}</div>
-                        </div>
-                    </div>
+<div class="stats">
+  <div class="stat"><div class="stat-val">${estimated_price:.0f}</div><div class="stat-lbl">Est. Fare</div></div>
+  <div class="stat"><div class="stat-val">{estimated_distance_miles:.1f}</div><div class="stat-lbl">Miles</div></div>
+  <div class="stat"><div class="stat-val">{estimated_duration_minutes}</div><div class="stat-lbl">Minutes</div></div>
+</div>
 
-                    <div class="location">
-                        <div class="location-icon">🏁</div>
-                        <div class="location-text">
-                            <div class="location-label">Dropoff</div>
-                            <div class="location-address">{dropoff_address}</div>
-                        </div>
-                    </div>
+<a href="https://dollor.ai/customer/ride-bids" class="cta">View Bids in App →</a>
 
-                    <div class="trip-details">
-                        <div class="detail">
-                            <div class="detail-value">${estimated_price:.2f}</div>
-                            <div class="detail-label">Est. Fare</div>
-                        </div>
-                        <div class="detail">
-                            <div class="detail-value">{estimated_distance_miles:.1f}</div>
-                            <div class="detail-label">Miles</div>
-                        </div>
-                        <div class="detail">
-                            <div class="detail-value">{estimated_duration_minutes}</div>
-                            <div class="detail-label">Minutes</div>
-                        </div>
-                    </div>
-                </div>
+<p style="font-size:13px;color:#9ca3af;text-align:center">Drivers set their own prices. You choose the best bid.</p>
+"""
+    html_body = _dollor_email("📍", "Your Ride Is Live", "Drivers are submitting proposals now.", body,
+                              footer_note=f'Request ID: {request_id}')
 
-                <p><strong>What happens next?</strong></p>
-                <p>Drivers will submit their fare proposals. You'll receive notifications as bids come in, and you can choose the best offer.</p>
-                <p>Check the Dollor.AI app to view and accept bids!</p>
-            </div>
-            <div class="footer">
-                <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    text_body = f"""Ride Request Live — Dollor
 
-    text_body = f"""
-    Ride Request Submitted — Dollor.AI
+Hi {customer_name},
 
-    Hi {customer_name},
+Your ride request is live! Drivers are submitting proposals.
 
-    Your ride request has been submitted!
+Request ID: {request_id}
+Pickup:  {pickup_address}
+Dropoff: {dropoff_address}
 
-    REQUEST ID: {request_id}
+Est. Fare:  ${estimated_price:.2f}
+Distance:   {estimated_distance_miles:.1f} miles
+Duration:   {estimated_duration_minutes} min
 
-    PICKUP: {pickup_address}
-    DROPOFF: {dropoff_address}
+View bids: https://dollor.ai/customer/ride-bids
 
-    TRIP DETAILS:
-    - Estimated Fare: ${estimated_price:.2f}
-    - Distance: {estimated_distance_miles:.1f} miles
-    - Duration: {estimated_duration_minutes} minutes
-
-    Drivers will submit their fare proposals. Check the app to view and accept bids!
-
-    © 2025 Dollor.AI
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -2165,96 +1862,45 @@ def send_ride_bid_received_email(
     """
     Send email when a driver submits a bid on customer's ride request.
     """
-    subject = f"New Bid Received - ${proposed_price:.2f} | {request_id}"
+    subject = f"New bid — ${proposed_price:.2f} from {driver_name}"
 
-    # Format rating stars
-    full_stars = int(driver_rating) if driver_rating else 0
-    rating_display = "★" * full_stars + "☆" * (5 - full_stars)
     rating_value = driver_rating if driver_rating else 0.0
+    bids_label = f"{total_bids} bid{'s' if total_bids != 1 else ''} waiting"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
-            .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; text-align: center; color: white; }}
-            .content {{ padding: 30px; }}
-            .bid-box {{ background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 12px; padding: 25px; margin: 20px 0; border: 2px solid #10b981; }}
-            .bid-price {{ font-size: 48px; font-weight: bold; color: #059669; text-align: center; }}
-            .driver-info {{ display: flex; align-items: center; margin: 20px 0; padding: 15px; background: white; border-radius: 8px; }}
-            .driver-avatar {{ width: 50px; height: 50px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; margin-right: 15px; }}
-            .driver-details {{ flex: 1; }}
-            .driver-name {{ font-size: 18px; font-weight: bold; color: #1e293b; }}
-            .driver-rating {{ color: #f59e0b; font-size: 14px; }}
-            .eta-badge {{ display: inline-block; background: #dbeafe; color: #1d4ed8; padding: 8px 16px; border-radius: 20px; font-size: 14px; }}
-            .cta-button {{ display: inline-block; background: #10b981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; margin: 20px 0; }}
-            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2>New Bid Received!</h2>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">You have {total_bids} bid(s) waiting</p>
-            </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
-                <p>A driver has submitted a bid for your ride!</p>
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>A driver submitted a price for your ride. You choose the bid that works best for you.</p>
 
-                <div class="bid-box">
-                    <div class="bid-price">${proposed_price:.2f}</div>
+<div class="box">
+  <div class="row"><span class="row-lbl">Driver</span><span class="row-val"><strong>{driver_name}</strong></span></div>
+  <div class="row"><span class="row-lbl">Bid Price</span><span class="row-val" style="font-size:20px;font-weight:900;color:#ff6b00">${proposed_price:.2f}</span></div>
+  <div class="row"><span class="row-lbl">Rating</span><span class="row-val">{rating_value:.1f} / 5</span></div>
+  <div class="row"><span class="row-lbl">ETA</span><span class="row-val">{eta_minutes} min away</span></div>
+  <div class="row" style="border:none"><span class="row-lbl">Total Bids</span><span class="row-val"><span class="orange-tag">{bids_label}</span></span></div>
+</div>
 
-                    <div class="driver-info">
-                        <div class="driver-avatar">🚗</div>
-                        <div class="driver-details">
-                            <div class="driver-name">{driver_name}</div>
-                            <div class="driver-rating">{rating_display} ({rating_value:.1f})</div>
-                        </div>
-                        <span class="eta-badge">{eta_minutes} min away</span>
-                    </div>
-                </div>
+<a href="https://dollor.ai/customer/ride-bids" class="cta">Compare All Bids →</a>
 
-                <center>
-                    <a href="https://dollor.ai/customer/rides" class="cta-button">
-                        View All Bids
-                    </a>
-                </center>
+<p style="font-size:13px;color:#9ca3af;text-align:center">You're in control — accept the bid that's right for you.</p>
+"""
+    html_body = _dollor_email("🚗", f"New Bid from {driver_name}", f"${proposed_price:.2f} · {eta_minutes} min away", body,
+                              footer_note=f'Request ID: {request_id}')
 
-                <p style="text-align: center; color: #64748b; font-size: 14px;">
-                    Compare bids and choose the best offer for your ride!
-                </p>
-            </div>
-            <div class="footer">
-                <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    text_body = f"""New Bid Received — Dollor
 
-    text_body = f"""
-    New Bid Received — Dollor.AI
+Hi {customer_name},
 
-    Hi {customer_name},
+{driver_name} submitted a bid for your ride.
 
-    A driver has submitted a bid for your ride!
+Price:  ${proposed_price:.2f}
+Rating: {rating_value:.1f}/5
+ETA:    {eta_minutes} min
 
-    BID DETAILS:
-    - Price: ${proposed_price:.2f}
-    - Driver: {driver_name}
-    - Rating: {rating_value:.1f}/5
-    - ETA: {eta_minutes} minutes
+You have {bids_label}. Compare them in the app:
+https://dollor.ai/customer/ride-bids
 
-    You have {total_bids} bid(s) total.
-
-    View all bids in the Dollor.AI app!
-
-    Request ID: {request_id}
-    © 2025 Dollor.AI
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -2273,107 +1919,50 @@ def send_ride_matched_email(
     """
     Send email when customer accepts a bid and ride is matched.
     """
-    subject = f"Ride Confirmed! Driver {driver_name} is on the way"
+    subject = f"Driver confirmed — {driver_name} is on the way"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
-            .header {{ background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px 20px; text-align: center; color: white; }}
-            .content {{ padding: 30px; }}
-            .match-badge {{ background: #22c55e; color: white; padding: 10px 20px; border-radius: 25px; display: inline-block; font-weight: bold; margin: 10px 0; }}
-            .driver-card {{ background: #f8fafc; border-radius: 16px; padding: 25px; margin: 20px 0; }}
-            .driver-header {{ display: flex; align-items: center; margin-bottom: 20px; }}
-            .driver-avatar {{ width: 70px; height: 70px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; margin-right: 20px; }}
-            .driver-info h3 {{ margin: 0 0 5px 0; color: #1e293b; font-size: 22px; }}
-            .vehicle-info {{ color: #64748b; font-size: 14px; }}
-            .contact-btn {{ display: inline-block; background: #eff6ff; color: #1d4ed8; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 500; margin: 10px 5px 10px 0; }}
-            .eta-box {{ background: linear-gradient(135deg, #dbeafe, #bfdbfe); border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }}
-            .eta-time {{ font-size: 48px; font-weight: bold; color: #1d4ed8; }}
-            .eta-label {{ color: #64748b; font-size: 14px; margin-top: 5px; }}
-            .price-box {{ background: #f0fdf4; border: 2px solid #22c55e; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }}
-            .price {{ font-size: 36px; font-weight: bold; color: #16a34a; }}
-            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2>Ride Confirmed!</h2>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Your driver is on the way</p>
-            </div>
-            <div class="content">
-                <center><span class="match-badge">MATCHED</span></center>
+    vehicle_str = driver_vehicle if driver_vehicle else 'Vehicle info in app'
 
-                <p>Hi {customer_name},</p>
-                <p>Great news! Your ride has been confirmed. Your driver is heading to pick you up!</p>
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>Your bid has been accepted. {driver_name} is heading to pick you up now.</p>
 
-                <div class="driver-card">
-                    <div class="driver-header">
-                        <div class="driver-avatar">🚗</div>
-                        <div class="driver-info">
-                            <h3>{driver_name}</h3>
-                            <div class="vehicle-info">{driver_vehicle if driver_vehicle else 'Vehicle info pending'}</div>
-                        </div>
-                    </div>
-                    <a href="tel:{driver_phone}" class="contact-btn">📞 Call Driver</a>
-                    <a href="sms:{driver_phone}" class="contact-btn">💬 Text Driver</a>
-                </div>
+<div class="box">
+  <div class="row"><span class="row-lbl">Driver</span><span class="row-val"><strong>{driver_name}</strong></span></div>
+  <div class="row"><span class="row-lbl">Vehicle</span><span class="row-val">{vehicle_str}</span></div>
+  <div class="row"><span class="row-lbl">Driver Phone</span><span class="row-val">{driver_phone}</span></div>
+  <div class="row"><span class="row-lbl">📍 Pickup</span><span class="row-val">{pickup_address}</span></div>
+</div>
 
-                <div class="eta-box">
-                    <div class="eta-time">{eta_minutes}</div>
-                    <div class="eta-label">minutes until pickup</div>
-                </div>
+<div class="stats">
+  <div class="stat"><div class="stat-val">${final_price:.2f}</div><div class="stat-lbl">Agreed Fare</div></div>
+  <div class="stat" style="border:none"><div class="stat-val">{eta_minutes}</div><div class="stat-lbl">Min to Pickup</div></div>
+</div>
 
-                <div class="price-box">
-                    <div style="font-size: 14px; color: #64748b;">Agreed Fare</div>
-                    <div class="price">${final_price:.2f}</div>
-                </div>
+<a href="https://dollor.ai/customer/rides" class="cta">Track Driver in App →</a>
 
-                <div style="background: #fffbeb; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                    <strong>📍 Pickup Location:</strong><br>
-                    {pickup_address}
-                </div>
+<p style="font-size:13px;color:#9ca3af;text-align:center">Open the app to track your driver's location in real time.</p>
+"""
+    html_body = _dollor_email("✅", "Driver Confirmed", f"{driver_name} is {eta_minutes} min away.", body,
+                              footer_note=f'Request ID: {request_id}')
 
-                <p style="text-align: center; color: #64748b;">
-                    Track your driver in real-time in the Dollor.AI app!
-                </p>
-            </div>
-            <div class="footer">
-                <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    text_body = f"""Ride Confirmed — Dollor
 
-    text_body = f"""
-    Ride Confirmed! — Dollor.AI
+Hi {customer_name},
 
-    Hi {customer_name},
+{driver_name} is on the way to pick you up!
 
-    Your ride has been confirmed!
+Driver:  {driver_name}
+Vehicle: {vehicle_str}
+Phone:   {driver_phone}
+ETA:     {eta_minutes} min
+Fare:    ${final_price:.2f}
+Pickup:  {pickup_address}
 
-    DRIVER DETAILS:
-    - Name: {driver_name}
-    - Vehicle: {driver_vehicle if driver_vehicle else 'Vehicle info pending'}
-    - Phone: {driver_phone}
+Track live: https://dollor.ai/customer/rides
 
-    ETA: {eta_minutes} minutes
-
-    FARE: ${final_price:.2f}
-
-    PICKUP: {pickup_address}
-
-    Track your driver in the Dollor.AI app!
-
-    Request ID: {request_id}
-    © 2025 Dollor.AI
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -2391,95 +1980,43 @@ def send_ride_started_email(
     """
     Send email when ride starts (customer picked up).
     """
-    subject = f"Ride Started! On the way to your destination"
+    subject = f"You're on your way — ride in progress"
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
-            .header {{ background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 30px 20px; text-align: center; color: white; }}
-            .content {{ padding: 30px; }}
-            .status-badge {{ background: #6366f1; color: white; padding: 10px 20px; border-radius: 25px; display: inline-block; font-weight: bold; margin: 10px 0; }}
-            .route-box {{ background: #f8fafc; border-radius: 12px; padding: 20px; margin: 20px 0; }}
-            .route-point {{ display: flex; align-items: flex-start; margin: 15px 0; }}
-            .route-icon {{ font-size: 20px; margin-right: 12px; }}
-            .route-line {{ border-left: 2px dashed #cbd5e1; margin-left: 10px; height: 30px; }}
-            .duration-box {{ background: linear-gradient(135deg, #ede9fe, #ddd6fe); border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }}
-            .duration-time {{ font-size: 36px; font-weight: bold; color: #4f46e5; }}
-            .fare-info {{ background: #f0fdf4; border-radius: 8px; padding: 15px; margin: 20px 0; text-align: center; }}
-            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2>🚗 Ride In Progress</h2>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Enjoy your ride!</p>
-            </div>
-            <div class="content">
-                <center><span class="status-badge">IN PROGRESS</span></center>
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>Your ride with <strong>{driver_name}</strong> has started. Sit back and enjoy.</p>
 
-                <p>Hi {customer_name},</p>
-                <p>You're on your way with <strong>{driver_name}</strong>!</p>
+<div class="box">
+  <div class="row"><span class="row-lbl">🟢 Picked up from</span><span class="row-val">{pickup_address}</span></div>
+  <div class="row" style="border:none"><span class="row-lbl">🏁 Heading to</span><span class="row-val">{dropoff_address}</span></div>
+</div>
 
-                <div class="route-box">
-                    <div class="route-point">
-                        <span class="route-icon">🟢</span>
-                        <div>
-                            <div style="font-size: 12px; color: #64748b;">PICKED UP FROM</div>
-                            <div>{pickup_address}</div>
-                        </div>
-                    </div>
-                    <div class="route-line"></div>
-                    <div class="route-point">
-                        <span class="route-icon">🏁</span>
-                        <div>
-                            <div style="font-size: 12px; color: #64748b;">HEADING TO</div>
-                            <div>{dropoff_address}</div>
-                        </div>
-                    </div>
-                </div>
+<div class="stats">
+  <div class="stat"><div class="stat-val">{estimated_duration_minutes}</div><div class="stat-lbl">Min to Arrive</div></div>
+  <div class="stat" style="border:none"><div class="stat-val">${final_price:.2f}</div><div class="stat-lbl">Trip Fare</div></div>
+</div>
 
-                <div class="duration-box">
-                    <div style="font-size: 14px; color: #64748b;">Estimated Arrival</div>
-                    <div class="duration-time">{estimated_duration_minutes} min</div>
-                </div>
+<p style="font-size:13px;color:#9ca3af;text-align:center">A receipt will be emailed when you arrive.</p>
+"""
+    html_body = _dollor_email("🚗", "Ride In Progress", f"Enjoy the ride with {driver_name}.", body,
+                              footer_note=f'Request ID: {request_id}')
 
-                <div class="fare-info">
-                    <div style="font-size: 14px; color: #64748b;">Trip Fare</div>
-                    <div style="font-size: 24px; font-weight: bold; color: #16a34a;">${final_price:.2f}</div>
-                </div>
-            </div>
-            <div class="footer">
-                <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    text_body = f"""Ride In Progress — Dollor
 
-    text_body = f"""
-    Ride In Progress — Dollor.AI
+Hi {customer_name},
 
-    Hi {customer_name},
+Your ride with {driver_name} has started!
 
-    Your ride with {driver_name} has started!
+From:  {pickup_address}
+To:    {dropoff_address}
 
-    FROM: {pickup_address}
-    TO: {dropoff_address}
+ETA:   {estimated_duration_minutes} min
+Fare:  ${final_price:.2f}
 
-    ESTIMATED ARRIVAL: {estimated_duration_minutes} minutes
-    FARE: ${final_price:.2f}
+A receipt will be sent when you arrive.
 
-    Enjoy your ride!
-
-    Request ID: {request_id}
-    © 2025 Dollor.AI
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -2499,154 +2036,62 @@ def send_ride_completed_email(
     """
     Send email when ride is completed with receipt.
     """
-    subject = f"Ride Complete! Receipt for ${final_price:.2f}"
+    subject = f"Your receipt — ${final_price:.2f} with {driver_name}"
 
     driver_earnings = final_price - platform_fee
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
-            .header {{ background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px 20px; text-align: center; color: white; }}
-            .content {{ padding: 30px; }}
-            .complete-icon {{ font-size: 64px; text-align: center; margin: 20px 0; }}
-            .receipt-box {{ background: #f8fafc; border-radius: 12px; padding: 25px; margin: 20px 0; border: 1px solid #e2e8f0; }}
-            .receipt-header {{ border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; }}
-            .receipt-row {{ display: flex; justify-content: space-between; padding: 8px 0; }}
-            .receipt-label {{ color: #64748b; }}
-            .receipt-value {{ font-weight: 500; color: #1e293b; }}
-            .receipt-total {{ display: flex; justify-content: space-between; padding: 15px 0; border-top: 2px solid #1e293b; margin-top: 15px; }}
-            .total-label {{ font-size: 18px; font-weight: bold; }}
-            .total-value {{ font-size: 24px; font-weight: bold; color: #22c55e; }}
-            .tip-box {{ background: #fef3c7; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center; }}
-            .tip-button {{ display: inline-block; background: #f59e0b; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 10px 5px; }}
-            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
-            .driver-earnings {{ background: #ecfdf5; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2>Ride Complete!</h2>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Thanks for riding with Dollor.AI</p>
-            </div>
-            <div class="content">
-                <div class="complete-icon">🎉</div>
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>You've arrived. Here's your trip receipt.</p>
 
-                <p>Hi {customer_name},</p>
-                <p>You've arrived at your destination. Here's your trip receipt:</p>
+<div class="box">
+  <div class="row"><span class="row-lbl">Driver</span><span class="row-val">{driver_name}</span></div>
+  <div class="row"><span class="row-lbl">📍 From</span><span class="row-val">{pickup_address}</span></div>
+  <div class="row"><span class="row-lbl">🏁 To</span><span class="row-val">{dropoff_address}</span></div>
+  <div class="row"><span class="row-lbl">Distance</span><span class="row-val">{distance_miles:.1f} miles</span></div>
+  <div class="row"><span class="row-lbl">Duration</span><span class="row-val">{duration_minutes} min</span></div>
+</div>
 
-                <div class="receipt-box">
-                    <div class="receipt-header">
-                        <strong>Trip Receipt</strong><br>
-                        <span style="color: #64748b; font-size: 14px;">{request_id}</span>
-                    </div>
+<div class="stats">
+  <div class="stat"><div class="stat-val">${final_price:.2f}</div><div class="stat-lbl">Total Charged</div></div>
+  <div class="stat"><div class="stat-val">${platform_fee:.2f}</div><div class="stat-lbl">Platform Fee</div></div>
+  <div class="stat" style="border:none"><div class="stat-val">${driver_earnings:.2f}</div><div class="stat-lbl">{driver_name} Earned</div></div>
+</div>
 
-                    <div class="receipt-row">
-                        <span class="receipt-label">Driver</span>
-                        <span class="receipt-value">{driver_name}</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">From</span>
-                        <span class="receipt-value">{pickup_address[:40]}...</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">To</span>
-                        <span class="receipt-value">{dropoff_address[:40]}...</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Distance</span>
-                        <span class="receipt-value">{distance_miles:.1f} miles</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Duration</span>
-                        <span class="receipt-value">{duration_minutes} min</span>
-                    </div>
+<p style="font-size:13px;color:#6b7280;margin:0 0 6px">Enjoyed your ride? Add a tip — 100% goes to {driver_name}.</p>
+<a href="https://dollor.ai/customer/rides/{request_id}/tip" class="cta">Add a Tip →</a>
 
-                    <div class="receipt-row">
-                        <span class="receipt-label">Trip Fare</span>
-                        <span class="receipt-value">${final_price:.2f}</span>
-                    </div>
-                    <div class="receipt-row">
-                        <span class="receipt-label">Platform Fee</span>
-                        <span class="receipt-value">${platform_fee:.2f}</span>
-                    </div>
+<div class="alert" style="margin-top:20px">
+  <strong>Safety:</strong> Zero tolerance for drug and alcohol use. To report a concern: <a href="mailto:support@dollor.ai?subject=Safety Report" style="color:#ff6b00">support@dollor.ai</a><br>
+  CPUC Consumer Complaints: 1-800-894-9444 · CIU_intake@cpuc.ca.gov
+</div>
+"""
+    html_body = _dollor_email("🎉", "Ride Complete", f"Thanks for riding with {driver_name}.", body,
+                              footer_note=f'Request ID: {request_id}')
 
-                    <div class="receipt-total">
-                        <span class="total-label">Total Charged</span>
-                        <span class="total-value">${final_price:.2f}</span>
-                    </div>
-                </div>
+    text_body = f"""Ride Complete — Dollor Receipt
 
-                <div class="driver-earnings">
-                    <div style="font-size: 14px; color: #059669;">💰 {driver_name} earned</div>
-                    <div style="font-size: 20px; font-weight: bold; color: #059669;">${driver_earnings:.2f}</div>
-                    <div style="font-size: 12px; color: #64748b;">Drivers keep the fare, platform fee goes to Dollor.AI</div>
-                </div>
+Hi {customer_name},
 
-                <div class="tip-box">
-                    <p style="margin: 0 0 15px 0;"><strong>Enjoyed your ride?</strong></p>
-                    <p style="margin: 0 0 15px 0; color: #92400e;">Add a tip for {driver_name}</p>
-                    <a href="https://dollor.ai/customer/rides/{request_id}/tip" class="tip-button">Add Tip</a>
-                    <p style="font-size: 12px; color: #92400e; margin: 15px 0 0 0;">100% of tips go directly to your driver</p>
-                </div>
+Here's your receipt for your ride with {driver_name}.
 
-                <p style="text-align: center;">
-                    <a href="https://dollor.ai/customer/rides/{request_id}/rate" style="color: #6366f1;">Rate your ride</a>
-                </p>
-            </div>
-            <div style="background: #f1f5f9; padding: 15px 30px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
-                <p style="margin: 5px 0;"><strong>Safety:</strong> Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers.</p>
-                <p style="margin: 5px 0;">To report a safety concern: support@dollor.ai</p>
-                <p style="margin: 5px 0;">CPUC Consumer Complaints: 1-800-894-9444 | CIU_intake@cpuc.ca.gov</p>
-            </div>
-            <div class="footer">
-                <p>Request ID: {request_id}</p>
-                <p>&copy; 2026 Dollor.AI by Zietra Technologies Inc.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+Request ID: {request_id}
+From:       {pickup_address}
+To:         {dropoff_address}
+Distance:   {distance_miles:.1f} miles
+Duration:   {duration_minutes} min
+Fare:       ${final_price:.2f}
+Platform:   ${platform_fee:.2f}
+{driver_name} earned: ${driver_earnings:.2f}
 
-    text_body = f"""
-    Ride Complete — Dollor.AI Receipt
+Add a tip (100% to {driver_name}):
+https://dollor.ai/customer/rides/{request_id}/tip
 
-    Hi {customer_name},
+Safety: report concerns to support@dollor.ai
+CPUC Consumer Complaints: 1-800-894-9444
 
-    Thanks for riding with Dollor.AI! Here's your receipt:
-
-    TRIP DETAILS
-    ------------
-    Request ID: {request_id}
-    Driver: {driver_name}
-    From: {pickup_address}
-    To: {dropoff_address}
-    Distance: {distance_miles:.1f} miles
-    Duration: {duration_minutes} min
-
-    CHARGES
-    -------
-    Trip Fare: ${final_price:.2f}
-    Platform Fee: ${platform_fee:.2f}
-    -----------------
-    TOTAL: ${final_price:.2f}
-
-    {driver_name} earned ${driver_earnings:.2f}
-
-    Add a tip for your driver at:
-    https://dollor.ai/customer/rides/{request_id}/tip
-
-    ---
-    SAFETY: Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers.
-    Report a safety concern: support@dollor.ai
-    CPUC Consumer Complaints: 1-800-894-9444 | CIU_intake@cpuc.ca.gov
-
-    © 2026 Dollor.AI by Zietra Technologies Inc.
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
@@ -2662,85 +2107,49 @@ def send_ride_cancelled_email(
     """
     Send email when ride is cancelled.
     """
-    subject = f"Ride Cancelled - {request_id}"
+    subject = f"Ride cancelled — {request_id}"
 
-    refund_text = f"""
-        <div class="refund-box">
-            <p style="margin: 0;">💳 Refund Processing</p>
-            <p style="font-size: 24px; font-weight: bold; color: #16a34a; margin: 10px 0;">${refund_amount:.2f}</p>
-            <p style="font-size: 12px; color: #64748b; margin: 0;">Will be credited within 5-10 business days</p>
-        </div>
-    """ if refund_amount else ""
+    refund_block = f"""
+<div class="box" style="text-align:center;margin-top:20px">
+  <p style="font-size:13px;color:#6b7280;margin:0 0 6px">Refund processing</p>
+  <p style="font-size:32px;font-weight:900;color:#ff6b00;margin:0">${refund_amount:.2f}</p>
+  <p style="font-size:13px;color:#6b7280;margin:6px 0 0">Credited within 5–10 business days</p>
+</div>
+""" if refund_amount else ""
 
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
-            .header {{ background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px 20px; text-align: center; color: white; }}
-            .content {{ padding: 30px; }}
-            .cancel-icon {{ font-size: 64px; text-align: center; margin: 20px 0; }}
-            .reason-box {{ background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 8px; padding: 20px; margin: 20px 0; }}
-            .refund-box {{ background: #f0fdf4; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center; }}
-            .cta-button {{ display: inline-block; background: #6366f1; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0; }}
-            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2>Ride Cancelled</h2>
-            </div>
-            <div class="content">
-                <div class="cancel-icon">❌</div>
+    body = f"""
+<p>Hi <strong>{customer_name}</strong>,</p>
+<p>Your ride request has been cancelled.</p>
 
-                <p>Hi {customer_name},</p>
-                <p>Your ride request has been cancelled.</p>
+<div class="box">
+  <div class="row"><span class="row-lbl">Cancelled by</span><span class="row-val">{cancelled_by}</span></div>
+  <div class="row" style="border:none"><span class="row-lbl">Reason</span><span class="row-val">{reason}</span></div>
+</div>
 
-                <div class="reason-box">
-                    <p style="margin: 0 0 10px 0;"><strong>Cancelled by:</strong> {cancelled_by}</p>
-                    <p style="margin: 0;"><strong>Reason:</strong> {reason}</p>
-                </div>
+{refund_block}
 
-                {refund_text}
+<a href="https://dollor.ai/customer/rides/new" class="cta">Request a New Ride →</a>
 
-                <p>We apologize for any inconvenience. You can request a new ride anytime!</p>
+<p style="font-size:13px;color:#9ca3af;text-align:center">Questions? <a href="mailto:support@dollor.ai" style="color:#ff6b00">support@dollor.ai</a></p>
+"""
+    html_body = _dollor_email("✖", "Ride Cancelled", "We're sorry this didn't work out.", body,
+                              footer_note=f'Request ID: {request_id}')
 
-                <center>
-                    <a href="https://dollor.ai/customer/rides/new" class="cta-button">
-                        Request New Ride
-                    </a>
-                </center>
-            </div>
-            <div class="footer">
-                <p>Request ID: {request_id}</p>
-                <p>Need help? Contact support@dollor.ai</p>
-                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    refund_line = f'\nRefund: ${refund_amount:.2f} will be processed within 5-10 business days.' if refund_amount else ''
+    text_body = f"""Ride Cancelled — Dollor
 
-    text_body = f"""
-    Ride Cancelled — Dollor.AI
+Hi {customer_name},
 
-    Hi {customer_name},
+Your ride request {request_id} has been cancelled.
 
-    Your ride request {request_id} has been cancelled.
+Cancelled by: {cancelled_by}
+Reason:       {reason}{refund_line}
 
-    Cancelled by: {cancelled_by}
-    Reason: {reason}
-    {f'Refund: ${refund_amount:.2f} will be processed within 5-10 business days.' if refund_amount else ''}
+Request a new ride: https://dollor.ai
+Questions: support@dollor.ai
 
-    You can request a new ride anytime at https://dollor.ai
-
-    Need help? Contact support@dollor.ai
-
-    © 2025 Dollor.AI
-    """
+© 2026 Zietra Technologies Inc. · dollor.ai
+"""
 
     return send_email(to_email, subject, html_body, text_body)
 
