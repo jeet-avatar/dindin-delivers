@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { StyleProvider } from '@ant-design/cssinjs';
 import App from './App.tsx';
 import './index.css';
+import './app/styles/mobile-overrides.css';
 import { UserProvider } from './app/context/UserContext.tsx';
 
 createRoot(document.getElementById('root')!).render(

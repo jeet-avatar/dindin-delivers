@@ -177,609 +177,430 @@ const DriverLogin: React.FC = () => {
 
   return (
     <div className="driver-login-page">
-      {/* Left Side - Branding */}
-      <div className="brand-section">
-        <div className="brand-content">
-          <div className="logo-container">
-            <DollarOutlined className="logo-icon" />
-            <span className="logo-text">Dollor.AI</span>
+      <div className="driver-login-container">
+
+        {/* Logo */}
+        <div className="driver-logo-section">
+          <div className="driver-logo">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+              <circle cx="28" cy="28" r="28" fill="#ff6b00"/>
+              <text x="28" y="37" textAnchor="middle" fill="white" fontSize="26" fontWeight="800" fontFamily="system-ui">$</text>
+            </svg>
+          </div>
+          <span className="driver-logo-name">Dollor</span>
+        </div>
+
+        {/* Header */}
+        <div className="driver-header">
+          <h2>Drive with Dollor</h2>
+          <p>Earn on your schedule in California</p>
+        </div>
+
+        {/* Google Sign-In */}
+        <div className="driver-social-buttons">
+          <button
+            className="driver-social-btn"
+            onClick={handleCustomGoogleSignIn}
+            disabled={googleLoading}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <span>{googleLoading ? 'Signing in...' : 'Continue with Google'}</span>
+          </button>
+
+          {/* Hidden Google SDK button container */}
+          <div id="google-signin-button-driver" style={{ display: 'none' }}></div>
+        </div>
+
+        {/* Divider */}
+        <div className="driver-divider">
+          <span>or sign in with email</span>
+        </div>
+
+        {/* Email / Password Form */}
+        <Form
+          name="driver_login"
+          onFinish={onFinish}
+          autoComplete="off"
+          layout="vertical"
+          className="driver-form"
+        >
+          <Form.Item
+            name="email"
+            rules={[
+              { required: true, message: 'Please enter your email' },
+              { type: 'email', message: 'Please enter a valid email' }
+            ]}
+          >
+            <Input
+              prefix={<UserOutlined className="driver-input-icon" />}
+              placeholder="Email address"
+              size="large"
+              className="driver-input"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            rules={[{ required: true, message: 'Please enter your password' }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined className="driver-input-icon" />}
+              placeholder="Password"
+              size="large"
+              className="driver-input"
+            />
+          </Form.Item>
+
+          <div className="driver-form-footer">
+            <Link to="/forgot-password" className="driver-forgot-link">Forgot password?</Link>
           </div>
 
-          <h1 className="brand-headline">
-            Drive Your Future.<br />
-            <span className="highlight">Earn On Your Terms.</span>
-          </h1>
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              size="large"
+              block
+              className="driver-submit-btn"
+            >
+              Sign In to Dashboard
+            </Button>
+          </Form.Item>
+        </Form>
 
-          <p className="brand-tagline">
-            Join the fastest-growing delivery network. Set your own schedule,
-            keep more of your earnings, and be part of a community that values you.
+        {/* Apply to Drive */}
+        <div className="driver-separator">
+          <span>New to Dollor?</span>
+        </div>
+
+        <button
+          className="driver-apply-btn"
+          onClick={() => navigate('/driver/apply')}
+        >
+          Apply to Drive
+        </button>
+
+        {/* Legal Footer */}
+        <div className="driver-legal">
+          <p>
+            By signing in, you agree to our{' '}
+            <Link to="/terms">Terms of Service</Link> and{' '}
+            <Link to="/privacy">Privacy Policy</Link>
           </p>
-
-          <div className="features-list">
-            <div className="feature-item">
-              <ClockCircleOutlined className="feature-icon" />
-              <div>
-                <strong>Flexible Schedule</strong>
-                <p>Work when you want, as much as you want</p>
-              </div>
-            </div>
-            <div className="feature-item">
-              <WalletOutlined className="feature-icon" />
-              <div>
-                <strong>Instant Payouts</strong>
-                <p>Get paid daily with instant cash-out options</p>
-              </div>
-            </div>
-            <div className="feature-item">
-              <EnvironmentOutlined className="feature-icon" />
-              <div>
-                <strong>Smart Routing</strong>
-                <p>AI-optimized routes for maximum earnings</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="trust-badges">
-            <span>10,000+ Active Drivers</span>
-            <span>•</span>
-            <span>$2M+ Weekly Payouts</span>
-          </div>
-        </div>
-
-        <div className="brand-footer">
-          <p>© 2024 Dollor.AI — Empowering Local Delivery</p>
-        </div>
-      </div>
-
-      {/* Right Side - Login Form */}
-      <div className="login-section">
-        <div className="login-container">
-          <div className="login-header">
-            <CarOutlined className="header-icon" />
-            <h2>Driver Portal</h2>
-            <p>Sign in to manage your deliveries and earnings</p>
-          </div>
-
-          <Form
-            name="driver_login"
-            onFinish={onFinish}
-            autoComplete="off"
-            layout="vertical"
-            className="login-form"
-          >
-            <Form.Item
-              name="email"
-              label="Email Address"
-              rules={[
-                { required: true, message: 'Please enter your email' },
-                { type: 'email', message: 'Please enter a valid email' }
-              ]}
-            >
-              <Input
-                prefix={<UserOutlined />}
-                placeholder="your@email.com"
-                size="large"
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="password"
-              label="Password"
-              rules={[{ required: true, message: 'Please enter your password' }]}
-            >
-              <Input.Password
-                prefix={<LockOutlined />}
-                placeholder="••••••••"
-                size="large"
-              />
-            </Form.Item>
-
-            <div className="form-options">
-              <Checkbox>Remember me</Checkbox>
-              <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
-            </div>
-
-            <Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={loading}
-                size="large"
-                block
-                className="login-button"
-              >
-                Sign In to Dashboard
-              </Button>
-            </Form.Item>
-
-            <Divider plain>or continue with</Divider>
-
-            {/* Google Sign-In Button Container */}
-            <div className="google-signin-container">
-              <div id="google-signin-button-driver"></div>
-              {/* Fallback button if Google SDK not loaded */}
-              {!GOOGLE_CLIENT_ID && (
-                <Button
-                  icon={<GoogleOutlined />}
-                  size="large"
-                  block
-                  onClick={handleCustomGoogleSignIn}
-                  loading={googleLoading}
-                  className="google-fallback-button"
-                >
-                  Sign in with Google
-                </Button>
-              )}
-            </div>
-          </Form>
-
-          <div className="divider">
-            <span>Ready to start driving?</span>
-          </div>
-
-          <Button
-            size="large"
-            block
-            onClick={() => navigate('/driver/apply')}
-            className="apply-button"
-          >
-            Apply as Delivery Partner
-          </Button>
-
-          <div className="login-footer">
-            <p>
-              By signing in, you agree to our{' '}
-              <Link to="/terms">Terms of Service</Link> and{' '}
-              <Link to="/privacy">Privacy Policy</Link>
-            </p>
+          <div className="driver-nav-links">
+            <Link to="/customer/login">Ride with Dollor</Link>
           </div>
         </div>
       </div>
 
       <style>{`
+        * {
+          box-sizing: border-box;
+        }
+
         .driver-login-page {
           min-height: 100vh;
           display: flex;
-          background: #f8fafc;
+          align-items: center;
+          justify-content: center;
+          background: #0a0a0f;
+          padding: 24px 16px;
+          font-family: system-ui, -apple-system, sans-serif;
         }
 
-        /* Brand Section - Left Side */
-        .brand-section {
-          flex: 1;
-          background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #415a77 100%);
-          color: white;
+        .driver-login-container {
+          width: 100%;
+          max-width: 440px;
+          text-align: center;
+        }
+
+        /* Logo */
+        .driver-logo-section {
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
-          padding: 48px;
-          position: relative;
-          overflow: hidden;
+          align-items: center;
+          margin-bottom: 28px;
         }
 
-        .brand-section::before {
-          content: '';
-          position: absolute;
-          top: -50%;
-          right: -50%;
+        .driver-logo {
+          width: 56px;
+          height: 56px;
+          margin-bottom: 14px;
+        }
+
+        .driver-logo svg {
           width: 100%;
           height: 100%;
-          background: radial-gradient(circle, rgba(76,201,240,0.15) 0%, transparent 70%);
-          pointer-events: none;
         }
 
-        .brand-content {
-          position: relative;
-          z-index: 1;
+        .driver-logo-name {
+          font-size: 22px;
+          font-weight: 700;
+          color: #ffffff;
+          letter-spacing: -0.3px;
         }
 
-        .logo-container {
+        /* Header */
+        .driver-header {
+          margin-bottom: 28px;
+        }
+
+        .driver-header h2 {
+          font-size: 28px;
+          font-weight: 700;
+          color: #ffffff;
+          margin: 0 0 8px 0;
+          letter-spacing: -0.5px;
+        }
+
+        .driver-header p {
+          font-size: 15px;
+          color: rgba(255,255,255,0.6);
+          margin: 0;
+        }
+
+        /* Social Buttons */
+        .driver-social-buttons {
+          margin-bottom: 20px;
+        }
+
+        .driver-social-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          width: 100%;
+          height: 52px;
+          padding: 0 16px;
+          border-radius: 28px;
+          font-size: 15px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: border-color 0.2s ease, background 0.2s ease;
+          border: 1px solid rgba(255,107,0,0.2);
+          background: #111118;
+          color: #ffffff;
+          font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .driver-social-btn:hover:not(:disabled) {
+          border-color: #ff6b00;
+          background: rgba(255,107,0,0.06);
+        }
+
+        .driver-social-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        /* Divider */
+        .driver-divider {
           display: flex;
           align-items: center;
           gap: 12px;
-          margin-bottom: 48px;
-        }
-
-        .logo-icon {
-          font-size: 40px;
-          color: #4cc9f0;
-        }
-
-        .logo-text {
-          font-size: 32px;
-          font-weight: 800;
-          letter-spacing: -1px;
-          background: linear-gradient(135deg, #4cc9f0 0%, #7209b7 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .brand-headline {
-          font-size: 42px;
-          font-weight: 700;
-          line-height: 1.2;
-          margin-bottom: 24px;
-        }
-
-        .brand-headline .highlight {
-          color: #4cc9f0;
-        }
-
-        .brand-tagline {
-          font-size: 18px;
-          line-height: 1.6;
-          color: rgba(255,255,255,0.8);
-          margin-bottom: 48px;
-          max-width: 500px;
-        }
-
-        .features-list {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          margin-bottom: 48px;
-        }
-
-        .feature-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 16px;
-        }
-
-        .feature-icon {
-          font-size: 28px;
-          color: #4cc9f0;
-          margin-top: 4px;
-        }
-
-        .feature-item strong {
-          display: block;
-          font-size: 16px;
-          margin-bottom: 4px;
-        }
-
-        .feature-item p {
-          font-size: 14px;
-          color: rgba(255,255,255,0.7);
-          margin: 0;
-        }
-
-        .trust-badges {
-          display: flex;
-          gap: 16px;
-          font-size: 14px;
-          color: rgba(255,255,255,0.6);
-        }
-
-        .brand-footer {
-          position: relative;
-          z-index: 1;
-        }
-
-        .brand-footer p {
-          font-size: 14px;
-          color: rgba(255,255,255,0.5);
-          margin: 0;
-        }
-
-        /* Login Section - Right Side */
-        .login-section {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 48px;
-          max-width: 600px;
-        }
-
-        .login-container {
-          width: 100%;
-          max-width: 420px;
-        }
-
-        .login-header {
-          text-align: center;
-          margin-bottom: 40px;
-        }
-
-        .header-icon {
-          font-size: 48px;
-          color: #0d1b2a;
-          margin-bottom: 16px;
-        }
-
-        .login-header h2 {
-          font-size: 28px;
-          font-weight: 700;
-          color: #0d1b2a;
-          margin: 0 0 8px 0;
-        }
-
-        .login-header p {
-          font-size: 16px;
-          color: #64748b;
-          margin: 0;
-        }
-
-        .login-form .ant-form-item-label > label {
-          font-weight: 600;
-          color: #334155;
-        }
-
-        .login-form .ant-input-affix-wrapper {
-          border-radius: 8px;
-          border: 2px solid #e2e8f0;
-          transition: all 0.3s;
-        }
-
-        .login-form .ant-input-affix-wrapper:hover,
-        .login-form .ant-input-affix-wrapper:focus,
-        .login-form .ant-input-affix-wrapper-focused {
-          border-color: #0d1b2a;
-          box-shadow: 0 0 0 3px rgba(13,27,42,0.1);
-        }
-
-        .form-options {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 24px;
-        }
-
-        .forgot-link {
-          color: #0d1b2a;
-          font-weight: 500;
-        }
-
-        .forgot-link:hover {
-          color: #4cc9f0;
-        }
-
-        .login-button {
-          height: 48px;
-          font-size: 16px;
-          font-weight: 600;
-          background: linear-gradient(135deg, #0d1b2a 0%, #415a77 100%);
-          border: none;
-          border-radius: 8px;
-        }
-
-        .login-button:hover {
-          background: linear-gradient(135deg, #415a77 0%, #0d1b2a 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(13,27,42,0.3);
-        }
-
-        /* Google Sign-In Styles */
-        .google-signin-container {
-          display: flex;
-          justify-content: center;
-          margin-bottom: 16px;
-        }
-
-        .google-signin-container > div {
-          width: 100%;
-          display: flex;
-          justify-content: center;
-        }
-
-        .google-fallback-button {
-          height: 48px;
-          font-size: 15px;
-          font-weight: 500;
-          border: 2px solid #e2e8f0;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-
-        .google-fallback-button:hover {
-          border-color: #4cc9f0;
-          color: #4cc9f0;
-        }
-
-        .ant-divider-inner-text {
+          margin: 20px 0;
+          color: rgba(255,255,255,0.3);
           font-size: 13px;
-          color: #94a3b8;
         }
 
-        .divider {
-          display: flex;
-          align-items: center;
-          margin: 32px 0;
-          color: #94a3b8;
-          font-size: 14px;
-        }
-
-        .divider::before,
-        .divider::after {
+        .driver-divider::before,
+        .driver-divider::after {
           content: '';
           flex: 1;
           height: 1px;
-          background: #e2e8f0;
+          background: rgba(255,255,255,0.08);
         }
 
-        .divider span {
-          padding: 0 16px;
+        /* Form */
+        .driver-form {
+          text-align: left;
         }
 
-        .apply-button {
-          height: 48px;
+        .driver-form .ant-form-item {
+          margin-bottom: 14px;
+        }
+
+        .driver-input {
+          height: 52px;
+          border-radius: 10px;
+          font-size: 15px;
+          background: #111118 !important;
+          border: 1px solid rgba(255,107,0,0.2) !important;
+          color: #ffffff !important;
+        }
+
+        .driver-input input {
+          background: #111118 !important;
+          color: #ffffff !important;
+        }
+
+        .driver-input input::placeholder {
+          color: rgba(255,255,255,0.35) !important;
+        }
+
+        .driver-input:hover {
+          border-color: rgba(255,107,0,0.5) !important;
+        }
+
+        .driver-input:focus,
+        .driver-input.ant-input-affix-wrapper-focused {
+          border-color: #ff6b00 !important;
+          box-shadow: 0 0 0 2px rgba(255,107,0,0.15) !important;
+        }
+
+        .driver-input-icon {
+          color: rgba(255,255,255,0.4);
           font-size: 16px;
-          font-weight: 600;
-          border: 2px solid #0d1b2a;
-          color: #0d1b2a;
-          border-radius: 8px;
+          margin-right: 4px;
         }
 
-        .apply-button:hover {
-          background: #4cc9f0;
-          border-color: #4cc9f0;
-          color: #0d1b2a;
-        }
-
-        .login-footer {
-          text-align: center;
-          margin-top: 32px;
-        }
-
-        .login-footer p {
+        .ant-form-item-explain-error {
           font-size: 13px;
-          color: #94a3b8;
+          margin-top: 4px;
+          color: #ff6b6b !important;
         }
 
-        .login-footer a {
-          color: #0d1b2a;
+        .driver-form-footer {
+          text-align: right;
+          margin-bottom: 18px;
+          margin-top: -6px;
+        }
+
+        .driver-forgot-link {
+          color: #ff6b00;
+          font-size: 14px;
           font-weight: 500;
         }
 
-        .login-footer a:hover {
-          color: #4cc9f0;
+        .driver-forgot-link:hover {
+          color: #ff8c33;
+          text-decoration: underline;
         }
 
-        /* Responsive - Tablet */
-        @media (max-width: 1024px) {
+        .driver-submit-btn {
+          height: 52px;
+          font-size: 16px;
+          font-weight: 600;
+          border-radius: 28px;
+          background: #ff6b00 !important;
+          border: none !important;
+          color: #ffffff !important;
+          font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .driver-submit-btn:hover:not(:disabled) {
+          background: #ff8c33 !important;
+        }
+
+        /* Apply section */
+        .driver-separator {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin: 24px 0 16px;
+          color: rgba(255,255,255,0.3);
+          font-size: 13px;
+        }
+
+        .driver-separator::before,
+        .driver-separator::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: rgba(255,255,255,0.08);
+        }
+
+        .driver-apply-btn {
+          display: block;
+          width: 100%;
+          height: 52px;
+          border-radius: 28px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: border-color 0.2s ease, color 0.2s ease;
+          border: 1px solid rgba(255,107,0,0.4);
+          background: transparent;
+          color: #ff6b00;
+          font-family: system-ui, -apple-system, sans-serif;
+          margin-bottom: 28px;
+        }
+
+        .driver-apply-btn:hover {
+          border-color: #ff6b00;
+          color: #ff8c33;
+          background: rgba(255,107,0,0.06);
+        }
+
+        /* Legal */
+        .driver-legal {
+          font-size: 12px;
+          color: rgba(255,255,255,0.3);
+          line-height: 1.6;
+        }
+
+        .driver-legal p {
+          margin: 0 0 10px;
+        }
+
+        .driver-legal a {
+          color: rgba(255,255,255,0.4);
+        }
+
+        .driver-legal a:hover {
+          color: #ff6b00;
+        }
+
+        .driver-nav-links {
+          display: flex;
+          justify-content: center;
+          gap: 16px;
+        }
+
+        .driver-nav-links a {
+          color: rgba(255,107,0,0.7);
+          font-weight: 500;
+        }
+
+        .driver-nav-links a:hover {
+          color: #ff6b00;
+        }
+
+        /* Ant Design Dark Overrides */
+        .driver-input .ant-input-password-icon,
+        .driver-input .ant-input-suffix svg {
+          color: rgba(255,255,255,0.4) !important;
+        }
+
+        .ant-input-password .ant-input {
+          font-size: 15px;
+          background: transparent !important;
+          color: #ffffff !important;
+        }
+
+        /* Responsive — works at 320px */
+        @media (max-width: 480px) {
           .driver-login-page {
-            flex-direction: column;
-          }
-
-          .brand-section {
-            padding: 32px;
-            min-height: auto;
-            position: relative;
-            height: auto;
-          }
-
-          .brand-headline {
-            font-size: 32px;
-          }
-
-          .features-list {
-            display: none;
-          }
-
-          .trust-badges {
-            margin-top: 24px;
-          }
-
-          .login-section {
-            max-width: none;
-            padding: 32px;
-          }
-        }
-
-        /* Responsive - Mobile */
-        @media (max-width: 768px) {
-          .brand-section {
-            padding: 24px;
-          }
-
-          .logo-container {
-            margin-bottom: 24px;
-          }
-
-          .logo-icon {
-            font-size: 32px;
-          }
-
-          .logo-text {
-            font-size: 24px;
-          }
-
-          .brand-headline {
-            font-size: 24px;
-            margin-bottom: 16px;
-          }
-
-          .brand-tagline {
-            font-size: 14px;
-            margin-bottom: 24px;
-          }
-
-          .trust-badges {
-            font-size: 12px;
-            gap: 12px;
-          }
-
-          .brand-footer {
-            display: none;
-          }
-
-          .login-section {
-            padding: 24px 16px;
-          }
-
-          .login-container {
-            max-width: 100%;
-          }
-
-          .login-header {
-            margin-bottom: 28px;
-          }
-
-          .header-icon {
-            font-size: 40px;
-            margin-bottom: 12px;
-          }
-
-          .login-header h2 {
-            font-size: 22px;
-          }
-
-          .login-header p {
-            font-size: 14px;
-          }
-
-          .login-form .ant-input-affix-wrapper {
-            height: 48px;
-          }
-
-          .form-options {
-            flex-direction: column;
-            gap: 12px;
-            align-items: flex-start;
-          }
-
-          .login-button {
-            height: 52px;
-            font-size: 15px;
-          }
-
-          .divider {
-            margin: 24px 0;
-          }
-
-          .apply-button {
-            height: 52px;
-            font-size: 15px;
-          }
-
-          .login-footer {
-            margin-top: 24px;
-          }
-
-          .login-footer p {
-            font-size: 12px;
-          }
-        }
-
-        /* Responsive - Small Mobile */
-        @media (max-width: 375px) {
-          .brand-section {
             padding: 20px 16px;
+            align-items: flex-start;
+            padding-top: 40px;
           }
 
-          .brand-headline {
-            font-size: 20px;
+          .driver-header h2 {
+            font-size: 24px;
           }
 
-          .login-section {
-            padding: 20px 12px;
-          }
-
-          .login-header h2 {
-            font-size: 20px;
+          .driver-social-btn,
+          .driver-submit-btn,
+          .driver-apply-btn {
+            height: 50px;
+            font-size: 15px;
           }
         }
       `}</style>

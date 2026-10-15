@@ -1,0 +1,36 @@
+{
+  "name": "Dollor - Rideshare California",
+  "short_name": "Dollor",
+  "description": "Book affordable rides in California. $1 platform fee, no surge pricing.",
+  "start_url": "/customer/login",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#ff6b00",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["transportation", "travel"],
+  "shortcuts": [
+    {
+      "name": "Book a Ride",
+      "short_name": "Book Ride",
+      "description": "Book a ride now",
+      "url": "/customer/rides",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Driver Portal",
+      "short_name": "Drive",
+      "description": "Go online and start earning",
+      "url": "/driver/login",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

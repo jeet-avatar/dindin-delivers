@@ -3,17 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Dollor.ai - Food Delivery & Rideshare Matchmaking Platform. Just $1 flat fee!" />
-    <meta name="theme-color" content="#FF5722" />
-    <title>Dollor.ai - Food Delivery & Rides</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Dollor - Affordable rideshare in California. Book rides for just $1 platform fee, no surge pricing." />
+    <meta name="theme-color" content="#ff6b00" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Dollor" />
+
+    <!-- Social / OG -->
+    <meta property="og:title" content="Dollor - Rideshare California" />
+    <meta property="og:description" content="Book rides in California. $1 platform fee, no surge pricing." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dollor.ai" />
+
+    <title>Dollor - Rideshare California</title>
     <style>
       :root {
-        --dollor-orange: #FF5722;
-        --dollor-orange-dark: #E64A19;
-        --dollor-green: #4CAF50;
-        --dollor-blue: #2196F3;
+        --dollor-orange: #ff6b00;
+        --dollor-orange-dark: #cc5500;
+        --dollor-bg: #0a0a0f;
+        --dollor-surface: #111118;
       }
+
+      /* Safe area support for iOS notch */
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+
+      /* Prevent tap highlight on mobile */
+      * { -webkit-tap-highlight-color: transparent; }
+
+      /* Smooth scrolling */
+      html { scroll-behavior: smooth; }
     </style>
   </head>
   <body>

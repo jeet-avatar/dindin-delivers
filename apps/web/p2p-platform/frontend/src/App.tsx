@@ -177,9 +177,9 @@ function App() {
 
         {/* Customer Routes */}
         <Route path="/customer/login" element={<CustomerLogin />} />
-        <Route path="/customer" element={<CustomerHome />} />
-        <Route path="/customer/home" element={<CustomerHome />} />
-        <Route path="/customer/dashboard" element={<CustomerHome />} />
+        <Route path="/customer" element={<Navigate to="/customer/rides" replace />} />
+        <Route path="/customer/home" element={<Navigate to="/customer/rides" replace />} />
+        <Route path="/customer/dashboard" element={<Navigate to="/customer/rides" replace />} />
         <Route path="/customer/restaurants" element={<Restaurants />} />
         <Route path="/customer/restaurant/:id" element={<RestaurantDetail />} />
         <Route path="/customer/cart" element={<Cart />} />

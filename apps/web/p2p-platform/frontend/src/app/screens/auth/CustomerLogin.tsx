@@ -284,22 +284,21 @@ const CustomerLogin: React.FC = () => {
         {/* Logo */}
         <div className="logo-section">
           <div className="logo">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <circle cx="20" cy="20" r="20" fill={DollorTheme.Brand.green}/>
-              <path d="M20 8C13.4 8 8 13.4 8 20s5.4 12 12 12 12-5.4 12-12S26.6 8 20 8zm1.2 17.2h-2.4V16h2.4v9.2zm0-10.8h-2.4v-2.4h2.4v2.4z" fill="white" transform="translate(0, 1)"/>
-              <text x="20" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" fontFamily="system-ui">$</text>
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+              <circle cx="28" cy="28" r="28" fill="#ff6b00"/>
+              <text x="28" y="37" textAnchor="middle" fill="white" fontSize="26" fontWeight="800" fontFamily="system-ui">$</text>
             </svg>
           </div>
-          <h1 className="app-name">Dollor.AI</h1>
+          <h1 className="app-name">Dollor</h1>
         </div>
 
         {/* Title */}
         <div className="auth-header">
-          <h2>{isSignUp ? 'Create your account' : 'Welcome back'}</h2>
+          <h2>{isSignUp ? 'Create your account' : 'Welcome to Dollor'}</h2>
           <p className="subtitle">
             {isSignUp
               ? 'Start riding with just $1 platform fee'
-              : 'Log in to continue to Dollor.AI'}
+              : 'Book rides in California'}
           </p>
         </div>
 
@@ -495,18 +494,23 @@ const CustomerLogin: React.FC = () => {
       </div>
 
       <style>{`
+        * {
+          box-sizing: border-box;
+        }
+
         .auth-page {
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #ffffff;
-          padding: 24px;
+          background: #0a0a0f;
+          padding: 24px 16px;
+          font-family: system-ui, -apple-system, sans-serif;
         }
 
         .auth-container {
           width: 100%;
-          max-width: 400px;
+          max-width: 440px;
           text-align: center;
         }
 
@@ -515,13 +519,13 @@ const CustomerLogin: React.FC = () => {
           display: flex;
           flex-direction: column;
           align-items: center;
-          margin-bottom: 32px;
+          margin-bottom: 28px;
         }
 
         .logo {
-          width: 48px;
-          height: 48px;
-          margin-bottom: 12px;
+          width: 56px;
+          height: 56px;
+          margin-bottom: 14px;
         }
 
         .logo svg {
@@ -530,29 +534,29 @@ const CustomerLogin: React.FC = () => {
         }
 
         .app-name {
-          font-size: 24px;
-          font-weight: 600;
-          color: #202123;
+          font-size: 22px;
+          font-weight: 700;
+          color: #ffffff;
           margin: 0;
-          letter-spacing: -0.5px;
+          letter-spacing: -0.3px;
         }
 
         /* Header */
         .auth-header {
-          margin-bottom: 24px;
+          margin-bottom: 28px;
         }
 
         .auth-header h2 {
-          font-size: 32px;
-          font-weight: 600;
-          color: #202123;
+          font-size: 28px;
+          font-weight: 700;
+          color: #ffffff;
           margin: 0 0 8px 0;
           letter-spacing: -0.5px;
         }
 
         .subtitle {
-          font-size: 16px;
-          color: #6e6e80;
+          font-size: 15px;
+          color: rgba(255,255,255,0.6);
           margin: 0;
         }
 
@@ -572,35 +576,35 @@ const CustomerLogin: React.FC = () => {
           width: 100%;
           height: 52px;
           padding: 0 16px;
-          border-radius: 6px;
-          font-size: 16px;
+          border-radius: 28px;
+          font-size: 15px;
           font-weight: 500;
           cursor: pointer;
-          transition: all 0.2s ease;
-          border: 1px solid #c5c5d2;
-          background: #ffffff;
-          color: #202123;
+          transition: border-color 0.2s ease, background 0.2s ease;
+          border: 1px solid rgba(255,107,0,0.2);
+          background: #111118;
+          color: #ffffff;
+          font-family: system-ui, -apple-system, sans-serif;
         }
 
         .social-btn:hover:not(:disabled) {
-          background: #f7f7f8;
-          border-color: #8e8ea0;
+          border-color: #ff6b00;
+          background: rgba(255,107,0,0.06);
         }
 
         .social-btn:disabled {
-          opacity: 0.6;
+          opacity: 0.5;
           cursor: not-allowed;
         }
 
         .apple-btn {
-          background: #000000;
-          border-color: #000000;
-          color: #ffffff;
+          background: #111118;
+          border-color: rgba(255,255,255,0.15);
         }
 
         .apple-btn:hover:not(:disabled) {
-          background: #1a1a1a;
-          border-color: #000000;
+          border-color: #ff6b00;
+          background: rgba(255,107,0,0.06);
         }
 
         /* Divider */
@@ -609,10 +613,16 @@ const CustomerLogin: React.FC = () => {
         }
 
         .divider .ant-divider-inner-text {
-          color: #8e8ea0;
+          color: rgba(255,255,255,0.35);
           font-size: 13px;
           font-weight: 400;
           padding: 0 16px;
+          background: #0a0a0f;
+        }
+
+        .ant-divider-with-text::before,
+        .ant-divider-with-text::after {
+          border-color: rgba(255,255,255,0.1) !important;
         }
 
         /* Auth Form */
@@ -621,30 +631,47 @@ const CustomerLogin: React.FC = () => {
         }
 
         .auth-form .ant-form-item {
-          margin-bottom: 16px;
+          margin-bottom: 14px;
         }
 
         .auth-input {
           height: 52px;
-          border-radius: 6px;
-          border: 1px solid #c5c5d2;
-          font-size: 16px;
+          border-radius: 10px;
+          font-size: 15px;
+          background: #111118 !important;
+          border: 1px solid rgba(255,107,0,0.2) !important;
+          color: #ffffff !important;
         }
 
-        .auth-input:hover,
-        .auth-input:focus {
-          border-color: ${DollorTheme.Brand.green};
+        .auth-input input {
+          background: #111118 !important;
+          color: #ffffff !important;
         }
 
+        .auth-input input::placeholder {
+          color: rgba(255,255,255,0.35) !important;
+        }
+
+        .auth-input:hover {
+          border-color: rgba(255,107,0,0.5) !important;
+        }
+
+        .auth-input:focus,
         .auth-input.ant-input-affix-wrapper-focused {
-          border-color: ${DollorTheme.Brand.green};
-          box-shadow: 0 0 0 2px rgba(6, 193, 103, 0.1);
+          border-color: #ff6b00 !important;
+          box-shadow: 0 0 0 2px rgba(255,107,0,0.15) !important;
         }
 
         .input-icon {
-          color: #8e8ea0;
+          color: rgba(255,255,255,0.4);
           font-size: 16px;
           margin-right: 4px;
+        }
+
+        .ant-form-item-explain-error {
+          font-size: 13px;
+          margin-top: 4px;
+          color: #ff6b6b !important;
         }
 
         .forgot-password {
@@ -653,13 +680,13 @@ const CustomerLogin: React.FC = () => {
         }
 
         .forgot-password a {
-          color: ${DollorTheme.Brand.green};
+          color: #ff6b00;
           font-size: 14px;
           font-weight: 500;
         }
 
         .forgot-password a:hover {
-          color: ${DollorTheme.Brand.greenDark};
+          color: #ff8c33;
           text-decoration: underline;
         }
 
@@ -667,35 +694,38 @@ const CustomerLogin: React.FC = () => {
           height: 52px;
           font-size: 16px;
           font-weight: 600;
-          border-radius: 6px;
-          background: ${DollorTheme.Brand.green};
-          border: none;
+          border-radius: 28px;
+          background: #ff6b00 !important;
+          border: none !important;
+          color: #ffffff !important;
+          font-family: system-ui, -apple-system, sans-serif;
         }
 
-        .submit-btn:hover {
-          background: ${DollorTheme.Brand.greenDark} !important;
+        .submit-btn:hover:not(:disabled) {
+          background: #ff8c33 !important;
         }
 
         /* Toggle Auth */
         .toggle-auth {
           margin-top: 24px;
           font-size: 14px;
-          color: #6e6e80;
+          color: rgba(255,255,255,0.5);
         }
 
         .toggle-btn {
           background: none;
           border: none;
-          color: ${DollorTheme.Brand.green};
+          color: #ff6b00;
           font-weight: 600;
           font-size: 14px;
           cursor: pointer;
           margin-left: 4px;
           padding: 0;
+          font-family: system-ui, -apple-system, sans-serif;
         }
 
         .toggle-btn:hover {
-          color: ${DollorTheme.Brand.greenDark};
+          color: #ff8c33;
           text-decoration: underline;
         }
 
@@ -704,80 +734,82 @@ const CustomerLogin: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          margin-top: 32px;
-          padding: 16px;
-          background: #f7f7f8;
-          border-radius: 8px;
+          gap: 10px;
+          margin-top: 28px;
+          padding: 14px 16px;
+          background: #111118;
+          border: 1px solid rgba(255,107,0,0.15);
+          border-radius: 10px;
           font-size: 14px;
-          color: #6e6e80;
+          color: rgba(255,255,255,0.5);
         }
 
         .fee-badge {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
-          background: ${DollorTheme.Brand.green};
+          width: 30px;
+          height: 30px;
+          background: #ff6b00;
           color: white;
           border-radius: 50%;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 700;
+          flex-shrink: 0;
         }
 
         /* Footer */
         .auth-footer {
-          margin-top: 32px;
+          margin-top: 28px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          font-size: 13px;
+          font-size: 12px;
+          flex-wrap: wrap;
         }
 
         .auth-footer a {
-          color: #6e6e80;
+          color: rgba(255,255,255,0.4);
         }
 
         .auth-footer a:hover {
-          color: ${DollorTheme.Brand.green};
+          color: #ff6b00;
         }
 
         .dot {
-          color: #c5c5d2;
+          color: rgba(255,255,255,0.2);
         }
 
-        /* Responsive */
+        /* Responsive — works at 320px */
         @media (max-width: 480px) {
           .auth-page {
-            padding: 16px;
+            padding: 20px 16px;
+            align-items: flex-start;
+            padding-top: 40px;
           }
 
           .auth-header h2 {
-            font-size: 26px;
+            font-size: 24px;
           }
 
           .social-btn,
-          .auth-input,
           .submit-btn {
-            height: 48px;
+            height: 50px;
             font-size: 15px;
           }
-
-          .auth-footer {
-            flex-wrap: wrap;
-          }
         }
 
-        /* Ant Design Overrides */
+        /* Ant Design Dark Overrides */
         .ant-input-password .ant-input {
-          font-size: 16px;
+          font-size: 15px;
+          background: transparent !important;
+          color: #ffffff !important;
         }
 
-        .ant-form-item-explain-error {
-          font-size: 13px;
-          margin-top: 4px;
+        .ant-input-password-icon,
+        .ant-input-suffix svg {
+          color: rgba(255,255,255,0.4) !important;
         }
       `}</style>
     </div>

@@ -78,11 +78,11 @@ const LandingPage: React.FC = () => {
               <Link to="/driver/apply" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, fontWeight: 500 }}>Drive with Us</Link>
               <a href="#partner" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, fontWeight: 500 }}>Partner</a>
             </div>
-            <button onClick={scrollToWaitlist} style={{
+            <Link to="/customer/login" style={{
               background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
-              color: '#fff', border: 'none', borderRadius: 10, padding: '10px 22px',
-              fontSize: 14, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.2px',
-            }}>Join Waitlist</button>
+              color: '#fff', borderRadius: 10, padding: '10px 22px',
+              fontSize: 14, fontWeight: 700, textDecoration: 'none', letterSpacing: '0.2px',
+            }}>Book a Ride →</Link>
           </div>
         </div>
       </nav>
@@ -96,7 +96,7 @@ const LandingPage: React.FC = () => {
         {/* Badge */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,107,0,0.12)', border: '1px solid rgba(255,107,0,0.3)', color: '#ff9500', borderRadius: 50, padding: '8px 20px', fontSize: 13, fontWeight: 600, marginBottom: 32, letterSpacing: '0.3px' }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b00', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-          CALIFORNIA LICENSED TNC · APP IN REVIEW
+          WEB APP LIVE · CALIFORNIA LICENSED TNC
         </div>
 
         <h1 style={{ fontSize: 'clamp(36px, 7vw, 80px)', fontWeight: 900, lineHeight: 1.05, marginBottom: 24, letterSpacing: '-2px', maxWidth: 900 }}>
@@ -113,24 +113,28 @@ const LandingPage: React.FC = () => {
           CPUC Permit TNC0050982-N · Active 2026–2029
         </p>
 
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 64 }}>
-          <button onClick={scrollToWaitlist} style={{
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 32 }}>
+          <Link to="/customer/login" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
             background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
-            color: '#fff', border: 'none', borderRadius: 14, padding: '18px 40px',
-            fontSize: 17, fontWeight: 800, cursor: 'pointer', letterSpacing: '-0.2px',
+            color: '#fff', borderRadius: 14, padding: '18px 40px',
+            fontSize: 17, fontWeight: 800, textDecoration: 'none', letterSpacing: '-0.2px',
             boxShadow: '0 0 40px rgba(255,107,0,0.4)',
           }}>
-            Join the Waitlist →
-          </button>
-          <Link to="/driver/apply" style={{
-            display: 'inline-flex', alignItems: 'center',
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+            📍 Book a Ride Now
+          </Link>
+          <Link to="/driver/login" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
             color: '#fff', borderRadius: 14, padding: '18px 40px',
             fontSize: 17, fontWeight: 700, textDecoration: 'none',
           }}>
-            Drive with Dollor
+            🚗 Drive with Dollor
           </Link>
         </div>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginBottom: 48 }}>
+          Use on any browser · iOS app under App Store review
+        </p>
 
         {/* Trust badges */}
         <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
@@ -138,7 +142,7 @@ const LandingPage: React.FC = () => {
             { icon: '🏛️', text: 'State Licensed TNC' },
             { icon: '🛡️', text: '$1M Insured' },
             { icon: '✅', text: 'Background Checked Drivers' },
-            { icon: '📱', text: 'App Store Submitted' },
+            { icon: '🌐', text: 'Web App Live Now' },
           ].map(b => (
             <div key={b.text} style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
               <span>{b.icon}</span> {b.text}
@@ -546,6 +550,27 @@ const LandingPage: React.FC = () => {
         </div>
       </footer>
 
+      {/* Mobile sticky launch bar */}
+      <div className="mobile-launch-bar" style={{
+        display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+        background: 'rgba(10,10,15,0.97)', backdropFilter: 'blur(20px)',
+        borderTop: '1px solid rgba(255,107,0,0.2)',
+        padding: '12px 16px', paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+        gap: 10,
+      }}>
+        <Link to="/customer/login" style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          background: '#ff6b00', color: '#fff', borderRadius: 12, padding: '14px 16px',
+          fontSize: 15, fontWeight: 800, textDecoration: 'none',
+        }}>📍 Book a Ride</Link>
+        <Link to="/driver/login" style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+          color: '#fff', borderRadius: 12, padding: '14px 16px',
+          fontSize: 15, fontWeight: 700, textDecoration: 'none',
+        }}>🚗 Drive</Link>
+      </div>
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -560,6 +585,9 @@ const LandingPage: React.FC = () => {
           .nav-links-desktop { display: none !important; }
           section > div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
           div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+          .mobile-launch-bar { display: flex !important; }
+          /* Add padding so footer doesn't hide behind bar */
+          footer { padding-bottom: 80px !important; }
         }
         @media (max-width: 640px) {
           div[style*="borderRight"] { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.06); }
